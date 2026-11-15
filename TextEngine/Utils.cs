@@ -61,6 +61,14 @@ namespace ClipX2.TextEngine
                         continue;
                     }
 
+                    // colo(u)r, vapo(u)rware, book(s): the brackets are part of the word
+                    int bracketLen = InWordBracketLength(text, i);
+                    if (bracketLen > 0)
+                    {
+                        i += bracketLen;
+                        continue;
+                    }
+
                     break;
                 }
 
@@ -231,6 +239,32 @@ namespace ClipX2.TextEngine
         /// True for words whose second letter is a capital (iPhone, eBay, pH), including plurals
         /// (iPhones) and possessives (iPhone's). Whole words only, so "phone" does not match "ph".
         /// </summary>
+        /// <summary>
+        /// True for a deliberately mixed-case word: starts with a capital and has another capital
+        /// after a lower-case letter (OmniFocus, JavaScript, McDonald). An accidental Caps Lock word
+        /// such as "tHE" starts lower case, so it is not kept.
+        /// </summary>
+        public static bool IsMixedCase(string word)
+        {
+            if (string.IsNullOrEmpty(word) || !char.IsUpper(word[0])) return false;
+            for (int i = 2; i < word.Length; i++)
+                if (char.IsUpper(word[i]) && char.IsLower(word[i - 1])) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Length of a bracketed run of letters inside a word, e.g. the "(u)" in "colo(u)r" or the
+        /// "(s)" in "book(s)", starting at text[i] == '('; 0 if there isn't one.
+        /// </summary>
+        public static int InWordBracketLength(string text, int i)
+        {
+            if (i <= 0 || text[i] != '(' || !char.IsLetter(text[i - 1])) return 0;
+            int j = i + 1;
+            while (j < text.Length && char.IsLetter(text[j])) j++;
+            if (j == i + 1 || j >= text.Length || text[j] != ')') return 0;
+            return j + 1 - i;
+        }
+
         public static bool IsSecondCharCapWord(string word)
         {
             if (string.IsNullOrEmpty(word)) return false;

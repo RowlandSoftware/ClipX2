@@ -40,6 +40,8 @@
             this.toolStripButtonTitleCase = new System.Windows.Forms.ToolStripButton();
             this.toolStripButtonSentenceCase = new System.Windows.Forms.ToolStripButton();
             this.toolStripButtonCapitaliseSentences = new System.Windows.Forms.ToolStripButton();
+            this.toolStripSeparator = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tabEdit = new System.Windows.Forms.TabPage();
             this.tabFormat = new System.Windows.Forms.TabPage();
             this.tabLists = new System.Windows.Forms.TabPage();
@@ -50,12 +52,13 @@
             this.toolStripFavourites = new System.Windows.Forms.ToolStrip();
             this.panel2 = new System.Windows.Forms.Panel();
             this.toolStrip3 = new System.Windows.Forms.ToolStrip();
-            this.toolStripLabel1 = new System.Windows.Forms.ToolStripLabel();
+            this.toolStripLabelRtfMode = new System.Windows.Forms.ToolStripLabel();
             this.tabControl3 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-            this.toolStripSeparator = new System.Windows.Forms.ToolStripSeparator();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripLabelWordCount = new System.Windows.Forms.ToolStripLabel();
+            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.richTextBox1 = new ClipXRichTextBox();
             this.tabControl1.SuspendLayout();
             this.tabCase.SuspendLayout();
@@ -228,6 +231,16 @@
             this.toolStripButtonCapitaliseSentences.ToolTipText = "Capitalise sentences";
             this.toolStripButtonCapitaliseSentences.Click += new System.EventHandler(this.toolStripButtonCapitaliseSentences_Click);
             // 
+            // toolStripSeparator
+            // 
+            this.toolStripSeparator.Name = "toolStripSeparator";
+            this.toolStripSeparator.Size = new System.Drawing.Size(6, 58);
+            // 
+            // toolStripSeparator1
+            // 
+            this.toolStripSeparator1.Name = "toolStripSeparator1";
+            this.toolStripSeparator1.Size = new System.Drawing.Size(6, 58);
+            // 
             // tabEdit
             // 
             this.tabEdit.Location = new System.Drawing.Point(8, 50);
@@ -329,7 +342,10 @@
             this.toolStrip3.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.toolStrip3.ImageScalingSize = new System.Drawing.Size(32, 32);
             this.toolStrip3.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripLabel1});
+            this.toolStripLabelRtfMode,
+            this.toolStripSeparator2,
+            this.toolStripLabelWordCount,
+            this.toolStripSeparator3});
             this.toolStrip3.Location = new System.Drawing.Point(0, 815);
             this.toolStrip3.Name = "toolStrip3";
             this.toolStrip3.Padding = new System.Windows.Forms.Padding(0, 0, 4, 0);
@@ -337,11 +353,13 @@
             this.toolStrip3.TabIndex = 5;
             this.toolStrip3.Text = "toolStrip3";
             // 
-            // toolStripLabel1
+            // toolStripLabelRtfMode
             // 
-            this.toolStripLabel1.Name = "toolStripLabel1";
-            this.toolStripLabel1.Size = new System.Drawing.Size(173, 44);
-            this.toolStripLabel1.Text = "toolStripLabel1";
+            this.toolStripLabelRtfMode.Name = "toolStripLabelRtfMode";
+            this.toolStripLabelRtfMode.Size = new System.Drawing.Size(173, 44);
+            this.toolStripLabelRtfMode.Text = "toolStripLabel1";
+            this.toolStripLabelRtfMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.toolStripLabelRtfMode.Click += new System.EventHandler(this.toolStripLabelRtfMode_Click);
             // 
             // tabControl3
             // 
@@ -378,15 +396,21 @@
             this.toolStrip1.TabIndex = 0;
             this.toolStrip1.Text = "toolStrip2";
             // 
-            // toolStripSeparator
+            // toolStripSeparator2
             // 
-            this.toolStripSeparator.Name = "toolStripSeparator";
-            this.toolStripSeparator.Size = new System.Drawing.Size(6, 58);
+            this.toolStripSeparator2.Name = "toolStripSeparator2";
+            this.toolStripSeparator2.Size = new System.Drawing.Size(6, 50);
             // 
-            // toolStripSeparator1
+            // toolStripLabelWordCount
             // 
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(6, 58);
+            this.toolStripLabelWordCount.Name = "toolStripLabelWordCount";
+            this.toolStripLabelWordCount.Size = new System.Drawing.Size(139, 44);
+            this.toolStripLabelWordCount.Text = "Word count";
+            // 
+            // toolStripSeparator3
+            // 
+            this.toolStripSeparator3.Name = "toolStripSeparator3";
+            this.toolStripSeparator3.Size = new System.Drawing.Size(6, 50);
             // 
             // richTextBox1
             // 
@@ -460,7 +484,7 @@
         private System.Windows.Forms.TabPage tabSorting;
         private System.Windows.Forms.TabPage tabLangTools;
         private System.Windows.Forms.ToolStripButton toolStripButtonLowerCase;
-        private System.Windows.Forms.ToolStripLabel toolStripLabel1;
+        private System.Windows.Forms.ToolStripLabel toolStripLabelRtfMode;
         private System.Windows.Forms.TabPage tabStyles;
         private System.Windows.Forms.ToolStripButton toolStripButtonReverseCase;
         private System.Windows.Forms.ToolStripButton toolStripButtonInitCaps;
@@ -472,6 +496,9 @@
         private System.Windows.Forms.ToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+        private System.Windows.Forms.ToolStripLabel toolStripLabelWordCount;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
     }
 }
 

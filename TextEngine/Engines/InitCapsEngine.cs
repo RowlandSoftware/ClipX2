@@ -4,7 +4,7 @@ namespace ClipX2.TextEngine.Engines
 {
     internal static class InitCapsEngine
     {
-        public static string TransformPlain(string text, int selstart, int sellen, bool titleCase)
+        public static string TransformPlain(string text, int selstart, int sellen, bool titleCase, bool keepCapitals = true)
         {
             char[] buffer = text.ToCharArray(selstart, sellen);
             string prevWord = string.Empty;
@@ -66,9 +66,11 @@ namespace ClipX2.TextEngine.Engines
                 // Possessive "'s" is ignored when looking words up in lists (AT&T's, iPhone's)
                 string baseWord = Utils.StripPossessive(word);
 
-                // All-caps words of 2+ letters (NASA, BBC, GCSE, AT&T's) are left as they are, as in ClipX 1
+                // All-caps words of 2+ letters (NASA, BBC, GCSE, AT&T's) are left as they are, as in ClipX 1,
+                // and so are mixed-case names (OmniFocus, JavaScript, McDonald)
                 string baseOriginal = original.Substring(0, baseWord.Length);
-                if (!shouted[idx] && baseOriginal.Count(char.IsLetter) > 1 && !baseOriginal.Any(char.IsLower))
+                if (keepCapitals && !shouted[idx] &&
+                    ((baseOriginal.Count(char.IsLetter) > 1 && !baseOriginal.Any(char.IsLower)) || Utils.IsMixedCase(baseOriginal)))
                 {
                     prevWord = word;
                     continue;
@@ -81,7 +83,7 @@ namespace ClipX2.TextEngine.Engines
                 bool capitalise = !titleCase
                     || startsTitle[idx]
                     || startsTitle[idx + 1]
-                    || !Utils.IsInList(word, ClipXConstants.WORDS_NOT_TITLE_CASE);
+                    || !(Utils.IsInList(word, ClipXConstants.WORDS_NOT_TITLE_CASE) || IsOfContraction(text, token, word));
 
                 if (capitalise && char.IsLetter(temp[0]))
                     temp[0] = char.ToUpperInvariant(temp[0]);
@@ -125,6 +127,16 @@ namespace ClipX2.TextEngine.Engines
             }
 
             return new string(buffer);
+        }
+
+        /// <summary>
+        /// True for a stand-alone o' meaning "of" (cat-o'-nine-tails, will-o'-the-wisp), which is a
+        /// minor word in titles. O'Neill is different: there the apostrophe is inside one word token.
+        /// </summary>
+        private static bool IsOfContraction(string text, Token token, string word)
+        {
+            int after = token.Start + token.Length;
+            return word == "o" && after < text.Length && (text[after] == '\'' || text[after] == '’');
         }
 
         /// <summary>True if text[from..to) contains a line break, colon or sentence-ending punctuation.</summary>

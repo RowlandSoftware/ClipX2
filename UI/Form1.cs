@@ -23,6 +23,8 @@ namespace ClipX2
             //richTextBox1.PreciseSelection = userSettings.PreciseSelection;
             //richTextBox1.AutoWordSelectionEnabled = userSettings.AutoWordSelection;
             richTextBox1.IsRtfModeGetter = () => _isRtfMode;
+            richTextBox1.TextSettled += (s, e) => UpdateWordCount();
+            richTextBox1.SelectionSettled += (s, e) => ShowWordCount();
 
         }
         private void On_FormLoad(object sender, EventArgs e)
@@ -31,7 +33,7 @@ namespace ClipX2
             bool hasRtf = Clipboard.ContainsData(DataFormats.Rtf);
             bool hasText = Clipboard.ContainsText(TextDataFormat.UnicodeText);
 
-            using var dlg = new FormatChoiceDialog(hasHtml, hasRtf, hasText);
+            using var dlg = new FormatChoiceDialog(hasHtml, hasRtf || hasText, hasRtf || hasText);
 
             if (dlg.ShowDialog(this) != DialogResult.OK)
             {
@@ -48,8 +50,15 @@ namespace ClipX2
                     break;
 
                 case FormatChoiceDialog.Choice.Rtf:
-                    string rtf = Clipboard.GetData(DataFormats.Rtf) as string;
-                    richTextBox1.Rtf = rtf;
+                    if (!hasRtf)
+                    {
+                        richTextBox1.Text = Clipboard.GetText(TextDataFormat.UnicodeText);
+                    }
+                    else
+                    {
+                        string rtf = Clipboard.GetData(DataFormats.Rtf) as string;
+                        richTextBox1.Rtf = rtf;
+                    }
                     _isRtfMode = true;
                     break;
 
@@ -58,7 +67,30 @@ namespace ClipX2
                     _isRtfMode = false;
                     break;
             }
+            toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
         }
+        private int _totalWords; // kept so a selection change needn't recount the whole text
+
+        /// <summary>Recounts the whole text; called when editing pauses or a tool finishes.</summary>
+        private void UpdateWordCount()
+        {
+            _totalWords = TextStatistics.CountWords(richTextBox1.Text);
+            ShowWordCount();
+        }
+
+        /// <summary>
+        /// Shows "n words", or "Selected: n of m words" when text is selected. Called when the
+        /// selection settles; counting the selection only reads the selected text.
+        /// </summary>
+        private void ShowWordCount()
+        {
+            string total = _totalWords == 1 ? "1 word" : $"{_totalWords:N0} words";
+            if (richTextBox1.SelectionLength == 0)
+                toolStripLabelWordCount.Text = total;
+            else
+                toolStripLabelWordCount.Text = $"Selected: {TextStatistics.CountWords(richTextBox1.SelectedText):N0} of {total}";
+        }
+
         private static string ExtractHtmlFragment(string htmlClipboardData)
         {
             if (string.IsNullOrEmpty(htmlClipboardData))
@@ -120,6 +152,16 @@ namespace ClipX2
             richTextBox1.ApplyCase(mode);
 
             richTextBox1.Select(selStart, selLen); // restore selection
-        }        
+        }
+
+        private void toolStripLabelRtfMode_Click(object sender, EventArgs e)
+        {
+            _isRtfMode = !_isRtfMode;
+            if (!_isRtfMode)
+            {
+                richTextBox1.Text = richTextBox1.Text;
+            }
+            toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
+        }
     }
 }

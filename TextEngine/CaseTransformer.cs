@@ -50,6 +50,24 @@ namespace ClipX2.TextEngine
         /// preserve formatting such as RTF.
         /// </returns>
         public static string Transform(string text, int start, int length, CaseMode mode)
+            => Transform(text, start, length, mode, keepCapitals: true);
+
+        /// <summary>
+        /// As <see cref="Transform(string, int, int, CaseMode)"/>, with control over whether
+        /// <see cref="CaseMode.InitCaps"/> and <see cref="CaseMode.Title"/> keep existing capitals.
+        /// </summary>
+        /// <param name="text">The full text.</param>
+        /// <param name="start">Index of the first character to convert.</param>
+        /// <param name="length">Number of characters to convert.</param>
+        /// <param name="mode">The conversion to apply.</param>
+        /// <returns>The converted range only, always <paramref name="length"/> characters long.</returns>
+        /// <param name="keepCapitals">
+        /// True (the default) leaves all-caps words (NASA) and mixed-case names (OmniFocus) as they
+        /// are. False forces every word to a capital followed by lower case, as when the user steps
+        /// through text with the keyboard. Name rules (iPhone, McDonald, O'Neill) still apply.
+        /// Ignored by the other modes.
+        /// </param>
+        public static string Transform(string text, int start, int length, CaseMode mode, bool keepCapitals)
         {
             if (text == null) throw new ArgumentNullException(nameof(text));
             if (start < 0 || start > text.Length) throw new ArgumentOutOfRangeException(nameof(start));
@@ -65,10 +83,17 @@ namespace ClipX2.TextEngine
                     return SentenceCaseEngine.TransformPlain(text, start, length, false);
 
                 case CaseMode.InitCaps:
-                    return InitCapsEngine.TransformPlain(text, start, length, false);
-
                 case CaseMode.Title:
-                    return InitCapsEngine.TransformPlain(text, start, length, true);
+                {
+                    // Whether a letter is capitalised depends on its word and its paragraph (start of
+                    // a word, first or last word of a title, shouted text), so convert the whole
+                    // paragraphs the range touches and return just the part asked for. Otherwise a
+                    // selection starting mid-word, or a single character, would look like a word start.
+                    int from = ParagraphStart(text, start);
+                    int to = ParagraphEnd(text, start + length);
+                    string paragraphs = InitCapsEngine.TransformPlain(text, from, to - from, mode == CaseMode.Title, keepCapitals);
+                    return paragraphs.Substring(start - from, length);
+                }
 
                 case CaseMode.Upper:
                     return seltext.ToUpperInvariant();
@@ -82,6 +107,20 @@ namespace ClipX2.TextEngine
                 default:
                     throw new ArgumentOutOfRangeException(nameof(mode));
             }
+        }
+
+        /// <summary>Start of the paragraph containing <paramref name="pos"/>.</summary>
+        private static int ParagraphStart(string text, int pos)
+        {
+            while (pos > 0 && text[pos - 1] != '\n' && text[pos - 1] != '\r') pos--;
+            return pos;
+        }
+
+        /// <summary>End of the paragraph containing <paramref name="pos"/> (the index of its line break, or the text length).</summary>
+        private static int ParagraphEnd(string text, int pos)
+        {
+            while (pos < text.Length && text[pos] != '\n' && text[pos] != '\r') pos++;
+            return pos;
         }
 
         private static string ReverseCase(string s)

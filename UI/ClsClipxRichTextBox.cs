@@ -34,6 +34,103 @@ public class ClipXRichTextBox : RichTextBox
     CaseCycleState.AllCaps,
     CaseCycleState.Lower ];
 
+    /********** Settled-text notification (live word count etc.) **********/
+
+    /// <summary>
+    /// Raised once editing pauses (after <see cref="SettleDelay"/> ms with no change), or once at
+    /// the end of a bulk edit. Use it for work that needn't run on every keystroke, such as the
+    /// word count. It covers every kind of change: typing, deleting, pasting, drag and drop, undo,
+    /// and tools.
+    /// </summary>
+    public event EventHandler TextSettled;
+
+    /// <summary>
+    /// Raised once the selection stops changing (after <see cref="SelectionSettleDelay"/> ms), e.g.
+    /// when a mouse drag pauses, or at the end of a bulk edit. For the selection word count.
+    /// </summary>
+    public event EventHandler SelectionSettled;
+
+    /// <summary>Pause in editing, in milliseconds, before <see cref="TextSettled"/> is raised.</summary>
+    public int SettleDelay
+    {
+        get => _textTimer.Interval;
+        set => _textTimer.Interval = value;
+    }
+
+    /// <summary>Pause in selecting, in milliseconds, before <see cref="SelectionSettled"/> is raised.</summary>
+    public int SelectionSettleDelay
+    {
+        get => _selectionTimer.Interval;
+        set => _selectionTimer.Interval = value;
+    }
+
+    private readonly Timer _textTimer = new Timer { Interval = 300 };
+    private readonly Timer _selectionTimer = new Timer { Interval = 150 };
+    private int _bulkEditDepth;
+    private bool _textChangedDuringBulkEdit;
+    private bool _selectionChangedDuringBulkEdit;
+
+    public ClipXRichTextBox()
+    {
+        _textTimer.Tick += (s, e) => { _textTimer.Stop(); TextSettled?.Invoke(this, EventArgs.Empty); };
+        _selectionTimer.Tick += (s, e) => { _selectionTimer.Stop(); SelectionSettled?.Invoke(this, EventArgs.Empty); };
+    }
+
+    /// <summary>
+    /// Starts a bulk edit (a tool such as case change or global replace). Until the returned
+    /// object is disposed, <see cref="TextSettled"/> and <see cref="SelectionSettled"/> are held
+    /// back; each is then raised once if its text or selection changed. Nests safely.
+    /// Usage: <c>using (textBox.BeginBulkEdit()) { ... }</c>
+    /// </summary>
+    public IDisposable BeginBulkEdit()
+    {
+        _bulkEditDepth++;
+        return new BulkEdit(this);
+    }
+
+    private void EndBulkEdit()
+    {
+        if (--_bulkEditDepth > 0) return;
+
+        bool text = _textChangedDuringBulkEdit, selection = _selectionChangedDuringBulkEdit;
+        _textChangedDuringBulkEdit = _selectionChangedDuringBulkEdit = false;
+        if (text) { _textTimer.Stop(); TextSettled?.Invoke(this, EventArgs.Empty); }
+        if (selection) { _selectionTimer.Stop(); SelectionSettled?.Invoke(this, EventArgs.Empty); }
+    }
+
+    private sealed class BulkEdit : IDisposable
+    {
+        private ClipXRichTextBox _owner;
+        public BulkEdit(ClipXRichTextBox owner) => _owner = owner;
+        public void Dispose() { _owner?.EndBulkEdit(); _owner = null; } // only once
+    }
+
+    protected override void OnTextChanged(EventArgs e)
+    {
+        base.OnTextChanged(e);
+        if (_bulkEditDepth > 0)
+            _textChangedDuringBulkEdit = true;
+        else
+            Restart(_textTimer);
+    }
+
+    protected override void OnSelectionChanged(EventArgs e)
+    {
+        base.OnSelectionChanged(e);
+        if (_bulkEditDepth > 0)
+            _selectionChangedDuringBulkEdit = true;
+        else
+            Restart(_selectionTimer);
+    }
+
+    private static void Restart(Timer timer) { timer.Stop(); timer.Start(); }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) { _textTimer.Dispose(); _selectionTimer.Dispose(); }
+        base.Dispose(disposing);
+    }
+
     private bool _mouseDown;
     private int _mouseDownCharIndex;
     public Func<bool> IsRtfModeGetter { get; set; } // delegate to query Form1
@@ -111,7 +208,13 @@ public class ClipXRichTextBox : RichTextBox
                     HandlePaste(e.Shift);
                     goto Handle; // jump to shared
                 case Keys.L:
-                    UpperLower(e.Shift);
+                    KeyCase(e.Shift ? CaseMode.Upper : CaseMode.Lower);
+                    goto Handle; // jump to shared
+                case Keys.K:
+                    KeyCase(CaseMode.InitCaps);
+                    goto Handle; // jump to shared
+                case Keys.S:
+                    KeyCase(CaseMode.Reverse);
                     goto Handle; // jump to shared
             }
         }
@@ -139,12 +242,15 @@ public class ClipXRichTextBox : RichTextBox
         if (selected == transformed) return;
 
         bool isRtfMode = IsRtfModeGetter?.Invoke() ?? false;
-        if (!isRtfMode)
-            SelectedText = transformed;
-        else
-            ReplaceKeepingFormat(selstart, selected, transformed);
+        using (BeginBulkEdit())
+        {
+            if (!isRtfMode)
+                SelectedText = transformed;
+            else
+                ReplaceKeepingFormat(selstart, selected, transformed);
 
-        Select(selstart, sellength);
+            Select(selstart, sellength);
+        }
     }
 
     /// <summary>
@@ -298,20 +404,34 @@ public class ClipXRichTextBox : RichTextBox
         // Fallback
         Paste();
     }
-    private void UpperLower(bool shiftPressed)
+    /// <summary>
+    /// Keyboard case change (Ctrl+L, Ctrl+Shift+L, Ctrl+K, Ctrl+S), as in ClipX 1.
+    /// With a selection it acts on the selection, like the toolstrip buttons. Without one it
+    /// changes the character to the right of the caret and moves the caret past it, so holding
+    /// the key down works along the text. (Toolstrip buttons act on the whole text instead.)
+    /// </summary>
+    private void KeyCase(CaseMode mode)
     {
         if (this.SelectionLength > 0)
         {
-            ApplyCase(shiftPressed ? CaseMode.Upper : CaseMode.Lower); // keeps formatting in RTF mode and restores the selection
+            ApplyCase(mode); // keeps formatting in RTF mode and restores the selection
+            return;
         }
-        else
-        {
-            int selstart = this.SelectionStart;
-            if (selstart == this.TextLength) return; // at end of text
 
-            this.SelectionLength = 1;
-            this.SelectedText = shiftPressed ? this.SelectedText.ToUpper() : this.SelectedText.ToLower();
-            this.Select(selstart+1, 0); // restore selection
-        }
+        int selstart = this.SelectionStart;
+        if (selstart >= this.TextLength) return; // at end of text
+
+        this.Select(selstart, 1);
+        string original = this.SelectedText;
+
+        // Initial caps depends on the surrounding word (capital at the start of a word, lower case
+        // inside it), so it needs the text around the caret; the other modes need only the character
+        // (and reading Text copies the whole document)
+        string changed = (mode == CaseMode.InitCaps || mode == CaseMode.Title)
+            ? CaseTransformer.Transform(this.Text, selstart, 1, mode, keepCapitals: false) // forced, as in ClipX 1
+            : CaseTransformer.Transform(original, mode);
+        if (changed != original)
+            this.SelectedText = changed; // a one-character replacement keeps that character's formatting
+        this.Select(selstart + 1, 0);
     }
 }
