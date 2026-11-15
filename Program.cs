@@ -14,8 +14,8 @@ namespace ClipX2
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+            // Visual styles, text rendering, default font and DPI mode (set in ClipX2.csproj)
+            ApplicationConfiguration.Initialize();
             Application.Run(new Form1());
         }
     }

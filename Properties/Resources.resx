@@ -118,28 +118,34 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="Sentence2" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\Sentence2.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="rev1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\icons\rev1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="lower1" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\icons\lower1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="rev2" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\icons\rev2.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="CheckPunc" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\CheckPunc.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Title1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\icons\Title1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="rev2" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\rev2.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="lower1" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\lower1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="Sentence1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\icons\Sentence1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="Sentence2" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\icons\Sentence2.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="InitCaps1" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\InitCaps1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Cap1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\icons\Cap1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="InitCaps1" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\icons\InitCaps1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="CheckSpelling" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\CheckSpelling.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

@@ -73,6 +73,26 @@ namespace ClipX2.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap CheckPunc {
+            get {
+                object obj = ResourceManager.GetObject("CheckPunc", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap CheckSpelling {
+            get {
+                object obj = ResourceManager.GetObject("CheckSpelling", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap InitCaps1 {
             get {
                 object obj = ResourceManager.GetObject("InitCaps1", resourceCulture);

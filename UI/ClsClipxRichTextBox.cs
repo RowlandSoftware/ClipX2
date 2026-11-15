@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -51,6 +53,7 @@ public class ClipXRichTextBox : RichTextBox
     public event EventHandler SelectionSettled;
 
     /// <summary>Pause in editing, in milliseconds, before <see cref="TextSettled"/> is raised.</summary>
+    [DefaultValue(300)]
     public int SettleDelay
     {
         get => _textTimer.Interval;
@@ -58,6 +61,7 @@ public class ClipXRichTextBox : RichTextBox
     }
 
     /// <summary>Pause in selecting, in milliseconds, before <see cref="SelectionSettled"/> is raised.</summary>
+    [DefaultValue(150)]
     public int SelectionSettleDelay
     {
         get => _selectionTimer.Interval;
@@ -133,18 +137,21 @@ public class ClipXRichTextBox : RichTextBox
 
     private bool _mouseDown;
     private int _mouseDownCharIndex;
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Func<bool> IsRtfModeGetter { get; set; } // delegate to query Form1
 
     /// <summary>
     /// If true, use normal RichTextBox word-selection behaviour.
     /// If false, dragging selects characters exactly (ClipX1 style).
     /// </summary>
+    [DefaultValue(true)]
     public bool PreciseSelection { get; set; } = true;
 
     /// <summary>
     /// Mirrors the built-in AutoWordSelection, but only applies
     /// when PreciseSelection is false.
     /// </summary>
+    [DefaultValue(false)]
     public bool AutoWordSelectionEnabled
     {
         get => this.AutoWordSelection;
@@ -263,21 +270,63 @@ public class ClipXRichTextBox : RichTextBox
         if (original.Length != replacement.Length)
             throw new ArgumentException("Replacement must be the same length as the original.");
 
+        if (!EditWithTom(doc => ReplaceWithinFormatRuns(doc, start, original, replacement)))
+            ReplaceCharByChar(start, original, replacement);
+    }
+
+    /// <summary>
+    /// Applies a tool's edits (e.g. from Check Punctuation) in place, so the formatting of
+    /// everything else is kept. An inserted space takes the formatting of the character before it,
+    /// as when typing. The edits are positions in the current text, in order, not overlapping;
+    /// they are applied from last to first so earlier positions stay valid. One Undo step.
+    /// </summary>
+    public void ApplyEdits(IReadOnlyList<TextEdit> edits)
+    {
+        if (edits == null || edits.Count == 0) return;
+
+        using (BeginBulkEdit())
+        {
+            bool done = EditWithTom(doc =>
+            {
+                ITextRange range = doc.Range(0, 0);
+                try
+                {
+                    for (int k = edits.Count - 1; k >= 0; k--)
+                    {
+                        range.SetRange(edits[k].Start, edits[k].Start + edits[k].Length);
+                        range.Text = edits[k].Replacement;
+                    }
+                }
+                finally { Marshal.ReleaseComObject(range); }
+            });
+
+            if (!done) // TOM not available
+            {
+                for (int k = edits.Count - 1; k >= 0; k--)
+                {
+                    Select(edits[k].Start, edits[k].Length);
+                    SelectedText = edits[k].Replacement;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs a set of TOM edits with repainting and change notifications off, as one Undo step,
+    /// then raises TextChanged once. Returns false (doing nothing) if TOM isn't available.
+    /// </summary>
+    private bool EditWithTom(Action<ITextDocument> edit)
+    {
         ITextDocument doc = null;
         try { doc = RichEditTom.GetDocument(this); } catch (Exception) { /* TOM not available */ }
-
-        if (doc == null)
-        {
-            ReplaceCharByChar(start, original, replacement);
-            return;
-        }
+        if (doc == null) return false;
 
         int oldMask = SendMessage(Handle, EM_SETEVENTMASK, IntPtr.Zero, IntPtr.Zero); // stop change/selection notifications
         doc.Freeze(); // no repainting until we've finished
         bool grouped = TryBeginUndoGroup(doc);
         try
         {
-            ReplaceWithinFormatRuns(doc, start, original, replacement);
+            edit(doc);
         }
         finally
         {
@@ -287,6 +336,7 @@ public class ClipXRichTextBox : RichTextBox
             Marshal.ReleaseComObject(doc);
         }
         OnTextChanged(EventArgs.Empty); // one notification for the whole change
+        return true;
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 ﻿using ClipX2.TextEngine;
 using System;
+using ClipX2.TextEngine.Spelling;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -25,8 +26,20 @@ namespace ClipX2
             richTextBox1.IsRtfModeGetter = () => _isRtfMode;
             richTextBox1.TextSettled += (s, e) => UpdateWordCount();
             richTextBox1.SelectionSettled += (s, e) => ShowWordCount();
+            toolStripButtonDone.Click += (s, e) => Done();
+            toolStripButtonCheckPunctuation.Click += (s, e) => CheckPunctuation();
+            toolStripButtonSpellcheck.Click += (s, e) => SpellNext();
 
+            // The side panel: tool views, or button descriptions on hover (in place of tooltips)
+            var statusHint = new ToolStripLabel { Name = "toolStripLabelHint" };
+            toolStrip3.Items.Add(statusHint);
+            _panels = new ClipX2.UI.Panels.SidePanelHost(panel1, statusHint);
+            _panels.AttachHoverHelp(this);
+
+            _spellLoading = LoadSpellChecker(SpellingLocale); // in the background, so the first F7 is instant
         }
+
+        private readonly ClipX2.UI.Panels.SidePanelHost _panels;
         private void On_FormLoad(object sender, EventArgs e)
         {
             bool hasHtml = Clipboard.ContainsData(DataFormats.Html);
@@ -35,40 +48,76 @@ namespace ClipX2
 
             using var dlg = new FormatChoiceDialog(hasHtml, hasRtf || hasText, hasRtf || hasText);
 
-            if (dlg.ShowDialog(this) != DialogResult.OK)
+            if (!hasHtml && !hasRtf && !hasText)
             {
-                _isRtfMode = false;
-                return;
+                _isRtfMode = true;
             }
-
-            switch (dlg.Selected)
+            else
             {
-                case FormatChoiceDialog.Choice.Html:
-                    string rawHtml = Clipboard.GetData(DataFormats.Html) as string;
-                    richTextBox1.Text = ExtractHtmlFragment(rawHtml);
+                if (dlg.ShowDialog(this) != DialogResult.OK)
+                {
                     _isRtfMode = false;
-                    break;
+                    return;
+                }
 
-                case FormatChoiceDialog.Choice.Rtf:
-                    if (!hasRtf)
-                    {
+                switch (dlg.Selected)
+                {
+                    case FormatChoiceDialog.Choice.Html:
+                        string rawHtml = Clipboard.GetText(TextDataFormat.Html);
+                        richTextBox1.Text = ExtractHtmlFragment(rawHtml);
+                        _isRtfMode = false;
+                        break;
+
+                    case FormatChoiceDialog.Choice.Rtf:
+                        if (!hasRtf)
+                        {
+                            richTextBox1.Text = Clipboard.GetText(TextDataFormat.UnicodeText);
+                        }
+                        else
+                        {
+                            string rtf = Clipboard.GetText(TextDataFormat.Rtf);
+                            richTextBox1.Rtf = rtf;
+                        }
+                        _isRtfMode = true;
+                        break;
+
+                    case FormatChoiceDialog.Choice.Text:
                         richTextBox1.Text = Clipboard.GetText(TextDataFormat.UnicodeText);
-                    }
-                    else
-                    {
-                        string rtf = Clipboard.GetData(DataFormats.Rtf) as string;
-                        richTextBox1.Rtf = rtf;
-                    }
-                    _isRtfMode = true;
-                    break;
-
-                case FormatChoiceDialog.Choice.Text:
-                    richTextBox1.Text = Clipboard.GetText(TextDataFormat.UnicodeText);
-                    _isRtfMode = false;
-                    break;
+                        _isRtfMode = false;
+                        break;
+                }
             }
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
         }
+        /// <summary>
+        /// Done: puts the text on the clipboard, ready to paste back into the application it came
+        /// from, and closes ClipX. In rich-text mode it goes on as RTF, HTML and plain text.
+        /// </summary>
+        private void Done()
+        {
+            var data = ClipX2.UI.ClipboardExport.Create(richTextBox1, _isRtfMode);
+            // copy: true so the data stays on the clipboard after ClipX closes; retry if another
+            // program has the clipboard open
+            Clipboard.SetDataObject(data, true, 10, 100);
+            Close();
+        }
+
+        /// <summary>Form-wide shortcuts, handled before the text box sees them.</summary>
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            switch (keyData)
+            {
+                case Keys.Alt | Keys.D:                   // Done (as ClipX 1)
+                case Keys.Control | Keys.Shift | Keys.C:  // Done (ClipX 1's alternative)
+                    Done();
+                    return true;
+                case Keys.F7:                             // next spelling issue (as Word)
+                    SpellNext();
+                    return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         private int _totalWords; // kept so a selection change needn't recount the whole text
 
         /// <summary>Recounts the whole text; called when editing pauses or a tool finishes.</summary>
@@ -141,6 +190,85 @@ namespace ClipX2
         {
             ApplyCase(CaseMode.SentenceCaps);
         }
+        /// <summary>
+        /// Check Punctuation (ClipX 1's doCheckPunc): the selected paragraphs, or the whole text.
+        /// Corrections are applied in place (formatting kept, one Undo step); then any problems,
+        /// and the places where the checker had to guess, are listed.
+        /// </summary>
+        private void CheckPunctuation()
+        {
+            var box = richTextBox1;
+            bool hadSelection = box.SelectionLength > 0;
+            string text = box.Text;
+            PunctuationCheckResult result = hadSelection
+                ? PunctuationChecker.Check(text, box.SelectionStart, box.SelectionLength)
+                : PunctuationChecker.Check(text);
+
+            box.ApplyEdits(result.Edits);
+            if (hadSelection) box.Select(result.Start, result.Text.Length); // the whole paragraphs checked
+
+            if (result.Problems.Count == 0 && result.Guesses.Count == 0) return;
+
+            const int maxListed = 12;
+            var sb = new StringBuilder();
+            sb.AppendLine(result.Edits.Count == 1 ? "1 correction made." : $"{result.Edits.Count} corrections made.");
+            void List(string heading, IReadOnlyList<PunctuationNote> notes)
+            {
+                if (notes.Count == 0) return;
+                sb.AppendLine().AppendLine(heading);
+                foreach (PunctuationNote note in notes.Take(maxListed)) sb.AppendLine("• " + note);
+                if (notes.Count > maxListed) sb.AppendLine($"…and {notes.Count - maxListed} more.");
+            }
+            List("Please check:", result.Problems);
+            List("Places where ClipX had to guess:", result.Guesses);
+
+            MessageBox.Show(this, sb.ToString(), "Check punctuation",
+                MessageBoxButtons.OK, result.Problems.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+        }
+
+        /*********** Spelling ****************/
+
+        private const string SpellingLocale = "en_GB"; // TODO setting
+        private static readonly string DictionaryFolder = System.IO.Path.Combine(AppContext.BaseDirectory, "Dictionaries");
+        private Task<SpellChecker> _spellLoading;
+        private PersonalDictionary _personal;
+
+        /// <summary>
+        /// Loads a Hunspell dictionary from the Dictionaries folder beside the program, with the
+        /// personal dictionary from %AppData%\ClipX2 (the first time, that is copied from the
+        /// persdict.dat shipped in Dictionaries, i.e. ClipX 1's word list).
+        /// </summary>
+        private Task<SpellChecker> LoadSpellChecker(string locale) => Task.Run(() =>
+        {
+            if (_personal == null)
+            {
+                string personalPath = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ClipX2", "persdict.dat");
+                string seed = System.IO.Path.Combine(DictionaryFolder, "persdict.dat");
+                if (!System.IO.File.Exists(personalPath) && System.IO.File.Exists(seed))
+                {
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(personalPath));
+                    System.IO.File.Copy(seed, personalPath);
+                }
+                _personal = new PersonalDictionary(personalPath);
+            }
+            return new SpellChecker(SpellingDictionary.Load(DictionaryFolder, locale), _personal);
+        });
+
+        /// <summary>
+        /// F7 / Spelling button: opens the spelling panel and checks from the caret (or the
+        /// selection). Pressed again while a word is shown, it skips that word.
+        /// </summary>
+        private async void SpellNext()
+        {
+            var panel = _panels.Show<ClipX2.UI.Panels.SpellingPanel>();
+            if (!panel.IsAttached)
+                panel.Attach(richTextBox1,
+                    locale => _spellLoading = LoadSpellChecker(locale),
+                    SpellingDictionary.AvailableLocales(DictionaryFolder), SpellingLocale);
+            await panel.StartCheck(_spellLoading);
+        }
+
         private void ApplyCase(CaseMode mode)
         {
             int selStart = richTextBox1.SelectionStart;
