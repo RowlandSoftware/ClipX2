@@ -1,12 +1,10 @@
-﻿using ExCSS;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
 
 namespace ClipX2.TextEngine
 {
-    public static class Utils
+    internal static class Utils
     {
         public static IEnumerable<Token> GetWords(string text, int selstart, int sellen)
         {
@@ -108,7 +106,7 @@ namespace ClipX2.TextEngine
             }
 
             // Contains &?
-            if (text.Contains("&"))
+            if (text.IndexOf('&', start, length) >= 0)
                 flags |= TokenFlags.Abbreviation;
 
             // First in sentence?
@@ -221,16 +219,30 @@ namespace ClipX2.TextEngine
             if (string.IsNullOrEmpty(searchFor)) return false;
             return list.IndexOf("," + searchFor + ",", StringComparison.OrdinalIgnoreCase) >= 0;
         }
-        public static bool IsInListStartsWith(string searchFor, string list)
+        /// <summary>Removes a trailing possessive 's (straight or curly apostrophe): "AT&amp;T's" → "AT&amp;T".</summary>
+        public static string StripPossessive(string word)
         {
-            if (string.IsNullOrEmpty(searchFor)) return false;
-            string[] toList = list.Split(',');
-            foreach (string item in toList)
-            {
-                if (searchFor.StartsWith(item, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-            return false;
+            if (word != null && word.Length > 2 &&
+                (word.EndsWith("'s", StringComparison.OrdinalIgnoreCase) || word.EndsWith("’s", StringComparison.OrdinalIgnoreCase)))
+                return word.Substring(0, word.Length - 2);
+            return word;
+        }
+        /// <summary>
+        /// True for words whose second letter is a capital (iPhone, eBay, pH), including plurals
+        /// (iPhones) and possessives (iPhone's). Whole words only, so "phone" does not match "ph".
+        /// </summary>
+        public static bool IsSecondCharCapWord(string word)
+        {
+            if (string.IsNullOrEmpty(word)) return false;
+
+            word = StripPossessive(word);
+
+            if (IsInList(word, ClipXConstants.WORDS_SECOND_CHAR_CAP))
+                return true;
+
+            return word.Length > 1
+                && word.EndsWith("s", StringComparison.OrdinalIgnoreCase)
+                && IsInList(word.Substring(0, word.Length - 1), ClipXConstants.WORDS_SECOND_CHAR_CAP);
         }
         public static bool IsHyphenatedPrefix(string word)
         {
@@ -254,7 +266,7 @@ namespace ClipX2.TextEngine
 
             foreach (var end in endings)
             {
-                if (text.AsSpan(aposIndex + 1).StartsWith(end, StringComparison.OrdinalIgnoreCase))
+                if (string.Compare(text, aposIndex + 1, end, 0, end.Length, StringComparison.OrdinalIgnoreCase) == 0)
                     return true;
             }
 

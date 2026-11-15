@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 can be used from .NET Framework 4.6.1+ (including the net48 app) and from modern .NET -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>ClipX2.TextEngine</RootNamespace>
+    <AssemblyName>ClipX2.TextEngine</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Only warn about missing XML comments on the public API, not on internal code -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Lets a future unit-test project test the internal engines directly -->
+    <InternalsVisibleTo Include="ClipX2.TextEngine.Tests" />
+  </ItemGroup>
+
+</Project>

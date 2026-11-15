@@ -10,6 +10,15 @@
   <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 </PropertyGroup>
 <ItemGroup>
+  <!-- The text engine is its own class library (TextEngine\ClipX2.TextEngine.csproj); do not compile its files here too -->
+  <Compile Remove="TextEngine\**" />
+  <EmbeddedResource Remove="TextEngine\**" />
+  <None Remove="TextEngine\**" />
+</ItemGroup>
+<ItemGroup>
+  <ProjectReference Include="TextEngine\ClipX2.TextEngine.csproj" />
+</ItemGroup>
+<ItemGroup>
   <PackageReference Include="Svg" Version="3.4.7" />
 </ItemGroup>
 <ItemGroup>
