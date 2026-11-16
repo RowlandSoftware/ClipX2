@@ -1,6 +1,7 @@
 ﻿using ClipX2.TextEngine;
 using System;
 using ClipX2.TextEngine.Spelling;
+using ClipX2.UI;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -36,7 +37,7 @@ namespace ClipX2
             _panels = new ClipX2.UI.Panels.SidePanelHost(panel1, statusHint);
             _panels.AttachHoverHelp(this);
 
-            _spellLoading = LoadSpellChecker(SpellingLocale); // in the background, so the first F7 is instant
+            _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language)); // in the background, so the first F7 is instant
         }
 
         private readonly ClipX2.UI.Panels.SidePanelHost _panels;
@@ -228,31 +229,62 @@ namespace ClipX2
 
         /*********** Spelling ****************/
 
-        private const string SpellingLocale = "en_GB"; // TODO setting
-        private static readonly string DictionaryFolder = System.IO.Path.Combine(AppContext.BaseDirectory, "Dictionaries");
+        /// <summary>Dictionaries shipped with the program (may be read-only, under Program Files).</summary>
+        private static readonly string ProgramDictionaries = System.IO.Path.Combine(AppContext.BaseDirectory, "Dictionaries");
+        /// <summary>The user's own (and, later, downloaded) dictionaries; these win over shipped ones of the same name.</summary>
+        private static readonly string UserDictionaries = System.IO.Path.Combine(AppSettings.Folder, "Dictionaries");
+        private static readonly string[] DictionaryFolders = { UserDictionaries, ProgramDictionaries };
+
         private Task<SpellChecker> _spellLoading;
         private PersonalDictionary _personal;
 
+        /// <summary>Every dictionary in either folder, by name (en_GB, fr_FR…).</summary>
+        private static IReadOnlyList<string> SpellingLanguages() =>
+            DictionaryFolders.SelectMany(SpellingDictionary.AvailableLocales)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(l => l, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+        /// <summary>The language to use: the one asked for if present, else en_GB, else any.</summary>
+        private static string ResolveLanguage(string wanted)
+        {
+            IReadOnlyList<string> all = SpellingLanguages();
+            return all.FirstOrDefault(l => string.Equals(l, wanted, StringComparison.OrdinalIgnoreCase))
+                ?? all.FirstOrDefault(l => l == "en_GB")
+                ?? all.FirstOrDefault()
+                ?? wanted;
+        }
+
         /// <summary>
-        /// Loads a Hunspell dictionary from the Dictionaries folder beside the program, with the
+        /// Loads a Hunspell dictionary (the user's folder first, then the program's), with the
         /// personal dictionary from %AppData%\ClipX2 (the first time, that is copied from the
-        /// persdict.dat shipped in Dictionaries, i.e. ClipX 1's word list).
+        /// persdict.dat shipped in Dictionaries, i.e. ClipX 1's word list), and the spelling
+        /// options from the settings.
         /// </summary>
         private Task<SpellChecker> LoadSpellChecker(string locale) => Task.Run(() =>
         {
             if (_personal == null)
             {
-                string personalPath = System.IO.Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ClipX2", "persdict.dat");
-                string seed = System.IO.Path.Combine(DictionaryFolder, "persdict.dat");
+                string personalPath = System.IO.Path.Combine(AppSettings.Folder, "persdict.dat");
+                string seed = System.IO.Path.Combine(ProgramDictionaries, "persdict.dat");
                 if (!System.IO.File.Exists(personalPath) && System.IO.File.Exists(seed))
                 {
-                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(personalPath));
+                    System.IO.Directory.CreateDirectory(AppSettings.Folder);
                     System.IO.File.Copy(seed, personalPath);
                 }
                 _personal = new PersonalDictionary(personalPath);
             }
-            return new SpellChecker(SpellingDictionary.Load(DictionaryFolder, locale), _personal);
+            string folder = DictionaryFolders.FirstOrDefault(f =>
+                System.IO.File.Exists(System.IO.Path.Combine(f, locale + ".dic"))) ?? ProgramDictionaries;
+            SpellingSettings s = AppSettings.Current.Spelling;
+            var options = new SpellingOptions
+            {
+                IgnoreUppercase = s.IgnoreUppercase,
+                IgnoreWordsWithNumbers = s.IgnoreWordsWithNumbers,
+                IgnoreAddresses = s.IgnoreAddresses,
+                CheckRepeatedWords = s.CheckRepeatedWords,
+            };
+            return new SpellChecker(SpellingDictionary.Load(folder, locale), _personal, options);
         });
 
         /// <summary>
@@ -265,8 +297,32 @@ namespace ClipX2
             if (!panel.IsAttached)
                 panel.Attach(richTextBox1,
                     locale => _spellLoading = LoadSpellChecker(locale),
-                    SpellingDictionary.AvailableLocales(DictionaryFolder), SpellingLocale);
+                    SpellingLanguages, AppSettings.Current.Spelling, MoreSpellingLanguages);
             await panel.StartCheck(_spellLoading);
+        }
+
+        /// <summary>
+        /// Placeholder until the Options dialog can download dictionaries: says where to put
+        /// Hunspell files by hand, and offers to open that folder.
+        /// </summary>
+        private void MoreSpellingLanguages()
+        {
+            string message =
+                "Downloading dictionaries will come with the Options dialog.\n\n" +
+                "For now, you can add a Hunspell dictionary yourself: put its two files (for example " +
+                "fr_FR.aff and fr_FR.dic) in\n\n" + UserDictionaries + "\n\n" +
+                "LibreOffice's dictionaries are suitable. Open the folder now?";
+            if (MessageBox.Show(this, message, "More languages", MessageBoxButtons.YesNo, MessageBoxIcon.Information) != DialogResult.Yes)
+                return;
+            try
+            {
+                System.IO.Directory.CreateDirectory(UserDictionaries);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(UserDictionaries) { UseShellExecute = true });
+            }
+            catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is System.ComponentModel.Win32Exception)
+            {
+                MessageBox.Show(this, "The folder could not be opened: " + ex.Message, "More languages");
+            }
         }
 
         private void ApplyCase(CaseMode mode)

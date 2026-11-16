@@ -155,6 +155,7 @@
             toolStripButtonUpperCase.ImageTransparentColor = System.Drawing.Color.Black;
             toolStripButtonUpperCase.Name = "toolStripButtonUpperCase";
             toolStripButtonUpperCase.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonUpperCase.Tag = "ccUPP";
             toolStripButtonUpperCase.Text = "Upper case";
             toolStripButtonUpperCase.ToolTipText = "Upper Case - all letters to capitals";
             toolStripButtonUpperCase.Click += toolStripButtonUpperCase_Click;
@@ -168,6 +169,7 @@
             toolStripButtonLowerCase.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonLowerCase.Name = "toolStripButtonLowerCase";
             toolStripButtonLowerCase.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonLowerCase.Tag = "ccLOW";
             toolStripButtonLowerCase.Text = "Lower case";
             toolStripButtonLowerCase.ToolTipText = "To lower case";
             toolStripButtonLowerCase.Click += toolStripButtonLowerCase_Click;
@@ -181,6 +183,7 @@
             toolStripButtonReverseCase.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonReverseCase.Name = "toolStripButtonReverseCase";
             toolStripButtonReverseCase.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonReverseCase.Tag = "ccREV";
             toolStripButtonReverseCase.Text = "Reverse case";
             toolStripButtonReverseCase.ToolTipText = "Swop the letter case";
             toolStripButtonReverseCase.Click += toolStripButtonReverseCase_Click;
@@ -194,6 +197,7 @@
             toolStripButtonInitCaps.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonInitCaps.Name = "toolStripButtonInitCaps";
             toolStripButtonInitCaps.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonInitCaps.Tag = "ccINC";
             toolStripButtonInitCaps.Text = "Initial Caps";
             toolStripButtonInitCaps.ToolTipText = "Initial letter of each word to capitals";
             toolStripButtonInitCaps.Click += toolStripButtonInitCaps_Click;
@@ -207,6 +211,7 @@
             toolStripButtonTitleCase.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonTitleCase.Name = "toolStripButtonTitleCase";
             toolStripButtonTitleCase.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonTitleCase.Tag = "ccTIT";
             toolStripButtonTitleCase.Text = "Title case";
             toolStripButtonTitleCase.ToolTipText = "Capitalise initial letter of words according to title rules";
             toolStripButtonTitleCase.Click += toolStripButtonTitleCase_Click;
@@ -220,6 +225,7 @@
             toolStripButtonSentenceCase.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonSentenceCase.Name = "toolStripButtonSentenceCase";
             toolStripButtonSentenceCase.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonSentenceCase.Tag = "ccSEN";
             toolStripButtonSentenceCase.Text = "Sentence case";
             toolStripButtonSentenceCase.ToolTipText = "Initial letter of each sentence to capitals, all others lower case";
             toolStripButtonSentenceCase.Click += toolStripButtonSentenceCase_Click;
@@ -233,6 +239,7 @@
             toolStripButtonCapitaliseSentences.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonCapitaliseSentences.Name = "toolStripButtonCapitaliseSentences";
             toolStripButtonCapitaliseSentences.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonCapitaliseSentences.Tag = "ccCAP";
             toolStripButtonCapitaliseSentences.Text = "Capitalise sentences";
             toolStripButtonCapitaliseSentences.ToolTipText = "Initial letter of each sentence to capitals, all others left alone";
             toolStripButtonCapitaliseSentences.Click += toolStripButtonCapitaliseSentences_Click;
@@ -321,6 +328,7 @@
             toolStripButtonSpellcheck.ImageTransparentColor = System.Drawing.Color.Black;
             toolStripButtonSpellcheck.Name = "toolStripButtonSpellcheck";
             toolStripButtonSpellcheck.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonSpellcheck.Tag = "chSPE";
             toolStripButtonSpellcheck.Text = "Check Spelling";
             toolStripButtonSpellcheck.ToolTipText = "Check for spelling errors and repeated words";
             // 
@@ -333,6 +341,7 @@
             toolStripButtonCheckPunctuation.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonCheckPunctuation.Name = "toolStripButtonCheckPunctuation";
             toolStripButtonCheckPunctuation.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonCheckPunctuation.Tag = "chPNC";
             toolStripButtonCheckPunctuation.Text = "Check Punctuation";
             toolStripButtonCheckPunctuation.ToolTipText = "Check for spacing errors around punctuation and brackets, and umatched brackets and speech marks";
             // 
@@ -464,11 +473,13 @@
             // 
             // toolStripLabelRtfMode
             // 
+            toolStripLabelRtfMode.AccessibleName = "Change mode";
             toolStripLabelRtfMode.Font = new System.Drawing.Font("Segoe UI", 10.125F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             toolStripLabelRtfMode.Name = "toolStripLabelRtfMode";
-            toolStripLabelRtfMode.Size = new System.Drawing.Size(101, 36);
-            toolStripLabelRtfMode.Text = "toolStripLabel1";
+            toolStripLabelRtfMode.Size = new System.Drawing.Size(95, 36);
+            toolStripLabelRtfMode.Text = "Change mode";
             toolStripLabelRtfMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            toolStripLabelRtfMode.ToolTipText = "Toggle between plain text and rich text (formatted text) mode";
             toolStripLabelRtfMode.Click += toolStripLabelRtfMode_Click;
             // 
             // toolStripSeparator2
@@ -478,10 +489,12 @@
             // 
             // toolStripLabelWordCount
             // 
+            toolStripLabelWordCount.AccessibleName = "Word count";
             toolStripLabelWordCount.Font = new System.Drawing.Font("Segoe UI", 10.125F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             toolStripLabelWordCount.Name = "toolStripLabelWordCount";
             toolStripLabelWordCount.Size = new System.Drawing.Size(81, 36);
             toolStripLabelWordCount.Text = "Word count";
+            toolStripLabelWordCount.ToolTipText = "Displays current total and selected word counts";
             // 
             // toolStripSeparator3
             // 
@@ -490,12 +503,14 @@
             // 
             // toolStripButtonDone
             // 
+            toolStripButtonDone.AccessibleName = "Finish";
             toolStripButtonDone.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
             toolStripButtonDone.Image = (System.Drawing.Image)resources.GetObject("toolStripButtonDone.Image");
             toolStripButtonDone.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButtonDone.Name = "toolStripButtonDone";
             toolStripButtonDone.Size = new System.Drawing.Size(36, 36);
-            toolStripButtonDone.Text = "toolStripButtonDone";
+            toolStripButtonDone.Text = "Done";
+            toolStripButtonDone.ToolTipText = "Copy to clipboard and exit";
             // 
             // tabControl3
             // 

@@ -16,6 +16,13 @@ namespace ClipX2.UI
         public const int tomCharacter = 1;
         public const int tomCharFormat = 13;
 
+        // ITextRange.GetPoint: which end, and which edge (TA_ values from wingdi.h)
+        public const int tomStart = 32;
+        public const int tomEnd = 0;
+        public const int TA_TOP = 0;
+        public const int TA_BOTTOM = 8;
+        public const int TA_LEFT = 0;
+
         private const int WM_USER = 0x0400;
         private const int EM_GETOLEINTERFACE = WM_USER + 60;
 
@@ -87,5 +94,32 @@ namespace ClipX2.UI
         int Move(int Unit, int Count);
         int MoveStart(int Unit, int Count);
         int MoveEnd(int Unit, int Count);
+
+        // Placeholders, only to keep the vtable positions up to GetPoint; never call these
+        void _MoveWhile();
+        void _MoveStartWhile();
+        void _MoveEndWhile();
+        void _MoveUntil();
+        void _MoveStartUntil();
+        void _MoveEndUntil();
+        void _FindText();
+        void _FindTextStart();
+        void _FindTextEnd();
+        void _Delete();
+        void _Cut();
+        void _Copy();
+        void _Paste();
+        void _CanPaste();
+        void _CanEdit();
+        void _ChangeCase();
+
+        /// <summary>
+        /// Screen position of the start or end of the range: <paramref name="Type"/> is
+        /// tomStart or tomEnd plus TA_TOP/TA_BASELINE/TA_BOTTOM and TA_LEFT/TA_RIGHT.
+        /// Returns S_OK (0) only if the point is valid: S_FALSE (1) when it is off screen, and
+        /// then the coordinates are meaningless.
+        /// </summary>
+        [PreserveSig]
+        int GetPoint(int Type, out int px, out int py);
     }
 }

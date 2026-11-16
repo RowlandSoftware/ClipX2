@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <PackageReference Include="WeCantSpell.Hunspell" Version="7.0.1" />
+    <!-- JSON for the LanguageTool client (part of modern .NET already; a package for netstandard2.0) -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
 </Project>

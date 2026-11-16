@@ -109,8 +109,151 @@ public class ClipXRichTextBox : RichTextBox
         public void Dispose() { _owner?.EndBulkEdit(); _owner = null; } // only once
     }
 
+    /************ Marker: a highlight painted over the text, not part of it ************/
+
+    // Used by the spelling panel to show the word in question. It is drawn after RichEdit has
+    // painted, so it never touches the text or its formatting: nothing goes into Undo or into
+    // what Done exports, and there is nothing to remove before a replacement. Any change to the
+    // text clears it (its position would be stale).
+
+    private int _markStart = -1, _markLength;
+
+    /// <summary>The marker's colour; translucent, so the text shows through (a highlighter).</summary>
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color MarkerColor { get; set; } = Color.FromArgb(120, 255, 210, 0);
+
+    /// <summary>Highlights the given characters until <see cref="ClearMarker"/> or the text changes.</summary>
+    public void SetMarker(int start, int length)
+    {
+        _markStart = start;
+        _markLength = Math.Max(0, length);
+        Invalidate();
+    }
+
+    public void ClearMarker()
+    {
+        if (_markStart < 0) return;
+        _markStart = -1;
+        Invalidate();
+    }
+
+    [Browsable(false)]
+    public bool HasMarker => _markStart >= 0;
+
+    private const int WM_PAINT = 0x000F;
+
+    private const int WM_HSCROLL = 0x0114, WM_VSCROLL = 0x0115, WM_MOUSEWHEEL = 0x020A, WM_MOUSEHWHEEL = 0x020E;
+
+    protected override void OnVScroll(EventArgs e) { base.OnVScroll(e); if (_markStart >= 0) Invalidate(); }
+    protected override void OnHScroll(EventArgs e) { base.OnHScroll(e); if (_markStart >= 0) Invalidate(); }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (_markStart >= 0 && (m.Msg == WM_VSCROLL || m.Msg == WM_HSCROLL || m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL))
+        {
+            base.WndProc(ref m);
+            Invalidate(); // see the note below on scrolling
+            return;
+        }
+        if (m.Msg != WM_PAINT || _markStart < 0)
+        {
+            base.WndProc(ref m);
+            return;
+        }
+        // Paint over only what RichEdit repaints, so the translucent colour is never laid twice
+        IntPtr updateRgn = CreateRectRgn(0, 0, 0, 0);
+        try
+        {
+            bool any = GetUpdateRgn(Handle, updateRgn, false) > 1; // > NULLREGION
+            base.WndProc(ref m);
+            if (any) PaintMarker(updateRgn);
+        }
+        finally { DeleteObject(updateRgn); }
+
+        // Scrolling shifts the pixels already on screen, marker included, and repaints only the
+        // strip uncovered, leaving stray copies of the marker. So after any scroll (bar, wheel,
+        // smooth scrolling, keys, ScrollToCaret), repaint the whole box once.
+        Point scroll = GetScrollPos();
+        if (scroll != _markerScroll)
+        {
+            _markerScroll = scroll;
+            Invalidate();
+        }
+    }
+
+    private Point _markerScroll = new Point(int.MinValue, int.MinValue);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X, Y; }
+
+    private const int EM_GETSCROLLPOS = 0x0400 + 221;
+
+    [DllImport("user32.dll", EntryPoint = "SendMessage")]
+    private static extern IntPtr SendMessagePoint(IntPtr hWnd, int msg, IntPtr wParam, ref POINT lParam);
+
+    private Point GetScrollPos()
+    {
+        var p = new POINT();
+        SendMessagePoint(Handle, EM_GETSCROLLPOS, IntPtr.Zero, ref p);
+        return new Point(p.X, p.Y);
+    }
+
+    private void PaintMarker(IntPtr updateRgn)
+    {
+        List<Rectangle> rects = MarkerRectangles();
+        if (rects.Count == 0) return;
+        using (Graphics g = CreateGraphics())
+        using (Region clip = Region.FromHrgn(updateRgn))
+        using (var brush = new SolidBrush(MarkerColor))
+        {
+            g.Clip = clip;
+            foreach (Rectangle r in rects) g.FillRectangle(brush, r);
+        }
+    }
+
+    /// <summary>The marker's boxes in client coordinates, one per line it is on (usually one).</summary>
+    private List<Rectangle> MarkerRectangles()
+    {
+        var rects = new List<Rectangle>();
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { /* TOM not available */ }
+        if (doc == null) return rects;
+        try
+        {
+            int end = Math.Min(_markStart + _markLength, TextLength);
+            for (int k = _markStart; k < end; k++)
+            {
+                ITextRange ch = doc.Range(k, k + 1);
+                try
+                {
+                    // Only points actually on screen (S_OK); otherwise the coordinates are junk
+                    if (ch.GetPoint(RichEditTom.tomStart | RichEditTom.TA_TOP | RichEditTom.TA_LEFT, out int x1, out int y1) != 0) continue;
+                    if (ch.GetPoint(RichEditTom.tomEnd | RichEditTom.TA_BOTTOM | RichEditTom.TA_LEFT, out int x2, out int y2) != 0) continue;
+                    Point a = PointToClient(new Point(x1, y1)), b = PointToClient(new Point(x2, y2));
+                    if (b.X <= a.X || b.Y <= a.Y) continue; // end wrapped to the next line: skip this character
+                    var r = Rectangle.FromLTRB(a.X, a.Y, b.X, b.Y);
+                    if (r.Width > ClientSize.Width / 2 || !ClientRectangle.IntersectsWith(r)) continue; // not plausible / not visible
+                    int last = rects.Count - 1;
+                    if (last >= 0 && rects[last].Top == r.Top && rects[last].Bottom == r.Bottom && Math.Abs(rects[last].Right - r.Left) <= 1)
+                        rects[last] = Rectangle.Union(rects[last], r); // same line: one box
+                    else
+                        rects.Add(r);
+                }
+                catch (COMException) { /* off screen */ }
+                finally { Marshal.ReleaseComObject(ch); }
+            }
+        }
+        finally { Marshal.ReleaseComObject(doc); }
+        return rects;
+    }
+
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+    [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr hObject);
+    [DllImport("user32.dll")] private static extern int GetUpdateRgn(IntPtr hWnd, IntPtr hRgn, bool bErase);
+
     protected override void OnTextChanged(EventArgs e)
     {
+        ClearMarker(); // its position would be stale
         base.OnTextChanged(e);
         if (_bulkEditDepth > 0)
             _textChangedDuringBulkEdit = true;
@@ -223,6 +366,10 @@ public class ClipXRichTextBox : RichTextBox
                 case Keys.S:
                     KeyCase(CaseMode.Reverse);
                     goto Handle; // jump to shared
+                case Keys.T:
+                    if (e.Shift || e.Alt) break;
+                    Transpose();
+                    goto Handle; // jump to shared
             }
         }
         base.OnKeyDown(e);
@@ -308,6 +455,123 @@ public class ClipXRichTextBox : RichTextBox
                     SelectedText = edits[k].Replacement;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Ctrl+T (ClipX 1's doKBTranspose): swaps the characters either side of the caret and moves
+    /// the caret one place right (ab|cd → acb|d), so repeated presses carry a character along.
+    /// With a selection, its first character is the right-hand one, and the selection is
+    /// cancelled. Each character keeps its own formatting, except that a letter swapped with a
+    /// space takes the formatting of the word it joins; one Undo step. Does nothing at the
+    /// start or end of the text, or next to a paragraph break (swapping those would merge or
+    /// split paragraphs). A surrogate pair (e.g. an emoji) counts as one character.
+    /// </summary>
+    public void Transpose()
+    {
+        int pos = SelectionStart;
+        int length = TextLength;
+        if (pos <= 0 || pos >= length) return;
+
+        // Read only the few characters needed (the text may be long): the pair, plus the
+        // neighbours either side, for the formatting rule below
+        int from = Math.Max(0, pos - 3), to = Math.Min(length, pos + 3);
+        string near = GetTextRange(from, to);
+        if (near == null) return;
+        int p = pos - from;                  // the caret within 'near'
+        if (p <= 0 || p >= near.Length) return;
+
+        int rightLen = char.IsHighSurrogate(near[p]) && p + 1 < near.Length && char.IsLowSurrogate(near[p + 1]) ? 2 : 1;
+        int leftLen = char.IsLowSurrogate(near[p - 1]) && p >= 2 && char.IsHighSurrogate(near[p - 2]) ? 2 : 1;
+        if (IsParagraphBreak(near[p]) || IsParagraphBreak(near[p - 1])) return;
+        int leftStart = pos - leftLen;
+
+        // Formatting belongs to words: if a letter swaps with a space, it joins the word on its
+        // far side, so it takes that word's formatting (thea *pple* → the *apple*;
+        // *atet* he → *ate* the). The space keeps its own. -1: no change.
+        bool rightIsWord = char.IsLetterOrDigit(near[p]), leftIsWord = char.IsLetterOrDigit(near[p - 1]);
+        bool rightIsSpace = char.IsWhiteSpace(near[p]), leftIsSpace = char.IsWhiteSpace(near[p - 1]);
+        int adoptAt = -1, adoptLen = 0, adoptFrom = -1;  // document positions after the swap
+        string adoptText = null;
+        if (rightIsWord && leftIsSpace)                  // the letter moves left, onto the end of the word before
+        {
+            int n = leftStart - 1 - from;
+            if (n >= 0 && char.IsLetterOrDigit(near[n])) { adoptAt = leftStart; adoptLen = rightLen; adoptFrom = leftStart - 1; adoptText = near.Substring(p, rightLen); }
+        }
+        else if (leftIsWord && rightIsSpace)             // the letter moves right, onto the start of the word after
+        {
+            int n = pos + rightLen - from;
+            if (n < near.Length && char.IsLetterOrDigit(near[n])) { adoptAt = leftStart + rightLen; adoptLen = leftLen; adoptFrom = pos + rightLen; adoptText = near.Substring(p - leftLen, leftLen); }
+        }
+
+        bool done = EditWithTom(doc =>
+        {
+            ITextRange right = doc.Range(pos, pos + rightLen);
+            ITextRange target = doc.Range(leftStart, leftStart);
+            try
+            {
+                target.FormattedText = right.FormattedText;            // a copy, with its formatting, before the left character
+                ITextRange old = doc.Range(pos + rightLen, pos + 2 * rightLen); // the original, now shifted right
+                try { old.Text = ""; }
+                finally { Marshal.ReleaseComObject(old); }
+
+                if (adoptAt >= 0)
+                {
+                    // Put a copy of the neighbour (with its formatting) in front of the letter,
+                    // then replace copy + letter with the letter: replaced text takes the
+                    // formatting of the first character it replaces
+                    ITextRange word = doc.Range(adoptFrom, adoptFrom + 1);
+                    ITextRange at = doc.Range(adoptAt, adoptAt);
+                    try
+                    {
+                        at.FormattedText = word.FormattedText;
+                        ITextRange both = doc.Range(adoptAt, adoptAt + 1 + adoptLen);
+                        try { both.Text = adoptText; }
+                        finally { Marshal.ReleaseComObject(both); }
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(at);
+                        Marshal.ReleaseComObject(word);
+                    }
+                }
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(target);
+                Marshal.ReleaseComObject(right);
+            }
+        });
+
+        if (!done) // TOM not available: plain swap (the moved character takes its neighbour's formatting)
+        {
+            Select(pos, rightLen);
+            string moved = SelectedText;
+            SelectedText = "";
+            Select(leftStart, 0);
+            SelectedText = moved;
+        }
+        Select(pos + rightLen, 0);
+    }
+
+    private static bool IsParagraphBreak(char c) => c == '\n' || c == '\r' || c == '\v' || c == '\f';
+
+    /// <summary>The text from <paramref name="start"/> to <paramref name="end"/>, without fetching the whole text.</summary>
+    private string GetTextRange(int start, int end)
+    {
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { /* TOM not available */ }
+        if (doc == null)
+        {
+            string all = Text;
+            return end <= all.Length ? all.Substring(start, end - start) : null;
+        }
+        ITextRange range = doc.Range(start, end);
+        try { return range.Text?.Replace('\r', '\n'); }
+        finally
+        {
+            Marshal.ReleaseComObject(range);
+            Marshal.ReleaseComObject(doc);
         }
     }
 

@@ -61,6 +61,11 @@ namespace ClipX2.TextEngine.Spelling
         private readonly HashSet<string> _ignoreAll = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _changeAll = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<(int Start, string Word)> _ignoredOnce = new List<(int, string)>();
+        // Corrections the user chose this session (kept across checks: each text is a new check)
+        private readonly HashSet<string> _accepted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Word counts of the last text suggestions were asked for (the same text, issue after issue)
+        private string _countedText;
+        private Dictionary<string, int> _textWords;
 
         public SpellChecker(SpellingDictionary dictionary, PersonalDictionary personal = null, SpellingOptions options = null)
         {
@@ -97,23 +102,59 @@ namespace ClipX2.TextEngine.Spelling
         /// <summary>
         /// The first issue at or after <paramref name="from"/> (F7, "next"). If none, and
         /// <paramref name="wrap"/> is set, the first one from the top. Null if there are none.
+        /// A word the position is inside counts (the caret in a typo), but not one that ends
+        /// there: searching from the end of an issue always moves on (the scan widens to whole
+        /// words, so without this it would find the same word again, e.g. "clickety" in
+        /// clickety-clack).
         /// </summary>
         public SpellingIssue FindNext(string text, int from, bool wrap = true)
         {
             if (string.IsNullOrEmpty(text)) return null;
             from = Math.Max(0, Math.Min(from, text.Length));
             SpellingIssue found = null;
-            Scan(text, from, text.Length - from, issue => { found = issue; return false; });
+            Scan(text, from, text.Length - from, issue =>
+            {
+                if (issue.End <= from) return true; // before the start: keep looking
+                found = issue;
+                return false;
+            });
             if (found == null && wrap && from > 0)
                 Scan(text, 0, from, issue => { found = issue; return false; });
             return found;
         }
 
-        /// <summary>Suggestions for an issue, best first (none for a repeated word).</summary>
+        /// <summary>Suggestions for an issue, best first, in the dictionary's order (none for a repeated word).</summary>
         public IReadOnlyList<string> Suggest(SpellingIssue issue, int max = 10) =>
             issue == null || issue.Kind != SpellingIssueKind.Misspelt
                 ? (IReadOnlyList<string>)Array.Empty<string>()
                 : Dictionary.Suggest(issue.Word, max);
+
+        /// <summary>
+        /// Suggestions for an issue, best first, ordered with the help of the text and of the
+        /// corrections accepted this session (see <see cref="SuggestionRanker"/>): words the user
+        /// has written or chosen, and their other forms, come first if they are close to the typo.
+        /// </summary>
+        public IReadOnlyList<string> Suggest(string text, SpellingIssue issue, int max = 10)
+        {
+            if (issue == null || issue.Kind != SpellingIssueKind.Misspelt) return Array.Empty<string>();
+            IReadOnlyList<string> fromDictionary = Dictionary.Suggest(issue.Word, max + 10); // room for promoting
+            if (!string.Equals(text, _countedText, StringComparison.Ordinal))
+            {
+                _textWords = SuggestionRanker.CountWords(text);
+                _countedText = text;
+            }
+            return SuggestionRanker.Rank(issue.Word, fromDictionary, _textWords, _accepted, IsCorrect, max);
+        }
+
+        /// <summary>Corrections chosen this session (Change, Change All), which rank high next time.</summary>
+        public IReadOnlyCollection<string> AcceptedCorrections => _accepted;
+
+        private void Accept(string replacement)
+        {
+            if (string.IsNullOrWhiteSpace(replacement)) return;
+            foreach (string w in replacement.Split(new[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries))
+                if (w.Length > 1) _accepted.Add(w);
+        }
 
         /// <summary>True if the word passes (dictionary, personal dictionary, or Ignore All).</summary>
         public bool IsCorrect(string word) => _ignoreAll.Contains(word) || Dictionary.IsCorrect(word);
@@ -125,8 +166,11 @@ namespace ClipX2.TextEngine.Spelling
         /// word's case (teh → the, Teh → The, TEH → THE), or exactly as typed if
         /// <paramref name="matchCase"/> is false (ClipX 1's Smart replace off).
         /// </summary>
-        public TextEdit Change(SpellingIssue issue, string replacement, bool matchCase = true) =>
-            new TextEdit(issue.Start, issue.Length, matchCase ? MatchCase(issue.Word, replacement) : replacement);
+        public TextEdit Change(SpellingIssue issue, string replacement, bool matchCase = true)
+        {
+            Accept(matchCase ? CaseFreeForm(issue.Word, replacement) : replacement);
+            return new TextEdit(issue.Start, issue.Length, matchCase ? MatchCase(issue.Word, replacement) : replacement);
+        }
 
         /// <summary>
         /// Replaces every occurrence of the word (whole words, any case, including as a part of a
@@ -139,6 +183,7 @@ namespace ClipX2.TextEngine.Spelling
             // first, so the other occurrences get their own case (safty → safety)
             if (matchCase) replacement = CaseFreeForm(issue.Word, replacement);
             _changeAll[issue.Word] = replacement;
+            Accept(replacement);
             var edits = new List<TextEdit>();
             bool matchParts = issue.Word.IndexOf('-') < 0;
             void Try(int s, int len)
