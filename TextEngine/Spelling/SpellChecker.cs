@@ -143,8 +143,11 @@ namespace ClipX2.TextEngine.Spelling
                 _textWords = SuggestionRanker.CountWords(text);
                 _countedText = text;
             }
-            return SuggestionRanker.Rank(issue.Word, fromDictionary, _textWords, _accepted, IsCorrect, max);
+            return SuggestionRanker.Rank(issue.Word, fromDictionary, _textWords, _accepted, IsCorrect, max, Frequencies);
         }
+
+        /// <summary>How common words are in this language (for ordering suggestions), if a table is available; else null.</summary>
+        public WordFrequencies Frequencies { get; set; }
 
         /// <summary>Corrections chosen this session (Change, Change All), which rank high next time.</summary>
         public IReadOnlyCollection<string> AcceptedCorrections => _accepted;

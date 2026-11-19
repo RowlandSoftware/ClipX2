@@ -27,7 +27,7 @@ namespace ClipX2
             richTextBox1.IsRtfModeGetter = () => _isRtfMode;
             richTextBox1.TextSettled += (s, e) => UpdateWordCount();
             richTextBox1.SelectionSettled += (s, e) => ShowWordCount();
-            toolStripButtonDone.Click += (s, e) => Done();
+            toolStripButtonFinish.Click += (s, e) => Done();
             toolStripButtonCheckPunctuation.Click += (s, e) => CheckPunctuation();
             toolStripButtonSpellcheck.Click += (s, e) => SpellNext();
 
@@ -38,6 +38,144 @@ namespace ClipX2
             _panels.AttachHoverHelp(this);
 
             _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language)); // in the background, so the first F7 is instant
+
+            toolStripButtonOptions.MouseUp += OptionsButtonMouseUp;
+            ApplyDisplaySettings();
+
+            // Any tool button closes an open options panel, unless it is that panel's own tool, or
+            // it opens its own panel (which replaces it). First, so it runs before the tools do.
+            foreach (ToolStrip strip in new[] { toolStripCase, toolStrip4, toolStrip2, toolStrip5 })
+                foreach (ToolStripItem item in strip.Items)
+                    if (item.Tag is string toolTag) item.MouseUp += (s, e) => CloseOtherOptions(toolTag, e);
+
+            // Lists: a click shows the options in the side panel; a right-click applies the last used
+            _statusHint = statusHint;
+            toolStripButtonLiBUL.MouseUp += (s, e) => ListButton(e, bullets: true);
+            toolStripButtonLiNum.MouseUp += (s, e) => ListButton(e, bullets: false);
+            // Format: found by their tags (ClipX 1's tool names)
+            foreach (ToolStripItem item in toolStrip5.Items)
+                if (item.Tag is string tag) item.MouseUp += (s, e) => FormatButton(tag, e);
+
+            // Remove: no options, so a click or right-click removes at once
+            toolStripButtonLiRMB.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(ListTools.RemoveBullets(richTextBox1, _isRtfMode, AppSettings.Current.BulletList)); };
+            toolStripButtonLiREM.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(ListTools.RemoveNumbers(richTextBox1, _isRtfMode, AppSettings.Current.NumList)); };
+        }
+
+        private readonly ToolStripLabel _statusHint;
+
+        /*********** Lists ****************/
+
+        /// <summary>
+        /// Bullets / Numbers button: a click opens its options in the side panel (Apply there);
+        /// a right-click bullets or numbers the lines at once with the last-used options (ClipX 1).
+        /// </summary>
+        private void ListButton(MouseEventArgs e, bool bullets)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                string done = bullets
+                    ? ListTools.Bullets(richTextBox1, _isRtfMode, AppSettings.Current.BulletList)
+                    : ListTools.Numbers(richTextBox1, _isRtfMode, AppSettings.Current.NumList);
+                ShowStatus(done);
+                return;
+            }
+            if (e.Button != MouseButtons.Left) return;
+            if (bullets)
+            {
+                var panel = _panels.Show<ClipX2.UI.Panels.BulletListPanel>();
+                if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode, ShowStatus);
+            }
+            else
+            {
+                var panel = _panels.Show<ClipX2.UI.Panels.NumberListPanel>();
+                if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode, ShowStatus);
+            }
+        }
+
+        /*********** Options panels ****************/
+
+        /// <summary>The side panel a tool opens on a click (null: it acts at once).</summary>
+        private static Type PanelFor(string tag) => tag switch
+        {
+            "liBUL" => typeof(ClipX2.UI.Panels.BulletListPanel),
+            "liNUM" => typeof(ClipX2.UI.Panels.NumberListPanel),
+            "foIND" or "foUNI" => typeof(ClipX2.UI.Panels.IndentPanel),
+            "foWRP" => typeof(ClipX2.UI.Panels.WordWrapPanel),
+            "foREM" => typeof(ClipX2.UI.Panels.RemoveLinesPanel),
+            "chSPE" => typeof(ClipX2.UI.Panels.SpellingPanel),
+            _ => null,
+        };
+
+        /// <summary>
+        /// A tool button was clicked: an open options panel closes, unless the click is on that
+        /// panel's own tool (again, or a right-click applying its last options), or opens another
+        /// panel, which replaces it. The spelling panel isn't an options panel: it stays.
+        /// </summary>
+        private void CloseOtherOptions(string tag, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
+            ClipX2.UI.Panels.SidePanelView open = _panels.Current;
+            if (open == null || open is ClipX2.UI.Panels.SpellingPanel) return;
+            Type own = PanelFor(tag);
+            if (own == open.GetType()) return;                     // the same tool again
+            if (own != null && e.Button == MouseButtons.Left) return; // its panel replaces this one
+            _panels.Close();
+        }
+
+        /*********** Format ****************/
+
+        /// <summary>
+        /// A Format button. Those with options (Indent, Unindent, Word wrap, Remove extra lines)
+        /// open them in the side panel on a click, and apply the last used on a right-click; the
+        /// rest act at once on either.
+        /// </summary>
+        private void FormatButton(string tag, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
+            bool right = e.Button == MouseButtons.Right;
+            var box = richTextBox1;
+            AppSettings s = AppSettings.Current;
+            switch (tag)
+            {
+                case "foTRM": ShowStatus(FormatTools.TrimWhiteSpace(box)); break;
+                case "foTRA": ShowStatus(FormatTools.TrimTrailing(box)); break;
+                case "foSSP": ShowStatus(FormatTools.SingleSpace(box)); break;
+                case "foT2S": ShowStatus(FormatTools.TabsToSpaces(box)); break;
+                case "foS2T": ShowStatus(FormatTools.SpacesToTabs(box)); break;
+                case "foPAR": ShowStatus(FormatTools.Paragraph(box)); break;
+
+                case "foIND":
+                case "foUNI":
+                    if (right) ShowStatus(tag == "foIND" ? FormatTools.Indent(box, s.Indent) : FormatTools.Unindent(box, s.Indent));
+                    else
+                    {
+                        var panel = _panels.Show<ClipX2.UI.Panels.IndentPanel>();
+                        if (!panel.IsAttached) panel.Attach(box, ShowStatus);
+                    }
+                    break;
+                case "foWRP":
+                    if (right) ShowStatus(FormatTools.WordWrap(box, _isRtfMode, s.Wordwrap));
+                    else
+                    {
+                        var panel = _panels.Show<ClipX2.UI.Panels.WordWrapPanel>();
+                        if (!panel.IsAttached) panel.Attach(box, () => _isRtfMode, ShowStatus);
+                    }
+                    break;
+                case "foREM":
+                    if (right) ShowStatus(FormatTools.RemoveExtraLines(box, s.RemLines));
+                    else
+                    {
+                        var panel = _panels.Show<ClipX2.UI.Panels.RemoveLinesPanel>();
+                        if (!panel.IsAttached) panel.Attach(box, ShowStatus);
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>A short message in the status bar (as ClipX 1's labStatus).</summary>
+        private void ShowStatus(string message)
+        {
+            if (_statusHint != null) _statusHint.Text = message ?? "";
         }
 
         private readonly ClipX2.UI.Panels.SidePanelHost _panels;
@@ -89,6 +227,7 @@ namespace ClipX2
                 }
             }
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
+            ApplyDisplaySettings(); // plain text in the chosen font
         }
         /// <summary>
         /// Done: puts the text on the clipboard, ready to paste back into the application it came
@@ -158,7 +297,7 @@ namespace ClipX2
             start += startTag.Length;
             return htmlClipboardData.Substring(start, end - start).Trim();
         }
-        
+
         /*********** Toolbar clicks ****************/
 
         private void toolStripButtonUpperCase_Click(object sender, EventArgs e)
@@ -229,21 +368,13 @@ namespace ClipX2
 
         /*********** Spelling ****************/
 
-        /// <summary>Dictionaries shipped with the program (may be read-only, under Program Files).</summary>
-        private static readonly string ProgramDictionaries = System.IO.Path.Combine(AppContext.BaseDirectory, "Dictionaries");
-        /// <summary>The user's own (and, later, downloaded) dictionaries; these win over shipped ones of the same name.</summary>
-        private static readonly string UserDictionaries = System.IO.Path.Combine(AppSettings.Folder, "Dictionaries");
-        private static readonly string[] DictionaryFolders = { UserDictionaries, ProgramDictionaries };
+        private static string ProgramDictionaries => DictionaryCatalogue.ProgramFolder;
 
         private Task<SpellChecker> _spellLoading;
         private PersonalDictionary _personal;
 
         /// <summary>Every dictionary in either folder, by name (en_GB, fr_FR…).</summary>
-        private static IReadOnlyList<string> SpellingLanguages() =>
-            DictionaryFolders.SelectMany(SpellingDictionary.AvailableLocales)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(l => l, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        private static IReadOnlyList<string> SpellingLanguages() => DictionaryCatalogue.InstalledNames();
 
         /// <summary>The language to use: the one asked for if present, else en_GB, else any.</summary>
         private static string ResolveLanguage(string wanted)
@@ -274,8 +405,7 @@ namespace ClipX2
                 }
                 _personal = new PersonalDictionary(personalPath);
             }
-            string folder = DictionaryFolders.FirstOrDefault(f =>
-                System.IO.File.Exists(System.IO.Path.Combine(f, locale + ".dic"))) ?? ProgramDictionaries;
+            string folder = DictionaryCatalogue.FolderOf(locale) ?? ProgramDictionaries;
             SpellingSettings s = AppSettings.Current.Spelling;
             var options = new SpellingOptions
             {
@@ -284,8 +414,47 @@ namespace ClipX2
                 IgnoreAddresses = s.IgnoreAddresses,
                 CheckRepeatedWords = s.CheckRepeatedWords,
             };
-            return new SpellChecker(SpellingDictionary.Load(folder, locale), _personal, options);
+            return new SpellChecker(SpellingDictionary.Load(folder, locale), _personal, options)
+            {
+                Frequencies = FrequenciesFor(locale),
+            };
         });
+
+        private static readonly Dictionary<string, WordFrequencies> _frequencies = new Dictionary<string, WordFrequencies>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// How common words are, for ordering suggestions: the frequency list beside the
+        /// dictionary, named after it (en_GB.al), in the user's dictionaries folder or the
+        /// program's; failing that, one for the same language (en_GB.al serves en_US too).
+        /// Null if there is none: suggestions are then ordered without it. Each list is read once.
+        /// </summary>
+        private static WordFrequencies FrequenciesFor(string locale)
+        {
+            lock (_frequencies)
+            {
+                if (_frequencies.TryGetValue(locale, out WordFrequencies known)) return known;
+                string language = locale.Split('_', '-')[0];
+                string path = DictionaryCatalogue.Folders
+                    .Select(f => System.IO.Path.Combine(f, locale + ".al"))
+                    .FirstOrDefault(System.IO.File.Exists)
+                    ?? DictionaryCatalogue.Folders
+                        .Where(System.IO.Directory.Exists)
+                        .SelectMany(f => System.IO.Directory.EnumerateFiles(f, "*.al"))
+                        .FirstOrDefault(p =>
+                        {
+                            string name = System.IO.Path.GetFileNameWithoutExtension(p);
+                            return string.Equals(name, language, StringComparison.OrdinalIgnoreCase)
+                                || name.StartsWith(language + "_", StringComparison.OrdinalIgnoreCase)
+                                || name.StartsWith(language + "-", StringComparison.OrdinalIgnoreCase);
+                        });
+                WordFrequencies list = null;
+                if (path != null)
+                    try { list = WordFrequencies.Load(path); }
+                    catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException) { /* ranking without it */ }
+                _frequencies[locale] = list;
+                return list;
+            }
+        }
 
         /// <summary>
         /// F7 / Spelling button: opens the spelling panel and checks from the caret (or the
@@ -301,27 +470,58 @@ namespace ClipX2
             await panel.StartCheck(_spellLoading);
         }
 
+        /// <summary>"More languages…" in the spelling panel: the Options dialog's Spelling page, where dictionaries are downloaded.</summary>
+        private void MoreSpellingLanguages() => ShowOptions(OptionsPage.Spelling);
+
+        /*********** Options ****************/
+
         /// <summary>
-        /// Placeholder until the Options dialog can download dictionaries: says where to put
-        /// Hunspell files by hand, and offers to open that folder.
+        /// The Options button, as in ClipX 1: a click opens the Options dialog; a right-click
+        /// switches plain text between the proportional and the fixed-width font.
         /// </summary>
-        private void MoreSpellingLanguages()
+        private void OptionsButtonMouseUp(object sender, MouseEventArgs e)
         {
-            string message =
-                "Downloading dictionaries will come with the Options dialog.\n\n" +
-                "For now, you can add a Hunspell dictionary yourself: put its two files (for example " +
-                "fr_FR.aff and fr_FR.dic) in\n\n" + UserDictionaries + "\n\n" +
-                "LibreOffice's dictionaries are suitable. Open the folder now?";
-            if (MessageBox.Show(this, message, "More languages", MessageBoxButtons.YesNo, MessageBoxIcon.Information) != DialogResult.Yes)
-                return;
-            try
+            if (e.Button == MouseButtons.Right)
             {
-                System.IO.Directory.CreateDirectory(UserDictionaries);
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(UserDictionaries) { UseShellExecute = true });
+                DisplaySettings d = AppSettings.Current.Display;
+                d.UseFixedFont = !d.UseFixedFont;
+                AppSettings.Current.Save();
+                ApplyDisplaySettings();
             }
-            catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is System.ComponentModel.Win32Exception)
+            else if (e.Button == MouseButtons.Left)
             {
-                MessageBox.Show(this, "The folder could not be opened: " + ex.Message, "More languages");
+                ShowOptions(OptionsPage.Display);
+            }
+        }
+
+        private void ShowOptions(OptionsPage page)
+        {
+            string language = ResolveLanguage(AppSettings.Current.Spelling.Language);
+            using var dialog = new OptionsDialog(page) { CurrentLanguage = language };
+            dialog.Applied += (s, e) =>
+            {
+                ApplyDisplaySettings();
+                // The spelling options (or, after an import, the language) may have changed
+                _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language));
+            };
+            dialog.ShowDialog(this);
+            if (dialog.DictionariesChanged) // a dictionary downloaded or removed: perhaps the one in use
+                _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language));
+        }
+
+        /// <summary>
+        /// Word wrap, and the font for plain text (in rich text each piece of text has its own
+        /// font, so the setting applies only when the text is plain).
+        /// </summary>
+        private void ApplyDisplaySettings()
+        {
+            DisplaySettings d = AppSettings.Current.Display;
+            if (richTextBox1.WordWrap != d.WordWrap) richTextBox1.WordWrap = d.WordWrap;
+            if (!_isRtfMode || richTextBox1.TextLength == 0)
+            {
+                Font font = d.CurrentFont.ToFont();
+                if (!font.Equals(richTextBox1.Font)) richTextBox1.Font = font;
+                else font.Dispose();
             }
         }
 
@@ -343,9 +543,21 @@ namespace ClipX2
             _isRtfMode = !_isRtfMode;
             if (!_isRtfMode)
             {
-                richTextBox1.Text = richTextBox1.Text;
+                // Live list numbers and bullets become typed text (else they would vanish)
+                richTextBox1.Text = ClipX2.TextEngine.Export.DocumentExport.ToPlainText(RichEditReader.Read(richTextBox1), "\n");
             }
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
+            ApplyDisplaySettings();
+        }
+
+        private void toolStripCase_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
+        {
+
+        }
+
+        private void tabLists_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

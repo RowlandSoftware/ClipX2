@@ -49,6 +49,7 @@ Punctuation does. Issues are `Misspelt` or `RepeatedWord`.
 - [x] Highlight the current word in the text without changing its formatting: `ClipXRichTextBox.SetMarker` paints a translucent yellow box over it after RichEdit paints (not formatting, so not in Undo or the export; any edit clears it). ClipX 1 made it red and bold in its own copy of the text
 
 - [x] Definitions: clicking a suggestion or "Change to" shows Wiktionary definitions (REST API, entry for the spelling language, cached for the session) in a box floating over the editor beside the panel (`DefinitionPopup`, `WiktionaryLookup`). Hidden when the next word is shown
+- [x] Definitions open on a right-click (or the menu key, Shift+F10) on a suggestion or "Change to", not a left click; once open they follow the selected suggestion and typing
 - [x] Definitions: for English, plain definitions with examples from the Simple English Wiktionary first (one request for all forms), else the full Wiktionary; solid form tried for spaced/hyphenated words; other languages named when the word is only in those
 - [ ] Definitions: Options setting for `SimpleDefinitionsFirst` (on); double-click a word in the box to look it up, with Back
 - [ ] Definitions: web look-up in the browser as an option; a setting (`LookUpDefinitions`, on) to turn it off, in the Options dialog
@@ -77,7 +78,12 @@ Punctuation does. Issues are `Misspelt` or `RepeatedWord`.
 ## Suggestion order (value add over Writer)
 
 - [x] Stage 1: rank by the text and the session (`SuggestionRanker`): words in the text (more uses, stronger), corrections accepted this session (kept across checks), and their other forms (adversary → adversaries, adversary's), added if Hunspell missed them; promoted only when about as close as Hunspell's own (teh → the not pushed down by "tech")
-- [ ] Stage 2: word frequency lists (user to supply, per language) for the rest of the order
+- [x] Stage 2: word frequency (`WordFrequencies`, <dictionary>.al beside the dictionary, e.g. en_GB.al from Kilgarriff's BNC lemmas; same-language fallback; none: skipped): a bonus of 0.15–0.45 edit by log frequency, other forms of a lemma 0.8 of it, names excluded; plus a swap bonus (0.5) so one-swap corrections (wnet → went) stay first
+- [ ] Frequency: irregular forms (went, children) aren't linked to their lemmas; a word-form list would cover them
+- [ ] Frequency lists for more languages (French, German; volunteers?) shipped in the program's Dictionaries folder
 - [ ] Stage 3: own candidates with a transposition-friendly distance (non-adjacent swaps; user collecting examples as test cases), checked by Hunspell
 - [ ] Stage 4: neighbouring words (bigrams), with real-word errors in the grammar discussion
 - [ ] Other forms: doubled consonants (stop → stopped) not covered; accepted corrections could be kept between runs
+- [x] Default language = the last one chosen in the panel (as ClipX 1's tools); Options marks it (bold, "· default") and can set it ("Set as default", or double-click); From column hidden until the downloads are listed
+- [x] Grammar check box in the panel (same setting as Options; asks for consent if not given; ticking or unticking mid-check carries on from where the check is)
+- [x] Language change mid-check (even while waiting for LanguageTool) restarts grammar in the new language; mouse wheel no longer changes the language unless the list is open

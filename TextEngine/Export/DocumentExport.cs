@@ -9,7 +9,7 @@ namespace ClipX2.TextEngine.Export
     {
         /// <summary>
         /// Plain text, one line per paragraph. List numbers and bullets are written out as plain
-        /// characters ("1. ", "• "), as in ClipX 1, with a tab per nesting level.
+        /// characters, each followed by a tab ("1.\t", "•\t"), as ClipX 1 typed them, with a tab per nesting level.
         /// </summary>
         public static string ToPlainText(FormattedDocument doc, string newLine = "\r\n")
         {
@@ -20,10 +20,11 @@ namespace ClipX2.TextEngine.Export
                 if (i > 0) sb.Append(newLine);
                 FormattedParagraph p = doc.Paragraphs[i];
 
-                if (p.ListKind != ListKind.None)
+                // (an empty item, such as a blank line kept inside a numbered list, stays an empty line)
+                if (p.ListKind != ListKind.None && !p.Runs.TrueForAll(r => r.Text.Length == 0))
                 {
                     sb.Append('\t', p.ListLevel);
-                    if (labels[i].Label.Length > 0) sb.Append(labels[i].Label).Append(' ');
+                    if (labels[i].Label.Length > 0) sb.Append(labels[i].Label).Append('\t'); // as a typed list (ClipX 1's default: a tab)
                 }
                 foreach (FormattedRun run in p.Runs)
                     sb.Append(run.Text.Replace("\v", newLine));

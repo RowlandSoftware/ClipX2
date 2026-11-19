@@ -30,6 +30,7 @@ namespace ClipX2.UI.Panels
             buttonAdd = new System.Windows.Forms.Button();
             buttonDelete = new System.Windows.Forms.Button();
             checkBoxSmartReplace = new System.Windows.Forms.CheckBox();
+            checkBoxGrammar = new System.Windows.Forms.CheckBox();
             buttonClose = new System.Windows.Forms.Button();
             labelWord = new System.Windows.Forms.Label();
             toolTip = new System.Windows.Forms.ToolTip(components);
@@ -43,23 +44,25 @@ namespace ClipX2.UI.Panels
             tableLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             tableLayout.Controls.Add(labelTitle, 0, 0);
             tableLayout.Controls.Add(comboLanguage, 1, 0);
-            tableLayout.Controls.Add(labelKind, 0, 1);
-            tableLayout.Controls.Add(labelChangeTo, 0, 2);
-            tableLayout.Controls.Add(textBoxChangeTo, 0, 3);
-            tableLayout.Controls.Add(listBoxSuggestions, 0, 4);
-            tableLayout.Controls.Add(buttonIgnore, 0, 5);
-            tableLayout.Controls.Add(buttonIgnoreAll, 1, 5);
-            tableLayout.Controls.Add(buttonChange, 0, 6);
-            tableLayout.Controls.Add(buttonChangeAll, 1, 6);
-            tableLayout.Controls.Add(buttonAdd, 0, 7);
-            tableLayout.Controls.Add(buttonDelete, 0, 8);
-            tableLayout.Controls.Add(checkBoxSmartReplace, 1, 2);
-            tableLayout.Controls.Add(buttonClose, 1, 8);
+            tableLayout.Controls.Add(checkBoxGrammar, 1, 1);
+            tableLayout.Controls.Add(labelKind, 0, 2);
+            tableLayout.Controls.Add(labelChangeTo, 0, 3);
+            tableLayout.Controls.Add(textBoxChangeTo, 0, 4);
+            tableLayout.Controls.Add(listBoxSuggestions, 0, 5);
+            tableLayout.Controls.Add(buttonIgnore, 0, 6);
+            tableLayout.Controls.Add(buttonIgnoreAll, 1, 6);
+            tableLayout.Controls.Add(buttonChange, 0, 7);
+            tableLayout.Controls.Add(buttonChangeAll, 1, 7);
+            tableLayout.Controls.Add(buttonAdd, 0, 8);
+            tableLayout.Controls.Add(buttonDelete, 0, 9);
+            tableLayout.Controls.Add(checkBoxSmartReplace, 1, 3);
+            tableLayout.Controls.Add(buttonClose, 1, 9);
             tableLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             tableLayout.Location = new System.Drawing.Point(0, 0);
             tableLayout.Name = "tableLayout";
             tableLayout.Padding = new System.Windows.Forms.Padding(2);
-            tableLayout.RowCount = 9;
+            tableLayout.RowCount = 10;
+            tableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             tableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             tableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             tableLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
@@ -122,7 +125,7 @@ namespace ClipX2.UI.Panels
             textBoxChangeTo.Name = "textBoxChangeTo";
             textBoxChangeTo.Size = new System.Drawing.Size(233, 25);
             textBoxChangeTo.TabIndex = 4;
-            toolTip.SetToolTip(textBoxChangeTo, "Click to see dictionary definition");
+            toolTip.SetToolTip(textBoxChangeTo, "Right-click to see dictionary definition");
             // 
             // listBoxSuggestions
             // 
@@ -133,7 +136,7 @@ namespace ClipX2.UI.Panels
             listBoxSuggestions.Name = "listBoxSuggestions";
             listBoxSuggestions.Size = new System.Drawing.Size(233, 162);
             listBoxSuggestions.TabIndex = 6;
-            toolTip.SetToolTip(listBoxSuggestions, "Click to see dictionary definition");
+            toolTip.SetToolTip(listBoxSuggestions, "Right-click to see dictionary definition");
             // 
             // buttonIgnore
             // 
@@ -209,6 +212,18 @@ namespace ClipX2.UI.Panels
             checkBoxSmartReplace.TabIndex = 5;
             checkBoxSmartReplace.Text = "&Smart replace";
             checkBoxSmartReplace.UseVisualStyleBackColor = true;
+            //
+            // checkBoxGrammar
+            //
+            checkBoxGrammar.AutoSize = true;
+            checkBoxGrammar.Location = new System.Drawing.Point(127, 33);
+            checkBoxGrammar.Margin = new System.Windows.Forms.Padding(3, 3, 3, 0);
+            checkBoxGrammar.Name = "checkBoxGrammar";
+            checkBoxGrammar.Size = new System.Drawing.Size(85, 23);
+            checkBoxGrammar.TabIndex = 2;
+            checkBoxGrammar.Text = "Gra&mmar";
+            toolTip.SetToolTip(checkBoxGrammar, "Check grammar too, with LanguageTool (the text is sent to its server)");
+            checkBoxGrammar.UseVisualStyleBackColor = true;
             // 
             // buttonClose
             // 
@@ -266,6 +281,7 @@ namespace ClipX2.UI.Panels
         private System.Windows.Forms.Button buttonDelete;
         private System.Windows.Forms.Button buttonClose;
         private System.Windows.Forms.CheckBox checkBoxSmartReplace;
+        private System.Windows.Forms.CheckBox checkBoxGrammar;
         private System.Windows.Forms.ToolTip toolTip;
     }
 }

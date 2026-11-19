@@ -25,6 +25,28 @@ namespace ClipX2.UI
 
         public GrammarSettings Grammar { get; set; } = new GrammarSettings();
 
+        public DisplaySettings Display { get; set; } = new DisplaySettings();
+
+        // List tools: the same section and key names as ClipX 1's settings (BulletList, NumList), so its
+        // settings can be brought across directly; Style and FollowChar keep ClipX 1's numbering
+
+        /// <summary>Bullets: Character, Tab, PadChars.</summary>
+        public ClipX2.TextEngine.BulletOptions BulletList { get; set; } = new ClipX2.TextEngine.BulletOptions();
+
+        /// <summary>Numbers: Style, StartNumber, Renumber, FollowChar, Tab, PadChars.</summary>
+        public ClipX2.TextEngine.NumberOptions NumList { get; set; } = new ClipX2.TextEngine.NumberOptions();
+
+        // Format tools: ClipX 1's names too (Indent, Wordwrap, RemLines)
+
+        /// <summary>Indent and Unindent: Option ("Tab", "Spaces", "Text"), Spaces, Text.</summary>
+        public ClipX2.TextEngine.IndentOptions Indent { get; set; } = new ClipX2.TextEngine.IndentOptions();
+
+        /// <summary>Word wrap: Width, Hanging, Tab, Justify.</summary>
+        public ClipX2.TextEngine.WordWrapOptions Wordwrap { get; set; } = new ClipX2.TextEngine.WordWrapOptions();
+
+        /// <summary>Remove extra lines: Single, Multiple.</summary>
+        public ClipX2.TextEngine.RemoveLinesOptions RemLines { get; set; } = new ClipX2.TextEngine.RemoveLinesOptions();
+
         /************ Loading and saving ************/
 
         /// <summary>The per-user folder for settings, the personal dictionary and downloaded dictionaries.</summary>
@@ -60,6 +82,14 @@ namespace ClipX2.UI
                 s.Spelling ??= new SpellingSettings();
                 s.Grammar ??= new GrammarSettings();
                 s.Grammar.DisabledRules ??= new System.Collections.Generic.List<string>();
+                s.Display ??= new DisplaySettings();
+                s.BulletList ??= new ClipX2.TextEngine.BulletOptions();
+                s.NumList ??= new ClipX2.TextEngine.NumberOptions();
+                s.Indent ??= new ClipX2.TextEngine.IndentOptions();
+                s.Wordwrap ??= new ClipX2.TextEngine.WordWrapOptions();
+                s.RemLines ??= new ClipX2.TextEngine.RemoveLinesOptions();
+                s.Display.ProportionalFont ??= FontSpec.DefaultProportional;
+                s.Display.FixedFont ??= FontSpec.DefaultFixed;
                 return s;
             }
             catch (Exception ex) when (ex is JsonException || ex is IOException || ex is UnauthorizedAccessException)
@@ -87,9 +117,72 @@ namespace ClipX2.UI
                 System.Diagnostics.Debug.WriteLine("Settings not saved: " + ex.Message);
             }
         }
+
+        /// <summary>Copies the settings (as saved now) to a file of the user's choosing.</summary>
+        public static void Export(string path)
+        {
+            Current.Save();
+            File.Copy(FilePath, path, overwrite: true);
+        }
+
+        /// <summary>
+        /// Reads settings from a file exported earlier and makes them the current ones (and
+        /// saves them). Throws if the file isn't a settings file, leaving the current ones as they were.
+        /// </summary>
+        public static void Import(string path)
+        {
+            AppSettings s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOptions)
+                ?? throw new JsonException("The file is empty.");
+            Directory.CreateDirectory(Folder);
+            File.Copy(path, FilePath, overwrite: true);
+            _current = Load(); // fills in anything the file lacks
+        }
     }
 
-    /// <summary>Spelling checker options (the side panel now; the Options dialog later).</summary>
+    /// <summary>A font, as kept in the settings (name, size in points, bold, italic).</summary>
+    public sealed class FontSpec
+    {
+        public string Name { get; set; } = "Segoe UI";
+        public float Size { get; set; } = 10.875F;
+        public bool Bold { get; set; }
+        public bool Italic { get; set; }
+
+        public static FontSpec DefaultProportional => new FontSpec { Name = "Segoe UI", Size = 10.875F };
+        public static FontSpec DefaultFixed => new FontSpec { Name = "Consolas", Size = 10.5F };
+
+        public System.Drawing.Font ToFont()
+        {
+            var style = (Bold ? System.Drawing.FontStyle.Bold : 0) | (Italic ? System.Drawing.FontStyle.Italic : 0);
+            try { return new System.Drawing.Font(Name, Size, style, System.Drawing.GraphicsUnit.Point); }
+            catch (ArgumentException) { return new System.Drawing.Font(System.Drawing.FontFamily.GenericSansSerif, Size, style); }
+        }
+
+        public static FontSpec From(System.Drawing.Font font) => new FontSpec
+        {
+            Name = font.Name, Size = font.SizeInPoints, Bold = font.Bold, Italic = font.Italic,
+        };
+
+        /// <summary>"Segoe UI Bold 11 pt", as ClipX 1 described fonts.</summary>
+        public override string ToString() =>
+            Name + (Bold ? " Bold" : "") + (Italic ? " Italic" : "") + " " + Math.Round(Size, 1) + " pt";
+    }
+
+    /// <summary>How the text is shown (ClipX 1's Display page).</summary>
+    public sealed class DisplaySettings
+    {
+        /// <summary>The font for plain text (rich text keeps its own fonts).</summary>
+        public FontSpec ProportionalFont { get; set; } = FontSpec.DefaultProportional;
+        /// <summary>The fixed-width font, for plain text laid out in columns.</summary>
+        public FontSpec FixedFont { get; set; } = FontSpec.DefaultFixed;
+        /// <summary>Show plain text in the fixed-width font (right-click on Options toggles it, as in ClipX 1).</summary>
+        public bool UseFixedFont { get; set; }
+        /// <summary>Wrap long lines in the window (display only: the text itself is unchanged).</summary>
+        public bool WordWrap { get; set; } = true;
+
+        public FontSpec CurrentFont => UseFixedFont ? FixedFont : ProportionalFont;
+    }
+
+    /// <summary>Spelling checker options (the side panel and the Options dialog).</summary>
     public sealed class SpellingSettings
     {
         /// <summary>Hunspell dictionary name, e.g. en_GB.</summary>
@@ -123,8 +216,21 @@ namespace ClipX2.UI
         public string Service { get; set; } = "Free";
         /// <summary>For OwnServer.</summary>
         public string ServerUrl { get; set; } = "http://localhost:8081";
-        /// <summary>For Premium: the account email (the API key is stored separately, encrypted: still to do).</summary>
+        /// <summary>For Premium: the account email.</summary>
         public string Username { get; set; } = "";
+        /// <summary>
+        /// For Premium: the API key, encrypted so that only this Windows user can read it (see
+        /// <see cref="SecretStore"/>). Use <see cref="ApiKey"/>.
+        /// </summary>
+        public string ApiKeyProtected { get; set; } = "";
+
+        /// <summary>The API key in plain text (not saved as such).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string ApiKey
+        {
+            get => SecretStore.Unprotect(ApiKeyProtected);
+            set => ApiKeyProtected = SecretStore.Protect(value);
+        }
         /// <summary>Rules the user chose to ignore (LanguageTool rule ids).</summary>
         public System.Collections.Generic.List<string> DisabledRules { get; set; } = new System.Collections.Generic.List<string>();
         /// <summary>LanguageTool's stricter "picky" rules too.</summary>

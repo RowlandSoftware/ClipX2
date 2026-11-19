@@ -5,7 +5,8 @@ using System.Linq;
 namespace ClipX2.TextEngine.Spelling
 {
     /// <summary>
-    /// Puts the dictionary's suggestions in a better order using what the user has written:
+    /// Puts the dictionary's suggestions in a better order using what the user has written
+    /// (and, more weakly, how common words are: see <see cref="WordFrequencies"/>):
     /// words in the text (the more often, the stronger), corrections accepted earlier in the
     /// session, and other forms of either (adversary → adversaries, adversary's). Such words
     /// are also added when the dictionary didn't suggest them, if they are close enough to the
@@ -29,14 +30,42 @@ namespace ClipX2.TextEngine.Spelling
         /// <summary>A word in the text: 0.5 if used once, rising with use, at most 0.9.</summary>
         private static double TextBonus(int count) => Math.Min(0.9, 0.5 + 0.1 * Math.Log(count));
 
+        /// <summary>
+        /// Two kinds of evidence together: the stronger, and a quarter of the weaker (a word in
+        /// the text that is also common is a little more likely, but the bonuses don't simply add up).
+        /// </summary>
+        private static double Combine(double a, double b) => Math.Max(a, b) + 0.25 * Math.Min(a, b);
+
+        /// <summary>
+        /// Two neighbouring letters swapped (wnet → went) is the commonest typing slip, so a
+        /// suggestion that undoes one swap gets this much more (in edits), on top of any other
+        /// evidence: enough that a common word one other edit away (net, wet) doesn't pass it.
+        /// </summary>
+        private const double SwapBonus = 0.5;
+
+        /// <summary>True if <paramref name="b"/> is <paramref name="a"/> with two neighbouring letters swapped.</summary>
+        private static bool IsOneSwap(string a, string b)
+        {
+            if (a.Length != b.Length) return false;
+            int i = 0;
+            while (i < a.Length && a[i] == b[i]) i++;
+            return i + 1 < a.Length && a[i] == b[i + 1] && a[i + 1] == b[i] && string.CompareOrdinal(a, i + 2, b, i + 2, a.Length - i - 2) == 0;
+        }
+
         /// <param name="typo">The flagged word.</param>
         /// <param name="suggestions">The dictionary's suggestions, best first.</param>
         /// <param name="textWords">Words in the text with how often each occurs (see <see cref="CountWords"/>).</param>
         /// <param name="accepted">Corrections accepted this session.</param>
         /// <param name="isCorrect">The dictionary's verdict, for words not among its suggestions.</param>
         /// <param name="max">How many to return.</param>
+        /// <param name="frequencies">
+        /// How common words are, if known for the language: a smaller bonus than the text's
+        /// (up to 0.45 of an edit), so among suggestions about as close as each other, common
+        /// words come first; words not in the table keep the dictionary's order after them.
+        /// </param>
         public static IReadOnlyList<string> Rank(string typo, IReadOnlyList<string> suggestions,
-            IReadOnlyDictionary<string, int> textWords, IEnumerable<string> accepted, Func<string, bool> isCorrect, int max)
+            IReadOnlyDictionary<string, int> textWords, IEnumerable<string> accepted, Func<string, bool> isCorrect, int max,
+            WordFrequencies frequencies = null)
         {
             string target = Key(typo);
             if (target.Length == 0) return suggestions.Take(max).ToList();
@@ -75,12 +104,17 @@ namespace ClipX2.TextEngine.Spelling
             var plain = new List<(string Word, int Distance)>();      // no evidence: dictionary order
             var backed = new List<(string Word, double Score, int Order)>();
             int order = 0;
+            // How common the word is; not for a name when the typo is a common word (Rivers is not rivers)
+            bool typoLower = typo.Length > 0 && char.IsLower(typo[0]);
+            double Common(string word) => typoLower && word.Length > 0 && char.IsUpper(word[0]) ? 0 : frequencies?.Bonus(word) ?? 0;
             foreach (string s in suggestions)
             {
                 string key = Key(s);
                 if (!seen.Add(key)) continue;
                 int d = Distance(target, key);
-                if (bonus.TryGetValue(key, out double b)) backed.Add((s, d - b, order));
+                bonus.TryGetValue(key, out double b);
+                double total = Combine(b, Common(s)) + (IsOneSwap(target, key) ? SwapBonus : 0);
+                if (total > 0) backed.Add((s, d - total, order));
                 else plain.Add((s, d));
                 order++;
             }
@@ -93,7 +127,7 @@ namespace ClipX2.TextEngine.Spelling
                 string form = shown[e.Key];
                 if (!isCorrect(form)) continue;
                 seen.Add(e.Key);
-                backed.Add((SpellChecker.MatchCase(typo, form), d - e.Value, order++));
+                backed.Add((SpellChecker.MatchCase(typo, form), d - Combine(e.Value, Common(form)) - (IsOneSwap(target, e.Key) ? SwapBonus : 0), order++));
             }
             backed.Sort((a, b) => a.Score != b.Score ? a.Score.CompareTo(b.Score) : a.Order.CompareTo(b.Order));
 

@@ -372,6 +372,11 @@ public class ClipXRichTextBox : RichTextBox
                     goto Handle; // jump to shared
             }
         }
+        else if (e.KeyCode == Keys.F3 && e.Shift && !e.Alt && SelectionLength > 0)
+        {
+            CycleCase(); // replaces RichEdit's own Shift+F3, which is misled by a part-selected first word
+            goto Handle;
+        }
         base.OnKeyDown(e);
         return; // no match - exit
 
@@ -391,8 +396,91 @@ public class ClipXRichTextBox : RichTextBox
         int sellength = SelectionLength;
         if (sellength == 0) return;
 
-        string selected = SelectedText;
-        string transformed = CaseTransformer.Transform(Text, selstart, sellength, mode);
+        ReplaceSelection(SelectedText, CaseTransformer.Transform(Text, selstart, sellength, mode));
+    }
+
+    /// <summary>
+    /// Shift+F3: steps the selection through Sentence case → Init Caps → ALL CAPS → lower case. The current case is
+    /// judged from the whole words in the selection: if it starts partway through a word, that
+    /// fragment can't show Init Caps (its first letter is mid-word, so stays lower case), so it is
+    /// judged from the next word on. Otherwise every press would see "lower" and repeat Init Caps.
+    /// </summary>
+    public void CycleCase()
+    {
+        int selstart = SelectionStart, sellength = SelectionLength;
+        if (sellength == 0) return;
+
+        string text = Text;
+        string selected = text.Substring(selstart, sellength);
+        int skip = PartWordLength(text, selstart, sellength);
+
+        bool withinWord = skip == 0 && selstart > 0 && IsWordChar(text[selstart - 1]) && IsWordChar(text[selstart]);
+
+        // The current state is the first in the cycle that the selection already matches
+        // (forced Init Caps, so a stray capital doesn't stop the cycle)
+        CaseCycleState[] cycle = SentenceCycle;
+        var results = new string[cycle.Length];
+        int current = -1;
+        for (int i = 0; i < cycle.Length; i++)
+        {
+            results[i] = cycle[i] == CaseCycleState.SentenceCase
+                ? SentenceCase(text, selstart, sellength, skip, withinWord)
+                : CaseTransformer.Transform(text, selstart, sellength, ToMode(cycle[i]), keepCapitals: false);
+            if (current < 0 && string.CompareOrdinal(results[i], skip, selected, skip, sellength - skip) == 0) current = i;
+        }
+
+        // The next state that changes something (one word: Sentence case and Init Caps are the
+        // same); none matched (mixed case): Sentence case first
+        for (int step = 1; step <= cycle.Length; step++)
+        {
+            string result = results[(current + step + cycle.Length) % cycle.Length];
+            if (result != selected) { ReplaceSelection(selected, result); return; }
+        }
+    }
+
+    /// <summary>
+    /// Sentence case for Shift+F3: a capital on the selection's first whole word, whether or not it
+    /// starts a sentence, and at sentence starts within it; everything else lower case. A part-word
+    /// at the start stays lower case.
+    /// </summary>
+    private static string SentenceCase(string text, int start, int length, int skip, bool withinWord)
+    {
+        string lower = text.Substring(start, length).ToLowerInvariant();
+        if (withinWord) return lower;
+        char[] chars = CaseTransformer.Transform(text, start, length, CaseMode.Sentence).ToCharArray();
+        for (int i = 0; i < skip; i++) chars[i] = lower[i];
+        for (int i = skip; i < chars.Length; i++)
+            if (char.IsLetter(chars[i])) { chars[i] = char.ToUpperInvariant(chars[i]); break; }
+        return new string(chars);
+    }
+
+    private static CaseMode ToMode(CaseCycleState state) => state switch
+    {
+        CaseCycleState.SentenceCase => CaseMode.Sentence,
+        CaseCycleState.InitCaps => CaseMode.InitCaps,
+        CaseCycleState.AllCaps => CaseMode.Upper,
+        _ => CaseMode.Lower,
+    };
+
+    /// <summary>
+    /// How much of the selection is the tail of a word begun before it: up to the first character
+    /// that isn't part of a word. 0 if the selection starts at a word start, or lies within a single
+    /// word (then there is nothing else to judge by).
+    /// </summary>
+    private static int PartWordLength(string text, int start, int length)
+    {
+        if (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(text[start])) return 0;
+        int i = start;
+        while (i < start + length && IsWordChar(text[i])) i++;
+        return i < start + length ? i - start : 0;
+    }
+
+    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '\'' || c == '’';
+
+    /// <summary>Writes a same-length case change over the selection (keeping formatting in RTF mode) and reselects it.</summary>
+    private void ReplaceSelection(string selected, string transformed)
+    {
+        int selstart = SelectionStart, sellength = SelectionLength;
         if (selected == transformed) return;
 
         bool isRtfMode = IsRtfModeGetter?.Invoke() ?? false;
@@ -579,6 +667,8 @@ public class ClipXRichTextBox : RichTextBox
     /// Runs a set of TOM edits with repainting and change notifications off, as one Undo step,
     /// then raises TextChanged once. Returns false (doing nothing) if TOM isn't available.
     /// </summary>
+    internal bool EditDocument(Action<ITextDocument> edit) => EditWithTom(edit); // for tools outside the control (lists)
+
     private bool EditWithTom(Action<ITextDocument> edit)
     {
         ITextDocument doc = null;

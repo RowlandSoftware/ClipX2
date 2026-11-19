@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -36,6 +37,8 @@ namespace ClipX2.UI.Panels
         private int _found;           // issues shown in this check
         private bool _oldHideSelection;
         private int _findTicket;      // a newer search makes an older (waiting) one give up
+        private bool _checking;       // a check is under way (an issue shown, or waiting for grammar results)
+        private int _searchPos;       // where the current search is looking from
         private readonly string _ignoreAllText;
 
         /// <summary>The issue being shown: a spelling one (Hunspell) or a grammar one (LanguageTool).</summary>
@@ -71,6 +74,10 @@ namespace ClipX2.UI.Panels
                 if (listBoxSuggestions.SelectedItem is string w) textBoxChangeTo.Text = w;
             };
             listBoxSuggestions.DoubleClick += (s, e) => { if (listBoxSuggestions.SelectedItem != null) Act(Change); };
+            comboLanguage.DrawMode = DrawMode.OwnerDrawFixed;
+            comboLanguage.DrawItem += DrawLanguageItem;
+            // The wheel over the closed list would switch the language at once: only when it is open
+            comboLanguage.MouseWheel += (s, e) => { if (!comboLanguage.DroppedDown && e is HandledMouseEventArgs h) h.Handled = true; };
             comboLanguage.SelectionChangeCommitted += async (s, e) => await ChangeLanguage();
 
             // The word in question, over the right half of labelKind; a click copies it to "Change to"
@@ -79,18 +86,33 @@ namespace ClipX2.UI.Panels
             labelWord.Click += (s, e) => CopyWordToChangeTo();
             TextBoxKeys.Attach(textBoxChangeTo); // Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T, as in the editor
 
-            // Definitions (Wiktionary) beside the panel, when the user clicks a suggestion or "Change to"
-            listBoxSuggestions.MouseUp += (s, e) => LookUpSuggestion();
+            // Definitions (Wiktionary) beside the panel: a right-click on a suggestion or on
+            // "Change to" opens them (the menu key or Shift+F10 too); once open, they follow the
+            // selected suggestion and what is typed
+            listBoxSuggestions.MouseUp += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Right)
+                {
+                    int index = listBoxSuggestions.IndexFromPoint(e.Location);
+                    if (index >= 0) listBoxSuggestions.SelectedIndex = index;
+                    LookUpSuggestion();
+                }
+                else if (DefinitionsOpen) LookUpSuggestion();
+            };
             listBoxSuggestions.KeyUp += (s, e) =>
             {
-                if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.PageUp ||
-                    e.KeyCode == Keys.PageDown || e.KeyCode == Keys.Home || e.KeyCode == Keys.End)
+                if (e.KeyCode == Keys.Apps || (e.KeyCode == Keys.F10 && e.Shift)) { LookUpSuggestion(); return; }
+                if (DefinitionsOpen && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.PageUp ||
+                    e.KeyCode == Keys.PageDown || e.KeyCode == Keys.Home || e.KeyCode == Keys.End))
                     LookUpSuggestion();
             };
-            textBoxChangeTo.MouseUp += (s, e) => LookUp(textBoxChangeTo.Text);
+            // The text box's own menu (cut, copy, paste) gives way to the look-up; the keys still work
+            var lookUpMenu = new ContextMenuStrip();
+            lookUpMenu.Opening += (s, e) => { e.Cancel = true; LookUp(textBoxChangeTo.Text); };
+            textBoxChangeTo.ContextMenuStrip = lookUpMenu;
             textBoxChangeTo.TextChanged += (s, e) =>
             {
-                if (!textBoxChangeTo.Focused || _definitions == null || !_definitions.Visible) return;
+                if (!textBoxChangeTo.Focused || !DefinitionsOpen) return;
                 _typingPause.Stop(); // typing: look up when the user pauses
                 _typingPause.Start();
             };
@@ -101,6 +123,7 @@ namespace ClipX2.UI.Panels
                 _settings.SmartReplace = checkBoxSmartReplace.Checked;
                 AppSettings.Current.Save();
             };
+            checkBoxGrammar.CheckedChanged += (s, e) => GrammarBoxChanged();
 
             ShowFinished(null);
         }
@@ -141,14 +164,41 @@ namespace ClipX2.UI.Panels
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
             FillLanguages(_spell?.Dictionary.Locale ?? _settings.Language);
+            _settings = AppSettings.Current.Spelling; // a new object after Import settings
+            checkBoxSmartReplace.Checked = _settings.SmartReplace; // may have been changed in Options
+            ShowGrammarSetting();
         }
+
+        /// <summary>
+        /// A dictionary in the language list: shown by name, in full in the list ("English
+        /// (United Kingdom)") and short in the narrow box ("English (GB)"); its file name
+        /// (en_GB) in the tooltip.
+        /// </summary>
+        private sealed class LanguageItem
+        {
+            public string Locale;
+            public string Full;
+            public string Short;
+            public override string ToString() => Full;
+        }
+
+        private static string LocaleOf(object item) => (item as LanguageItem)?.Locale ?? item as string;
 
         private void FillLanguages(string selected)
         {
             comboLanguage.BeginUpdate();
             comboLanguage.Items.Clear();
-            foreach (string l in _languages()) comboLanguage.Items.Add(l);
+            var items = _languages()
+                .Select(l => new LanguageItem { Locale = l, Full = DictionaryCatalogue.DescribeLocale(l), Short = DictionaryCatalogue.ShortLocale(l) })
+                .OrderBy(i => i.Full, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            foreach (LanguageItem item in items) comboLanguage.Items.Add(item);
             comboLanguage.Items.Add(MoreLanguagesItem);
+            // The list is as wide as its longest name, though the box is narrow
+            int widest = comboLanguage.Width;
+            foreach (object item in comboLanguage.Items)
+                widest = Math.Max(widest, TextRenderer.MeasureText(item.ToString(), comboLanguage.Font).Width + SystemInformation.VerticalScrollBarWidth + 8);
+            comboLanguage.DropDownWidth = widest;
             SelectLanguage(selected);
             comboLanguage.EndUpdate();
         }
@@ -156,11 +206,27 @@ namespace ClipX2.UI.Panels
         private void SelectLanguage(string locale)
         {
             foreach (object item in comboLanguage.Items)
-                if (string.Equals((string)item, locale, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(LocaleOf(item), locale, StringComparison.OrdinalIgnoreCase))
                 {
                     comboLanguage.SelectedItem = item;
+                    toolTip.SetToolTip(comboLanguage, item is LanguageItem li ? $"{li.Full} ({li.Locale})" : "");
                     return;
                 }
+        }
+
+        /// <summary>The full name in the list, the short one in the box itself.</summary>
+        private void DrawLanguageItem(object sender, DrawItemEventArgs e)
+        {
+            e.DrawBackground();
+            if (e.Index >= 0)
+            {
+                object item = comboLanguage.Items[e.Index];
+                bool inBox = (e.State & DrawItemState.ComboBoxEdit) != 0;
+                string text = item is LanguageItem li ? (inBox ? li.Short : li.Full) : item.ToString();
+                TextRenderer.DrawText(e.Graphics, text, e.Font, e.Bounds, e.ForeColor,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            }
+            e.DrawFocusRectangle();
         }
 
         protected internal override void OnDeactivated()
@@ -168,6 +234,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _findTicket++;   // a search waiting for grammar gives up
             CancelGrammar(); // and no more of the text is sent
+            _checking = false;
             _box.HideSelection = _oldHideSelection;
             _box.ClearMarker();
             HideDefinitions();
@@ -198,6 +265,7 @@ namespace ClipX2.UI.Panels
             }
 
             _found = 0;
+            _checking = true;
             if (selLen > 0)
             {
                 _limitEnd = selStart + selLen;  // check the selection only
@@ -230,6 +298,7 @@ namespace ClipX2.UI.Panels
             {
                 string text = _box.Text;
                 int stop = _limitEnd >= 0 ? _limitEnd : (_secondPass ? _startPos : text.Length);
+                _searchPos = pos;
                 PanelIssue issue = NextIssue(text, pos, stop, out bool wait);
                 if (wait)
                 {
@@ -361,6 +430,7 @@ namespace ClipX2.UI.Panels
         private void ShowFinished(string message)
         {
             _issue = null;
+            _checking = false;
             _box?.ClearMarker();
             labelWord.Visible = false;
             HideDefinitions();
@@ -483,6 +553,9 @@ namespace ClipX2.UI.Panels
         private DefinitionPopup _definitions;
         private CancellationTokenSource _lookupCancel;
         private readonly System.Windows.Forms.Timer _typingPause = new System.Windows.Forms.Timer { Interval = 600 };
+
+        /// <summary>The definitions box is showing (so it follows the selection and typing).</summary>
+        private bool DefinitionsOpen => _definitions != null && _definitions.Visible && _definitions.Word != null;
 
         private void LookUpSuggestion()
         {
@@ -663,7 +736,8 @@ namespace ClipX2.UI.Panels
 
         private async Task ChangeLanguage()
         {
-            if (_loader == null || !(comboLanguage.SelectedItem is string locale)) return;
+            string locale = LocaleOf(comboLanguage.SelectedItem);
+            if (_loader == null || locale == null) return;
             if (locale == MoreLanguagesItem)
             {
                 SelectLanguage(_spell?.Dictionary.Locale ?? _settings.Language); // put the list back
@@ -672,8 +746,9 @@ namespace ClipX2.UI.Panels
                 return;
             }
             if (_spell != null && _spell.Dictionary.Locale == locale) return;
-            int from = _issue?.Start ?? _box.SelectionStart;
-            bool checking = _issue != null;
+            // A check under way (even one waiting for grammar results) goes on in the new language
+            bool checking = _checking;
+            int from = _issue?.Start ?? (checking ? _searchPos : _box.SelectionStart);
             string kind = labelKind.Text;
             labelKind.Text = "Loading dictionary…";
             try { _spell = await _loader(locale); }
@@ -683,9 +758,10 @@ namespace ClipX2.UI.Panels
             labelKind.Text = checking ? kind : "";
             if (checking)
             {
-                StartGrammar(from, _limitEnd); // in the new language
+                StartGrammar(from, _limitEnd); // in the new language (the old request is cancelled)
                 FindFrom(from);
             }
+            else CancelGrammar(); // results kept from the old language would be no use
         }
 
         /// <summary>Enter in "Change to" (or on the list) = Change.</summary>
@@ -913,15 +989,17 @@ namespace ClipX2.UI.Panels
         private LanguageToolChecker GrammarChecker(GrammarSettings settings)
         {
             if (!Enum.TryParse(settings.Service, true, out LanguageToolService service)) service = LanguageToolService.Free;
-            if (service == LanguageToolService.Premium) service = LanguageToolService.Free; // the key isn't stored yet (Options dialog to come)
+            string apiKey = service == LanguageToolService.Premium ? settings.ApiKey : "";
             string language = LanguageToolChecker.LanguageCode(_spell.Dictionary.Locale);
-            string key = $"{service}|{settings.ServerUrl}|{language}|{settings.Picky}";
+            string key = $"{service}|{settings.ServerUrl}|{settings.Username}|{apiKey}|{language}|{settings.Picky}";
             if (_grammarChecker == null || _grammarKey != key)
             {
                 _grammarChecker = new LanguageToolChecker(new LanguageToolOptions
                 {
                     Service = service,
                     ServerUrl = settings.ServerUrl,
+                    Username = settings.Username,
+                    ApiKey = apiKey,
                     Language = language,
                     DisabledRules = settings.DisabledRules, // the settings' own list: rules ignored later are sent from then on
                     Picky = settings.Picky,
@@ -949,7 +1027,42 @@ namespace ClipX2.UI.Panels
             if (answer == DialogResult.Yes) settings.ConsentGiven = true;
             else settings.Enabled = false;
             AppSettings.Current.Save();
+            ShowGrammarSetting();
             return settings.ConsentGiven;
+        }
+
+        private bool _showingGrammarSetting;
+
+        /// <summary>The Grammar box shows the setting (Options can change it too).</summary>
+        private void ShowGrammarSetting()
+        {
+            _showingGrammarSetting = true;
+            checkBoxGrammar.Checked = AppSettings.Current.Grammar.Enabled;
+            _showingGrammarSetting = false;
+        }
+
+        /// <summary>
+        /// The Grammar box: switches grammar checking on or off (the same setting as in Options,
+        /// so it is remembered). Ticked, after the user's agreement if not yet given, a check
+        /// under way carries on with grammar from where it is; unticked, grammar stops, and a
+        /// grammar issue on screen gives way to the next spelling one.
+        /// </summary>
+        private void GrammarBoxChanged()
+        {
+            if (_showingGrammarSetting) return;
+            GrammarSettings settings = AppSettings.Current.Grammar;
+            settings.Enabled = checkBoxGrammar.Checked;
+            if (settings.Enabled && !AskConsent(settings)) return; // No: AskConsent has switched it off again
+            AppSettings.Current.Save();
+            if (!_checking || _spell == null)
+            {
+                if (!settings.Enabled) CancelGrammar();
+                return;
+            }
+            int from = _issue?.Start ?? _searchPos;
+            if (settings.Enabled) StartGrammar(from, _limitEnd);
+            else CancelGrammar();
+            FindFrom(from);
         }
     }
 }
