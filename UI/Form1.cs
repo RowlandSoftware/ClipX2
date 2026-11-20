@@ -32,8 +32,13 @@ namespace ClipX2
             toolStripButtonSpellcheck.Click += (s, e) => SpellNext();
 
             // The side panel: tool views, or button descriptions on hover (in place of tooltips)
-            var statusHint = new ToolStripLabel { Name = "toolStripLabelHint" };
-            toolStrip3.Items.Add(statusHint);
+            // Status messages (as ClipX 1's labStatus) and descriptions while a panel is open go in
+            // the bottom bar's status label, which fills the space between the search and Finish
+            var statusHint = toolStripLabelStatus;
+            toolStrip3.LayoutCompleted += (s, e) => FitStatusLabel();
+            _quickSearch = new QuickSearch(richTextBox1, toolStripComboBox1,
+                toolStripCheckBoxMatchCase, toolStripCheckBoxWholeWords, toolStripButtonFindAll,
+                toolStripButtonFindPrevious, toolStripButtonFindNext, ShowStatus);
             _panels = new ClipX2.UI.Panels.SidePanelHost(panel1, statusHint);
             _panels.AttachHoverHelp(this);
 
@@ -44,9 +49,13 @@ namespace ClipX2
 
             // Any tool button closes an open options panel, unless it is that panel's own tool, or
             // it opens its own panel (which replaces it). First, so it runs before the tools do.
-            foreach (ToolStrip strip in new[] { toolStripCase, toolStrip4, toolStrip2, toolStrip5 })
+            foreach (ToolStrip strip in new[] { toolStripCase, toolStrip4, toolStrip2, toolStrip5, toolStrip6 })
                 foreach (ToolStripItem item in strip.Items)
-                    if (item.Tag is string toolTag) item.MouseUp += (s, e) => CloseOtherOptions(toolTag, e);
+                    if (item.Tag is string toolTag) item.MouseUp += (s, e) =>
+                    {
+                        if (e.Button is MouseButtons.Left or MouseButtons.Right) _quickSearch.Deactivate(); // Find all's highlights go
+                        CloseOtherOptions(toolTag, e);
+                    };
 
             // Lists: a click shows the options in the side panel; a right-click applies the last used
             _statusHint = statusHint;
@@ -56,12 +65,44 @@ namespace ClipX2
             foreach (ToolStripItem item in toolStrip5.Items)
                 if (item.Tag is string tag) item.MouseUp += (s, e) => FormatButton(tag, e);
 
+            // Edit: decoders (no options: a click or right-click decodes at once)
+            foreach (ToolStripItem item in toolStrip6.Items)
+                if (item.Tag is string tag) item.MouseUp += (s, e) => EditButton(tag, e);
+
             // Remove: no options, so a click or right-click removes at once
             toolStripButtonLiRMB.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(ListTools.RemoveBullets(richTextBox1, _isRtfMode, AppSettings.Current.BulletList)); };
             toolStripButtonLiREM.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(ListTools.RemoveNumbers(richTextBox1, _isRtfMode, AppSettings.Current.NumList)); };
+
+            // Statistics: in the side panel (click or right-click); found by its tag
+            foreach (ToolStripItem item in toolStrip2.Items)
+                if (item.Tag as string == "chSTAT")
+                    item.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatistics(); };
+
+            // Line numbers: options in the side panel, right-click = last used; Remove acts at once
+            toolStripButtonLiRen.MouseUp += (s, e) => LineNumbersButton(e);
+            toolStripButtonLiRLN.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(FormatTools.RemoveLineNumbers(richTextBox1)); };
+        }
+
+        /// <summary>Show statistics: the figures in the side panel, kept up to date while it is open.</summary>
+        private void ShowStatistics()
+        {
+            var panel = _panels.Show<ClipX2.UI.Panels.StatisticsPanel>();
+            if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode);
+        }
+
+        /// <summary>Line numbers: a click opens its options in the side panel; a right-click numbers at once with the last used.</summary>
+        private void LineNumbersButton(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right) ShowStatus(FormatTools.LineNumbers(richTextBox1, AppSettings.Current.NumLines));
+            else if (e.Button == MouseButtons.Left)
+            {
+                var panel = _panels.Show<ClipX2.UI.Panels.LineNumbersPanel>();
+                if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode, ShowStatus);
+            }
         }
 
         private readonly ToolStripLabel _statusHint;
+        private readonly QuickSearch _quickSearch;
 
         /*********** Lists ****************/
 
@@ -99,10 +140,12 @@ namespace ClipX2
         {
             "liBUL" => typeof(ClipX2.UI.Panels.BulletListPanel),
             "liNUM" => typeof(ClipX2.UI.Panels.NumberListPanel),
-            "foIND" or "foUNI" => typeof(ClipX2.UI.Panels.IndentPanel),
+            "liREN" => typeof(ClipX2.UI.Panels.LineNumbersPanel),
+            "foIND" => typeof(ClipX2.UI.Panels.IndentPanel),
             "foWRP" => typeof(ClipX2.UI.Panels.WordWrapPanel),
             "foREM" => typeof(ClipX2.UI.Panels.RemoveLinesPanel),
             "chSPE" => typeof(ClipX2.UI.Panels.SpellingPanel),
+            "chSTAT" => typeof(ClipX2.UI.Panels.StatisticsPanel),
             _ => null,
         };
 
@@ -120,6 +163,25 @@ namespace ClipX2
             if (own == open.GetType()) return;                     // the same tool again
             if (own != null && e.Button == MouseButtons.Left) return; // its panel replaces this one
             _panels.Close();
+        }
+
+        /*********** Edit ****************/
+
+        /// <summary>An Edit button: acts at once on a click or right-click.</summary>
+        private void EditButton(string tag, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
+            var box = richTextBox1;
+            switch (tag)
+            {
+                case "edUDC": ShowStatus(FormatTools.DecodeUrl(box)); break;
+                case "edHDC": ShowStatus(FormatTools.DecodeHtml(box)); break;
+                case "edUTF": ShowStatus(FormatTools.DecodeUtf8(box)); break;
+                case "edMIM": ShowStatus(FormatTools.DecodeMime(box)); break;
+                case "edPLA": ShowStatus(FormatTools.PlainCharacters(box)); break;
+                case "edCRL": ShowStatus(FormatTools.CurlyQuotes(box)); break;
+                case "edEOL": ShowStatus(FormatTools.RegulariseLineEnds(box)); break;
+            }
         }
 
         /*********** Format ****************/
@@ -144,9 +206,8 @@ namespace ClipX2
                 case "foS2T": ShowStatus(FormatTools.SpacesToTabs(box)); break;
                 case "foPAR": ShowStatus(FormatTools.Paragraph(box)); break;
 
-                case "foIND":
-                case "foUNI":
-                    if (right) ShowStatus(tag == "foIND" ? FormatTools.Indent(box, s.Indent) : FormatTools.Unindent(box, s.Indent));
+                case "foIND": // Indent / Unindent: a right-click repeats the last of the two, with the last settings
+                    if (right) ShowStatus(s.Indent.Unindent ? FormatTools.Unindent(box, s.Indent) : FormatTools.Indent(box, s.Indent));
                     else
                     {
                         var panel = _panels.Show<ClipX2.UI.Panels.IndentPanel>();
@@ -170,6 +231,20 @@ namespace ClipX2
                     }
                     break;
             }
+        }
+
+        /// <summary>
+        /// Widens the status label to fill the bottom bar between the left-hand items (search) and
+        /// the right-hand ones (Finish), so a long message doesn't push items into the overflow.
+        /// </summary>
+        private void FitStatusLabel()
+        {
+            ToolStripLabel label = toolStripLabelStatus;
+            int used = 0;
+            foreach (ToolStripItem item in toolStrip3.Items)
+                if (item != label && item.Available) used += item.Width + item.Margin.Horizontal;
+            int width = Math.Max(0, toolStrip3.DisplayRectangle.Width - used - label.Margin.Horizontal - 1);
+            if (label.Width != width) label.Width = width; // lays out again, then unchanged
         }
 
         /// <summary>A short message in the status bar (as ClipX 1's labStatus).</summary>
@@ -252,7 +327,19 @@ namespace ClipX2
                     Done();
                     return true;
                 case Keys.F7:                             // next spelling issue (as Word)
+                    _quickSearch.Deactivate();
                     SpellNext();
+                    return true;
+                case Keys.Control | Keys.F:               // Quick search
+                    _quickSearch.Activate();
+                    return true;
+                // Next / previous match while Quick search is active (Search and Replace will do the
+                // same when it is active); otherwise Shift+F3 goes on to the text box: cycle case
+                case Keys.F3 when _quickSearch.IsActive:
+                    _quickSearch.FindNext(forward: true);
+                    return true;
+                case Keys.Shift | Keys.F3 when _quickSearch.IsActive:
+                    _quickSearch.FindNext(forward: false);
                     return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
@@ -548,16 +635,7 @@ namespace ClipX2
             }
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
             ApplyDisplaySettings();
-        }
-
-        private void toolStripCase_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
-        {
-
-        }
-
-        private void tabLists_Click(object sender, EventArgs e)
-        {
-
+            _panels.Current?.OnModeChanged(); // an open panel shows what applies in the new mode
         }
     }
 }

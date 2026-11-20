@@ -25,7 +25,6 @@ namespace ClipX2.UI.Panels
             comboText.TextChanged += (s, e) => { if (!_loading && comboText.Focused) radioText.Checked = true; OptionsChanged(); };
             buttonIndent.Click += (s, e) => Apply(indent: true);
             buttonUnindent.Click += (s, e) => Apply(indent: false);
-            buttonClose.Click += (s, e) => RequestClose();
         }
 
         /// <summary>Connects the panel to the editor; once, after creation.</summary>
@@ -85,7 +84,8 @@ namespace ClipX2.UI.Panels
         {
             if (_box == null) return;
             IndentOptions o = Options();
-            AppSettings.Current.Indent = o; // the last used: a right-click on either button applies them
+            o.Unindent = !indent;           // a right-click on the button repeats this one
+            AppSettings.Current.Indent = o; // with these settings
             AppSettings.Current.Save();
             _status?.Invoke(indent ? FormatTools.Indent(_box, o) : FormatTools.Unindent(_box, o));
         }

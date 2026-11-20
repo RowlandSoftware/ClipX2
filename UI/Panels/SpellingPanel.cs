@@ -67,7 +67,6 @@ namespace ClipX2.UI.Panels
             buttonChangeAll.Click += (s, e) => Act(ChangeAll);
             buttonAdd.Click += (s, e) => Act(AddToDictionary);
             buttonDelete.Click += (s, e) => Act(Delete);
-            buttonClose.Click += (s, e) => RequestClose();
 
             listBoxSuggestions.SelectedIndexChanged += (s, e) =>
             {
@@ -440,7 +439,7 @@ namespace ClipX2.UI.Panels
             buttonIgnoreAll.Text = _ignoreAllText;
             SetButtons(false, false, false);
             labelKind.Text = message ?? "";
-            if (message != null) buttonClose.Focus();
+            if (message != null) FocusCloseButton();
         }
 
         private string FinishedMessage()
@@ -695,7 +694,7 @@ namespace ClipX2.UI.Panels
         /// <summary>Deletes the range with one space beside it, so no double space is left (as for a word).</summary>
         private static TextEdit DeleteRange(string text, int s, int e)
         {
-            bool IsSpace(char c) => c == ' ' || c == '\t' || c == ' ';
+            bool IsSpace(char c) => c == ' ' || c == '\t' || c == (char)0x00A0;
             if (s > 0 && IsSpace(text[s - 1]))
                 while (s > 0 && IsSpace(text[s - 1])) s--;
             else

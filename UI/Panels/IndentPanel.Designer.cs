@@ -28,7 +28,6 @@ namespace ClipX2.UI.Panels
             labelNote = new System.Windows.Forms.Label();
             buttonIndent = new System.Windows.Forms.Button();
             buttonUnindent = new System.Windows.Forms.Button();
-            buttonClose = new System.Windows.Forms.Button();
             toolTip = new System.Windows.Forms.ToolTip(components);
             tableLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numericSpaces).BeginInit();
@@ -51,7 +50,6 @@ namespace ClipX2.UI.Panels
             tableLayout.Controls.Add(labelNote, 0, 7);
             tableLayout.Controls.Add(buttonIndent, 0, 9);
             tableLayout.Controls.Add(buttonUnindent, 1, 9);
-            tableLayout.Controls.Add(buttonClose, 1, 10);
             tableLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             tableLayout.Location = new System.Drawing.Point(0, 0);
             tableLayout.Name = "tableLayout";
@@ -79,7 +77,7 @@ namespace ClipX2.UI.Panels
             labelTitle.Margin = new System.Windows.Forms.Padding(3, 0, 3, 6);
             labelTitle.Name = "labelTitle";
             labelTitle.TabIndex = 0;
-            labelTitle.Text = "Indent";
+            labelTitle.Text = "Indent / Unindent";
             //
             // labelWith
             //
@@ -186,15 +184,6 @@ namespace ClipX2.UI.Panels
             buttonUnindent.Text = "&Unindent";
             buttonUnindent.UseVisualStyleBackColor = true;
             //
-            // buttonClose
-            //
-            buttonClose.Dock = System.Windows.Forms.DockStyle.Fill;
-            buttonClose.Name = "buttonClose";
-            buttonClose.Size = new System.Drawing.Size(114, 30);
-            buttonClose.TabIndex = 12;
-            buttonClose.Text = "Close";
-            buttonClose.UseVisualStyleBackColor = true;
-            //
             // IndentPanel
             //
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
@@ -223,7 +212,6 @@ namespace ClipX2.UI.Panels
         private System.Windows.Forms.Label labelNote;
         private System.Windows.Forms.Button buttonIndent;
         private System.Windows.Forms.Button buttonUnindent;
-        private System.Windows.Forms.Button buttonClose;
         private System.Windows.Forms.ToolTip toolTip;
     }
 }

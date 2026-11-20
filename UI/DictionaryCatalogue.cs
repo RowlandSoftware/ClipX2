@@ -40,6 +40,9 @@ namespace ClipX2.UI
         public string RemoteFolder { get; set; } = "";
         /// <summary>The git hash of the collection's .dic, to tell whether an installed copy is the same.</summary>
         public string RemoteDicHash { get; set; } = "";
+        /// <summary>The language's hyphenation dictionary in the collection (hyph_de_DE.dic…), and its README; "" if none.</summary>
+        public string RemoteHyph { get; set; } = "";
+        public string RemoteHyphReadme { get; set; } = "";
     }
 
     /// <summary>
@@ -52,7 +55,9 @@ namespace ClipX2.UI
     /// (GitHub allows 60 an hour without an account: plenty, as it is fetched once a run, on
     /// request). Each dictionary is its .aff and .dic, saved under LibreOffice's names (en_GB,
     /// fr, de_DE_frami…), and its folder's README, saved beside them as name.licence.txt.
-    /// Hyphenation and thesaurus files are left out.
+    /// The language's hyphenation dictionary comes too, where LibreOffice has one (saved as
+    /// name.hyph.dic, its README as name.hyph.licence.txt): Statistics counts syllables with it
+    /// for readability in languages other than English. Thesaurus files are left out.
     ///
     /// The tree gives each file's git hash, so an installed dictionary can be compared with
     /// LibreOffice's current one without downloading it: if they differ, a newer one is offered.
@@ -213,7 +218,10 @@ namespace ClipX2.UI
                     RemoteReadme = FindReadme(files.Keys, path, top, name),
                     RemoteFolder = top,
                     RemoteDicHash = f.Value,
+                    RemoteHyph = FindHyphenation(files.Keys, path, top, name),
                 });
+                DictionaryEntry added = list[list.Count - 1];
+                if (added.RemoteHyph.Length > 0) added.RemoteHyphReadme = FindHyphenationReadme(files.Keys, added.RemoteHyph);
             }
             if (list.Count == 0) throw new InvalidDataException("The list of dictionaries could not be read.");
             _available = list.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -245,6 +253,55 @@ namespace ClipX2.UI
         }
 
         /// <summary>
+        /// The hyphenation dictionary for a spelling dictionary: in its own folder, then its
+        /// language folder; hyph_{name}.dic, else one for its language and region (de_DE_frami →
+        /// hyph_de_DE.dic), else one for its language (fr → hyph_fr.dic, or any hyph_fr_*.dic).
+        /// </summary>
+        private static string FindHyphenation(IEnumerable<string> paths, string dicPath, string top, string name)
+        {
+            string own = dicPath.Contains('/') ? dicPath.Substring(0, dicPath.LastIndexOf('/')) : "";
+            string[] parts = name.Split('_', '-');
+            var wanted = new List<string> { "hyph_" + name + ".dic" };
+            if (parts.Length > 1) wanted.Add("hyph_" + parts[0] + "_" + parts[1] + ".dic");
+            wanted.Add("hyph_" + parts[0] + ".dic");
+            var all = paths.ToList();
+            foreach (string folder in new[] { own, top }.Where(f => f.Length > 0).Distinct())
+            {
+                var inFolder = all.Where(p => p.StartsWith(folder + "/", StringComparison.Ordinal) && p.IndexOf('/', folder.Length + 1) < 0).ToList();
+                foreach (string file in wanted)
+                {
+                    string found = inFolder.FirstOrDefault(p => Path.GetFileName(p).Equals(file, StringComparison.OrdinalIgnoreCase));
+                    if (found != null) return found;
+                }
+                string any = inFolder.FirstOrDefault(p => Path.GetFileName(p).StartsWith("hyph_" + parts[0] + "_", StringComparison.OrdinalIgnoreCase)
+                                                        && p.EndsWith(".dic", StringComparison.OrdinalIgnoreCase));
+                if (any != null) return any;
+            }
+            return "";
+        }
+
+        /// <summary>The README for a hyphenation dictionary (its licence and credits): README_hyph_….txt in its folder.</summary>
+        private static string FindHyphenationReadme(IEnumerable<string> paths, string hyphPath)
+        {
+            string folder = hyphPath.Contains('/') ? hyphPath.Substring(0, hyphPath.LastIndexOf('/')) : "";
+            string stem = Path.GetFileNameWithoutExtension(hyphPath); // hyph_de_DE
+            var inFolder = paths.Where(p => p.StartsWith(folder + "/", StringComparison.Ordinal) && p.IndexOf('/', folder.Length + 1) < 0
+                                         && Path.GetFileName(p).StartsWith("README", StringComparison.OrdinalIgnoreCase)
+                                         && Path.GetFileName(p).IndexOf("hyph", StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+            return inFolder.FirstOrDefault(p => Path.GetFileName(p).IndexOf(stem, StringComparison.OrdinalIgnoreCase) >= 0)
+                ?? inFolder.FirstOrDefault() ?? "";
+        }
+
+        /// <summary>
+        /// True if LibreOffice has a hyphenation dictionary for an installed dictionary's language
+        /// that ClipX would use (readability in a language other than English) and it isn't installed.
+        /// </summary>
+        public static bool LacksHyphenation(string name, DictionaryEntry remote) =>
+            remote != null && remote.RemoteHyph.Length > 0
+            && ClipX2.TextEngine.TextStatistics.NeedsHyphenation(name)
+            && HyphenationFiles.PathFor(name) == null;
+
+        /// <summary>
         /// Downloads a dictionary into the user's folder (replacing any copy there). The files go
         /// in under temporary names and are renamed only when all have arrived, so a failed
         /// download leaves nothing half done.
@@ -258,6 +315,11 @@ namespace ClipX2.UI
                 (entry.RemoteDic, entry.Name + ".dic"),
             };
             if (entry.RemoteReadme.Length > 0) files.Add((entry.RemoteReadme, entry.Name + ".licence.txt"));
+            if (entry.RemoteHyph.Length > 0)
+            {
+                files.Add((entry.RemoteHyph, entry.Name + HyphenationFiles.Extension));
+                if (entry.RemoteHyphReadme.Length > 0) files.Add((entry.RemoteHyphReadme, entry.Name + ".hyph.licence.txt"));
+            }
             var done = new List<(string Temp, string Final)>();
             try
             {
@@ -271,7 +333,9 @@ namespace ClipX2.UI
                     done.Add((temp, Path.Combine(UserFolder, local)));
                 }
                 foreach (var (temp, final) in done) File.Move(temp, final, overwrite: true);
-                progress?.Report($"{entry.Description} installed as {entry.Name}.");
+                HyphenationFiles.Reset();
+                progress?.Report($"{entry.Description} installed as {entry.Name}"
+                    + (entry.RemoteHyph.Length > 0 ? ", with its hyphenation patterns." : "."));
             }
             finally
             {
@@ -283,11 +347,12 @@ namespace ClipX2.UI
         /// <summary>Removes a dictionary from the user's folder (supplied ones can't be removed).</summary>
         public static void Remove(string name)
         {
-            foreach (string ext in new[] { ".aff", ".dic", ".licence.txt" })
+            foreach (string ext in new[] { ".aff", ".dic", ".licence.txt", HyphenationFiles.Extension, ".hyph.licence.txt" })
             {
                 string path = Path.Combine(UserFolder, name + ext);
                 if (File.Exists(path)) File.Delete(path);
             }
+            HyphenationFiles.Reset();
         }
     }
 }

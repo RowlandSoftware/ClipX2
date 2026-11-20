@@ -13,6 +13,8 @@ namespace ClipX2.TextEngine
         public int Spaces { get; set; } = 4;
         /// <summary>With "Text": the text put in front of each line (e.g. "> " to quote).</summary>
         public string Text { get; set; } = "";
+        /// <summary>The last used was Unindent (not Indent): a right-click on the Indent / Unindent button repeats it.</summary>
+        public bool Unindent { get; set; }
 
         /// <summary>One level of indentation.</summary>
         public string IndentText =>
@@ -54,7 +56,7 @@ namespace ClipX2.TextEngine
         /// <summary>Width of the columns a tab reaches (ClipX 1's).</summary>
         public const int TabWidth = 8;
 
-        private static bool IsSpace(char c) => c == ' ' || c == '\t' || c == ' ';
+        private static bool IsSpace(char c) => c == ' ' || c == '\t' || c == (char)0x00A0;
 
         private static bool IsBlank(string text, Line line)
         {

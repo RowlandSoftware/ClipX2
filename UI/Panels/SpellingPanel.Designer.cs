@@ -31,7 +31,6 @@ namespace ClipX2.UI.Panels
             buttonDelete = new System.Windows.Forms.Button();
             checkBoxSmartReplace = new System.Windows.Forms.CheckBox();
             checkBoxGrammar = new System.Windows.Forms.CheckBox();
-            buttonClose = new System.Windows.Forms.Button();
             labelWord = new System.Windows.Forms.Label();
             toolTip = new System.Windows.Forms.ToolTip(components);
             tableLayout.SuspendLayout();
@@ -43,7 +42,7 @@ namespace ClipX2.UI.Panels
             tableLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             tableLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             tableLayout.Controls.Add(labelTitle, 0, 0);
-            tableLayout.Controls.Add(comboLanguage, 1, 0);
+            tableLayout.Controls.Add(comboLanguage, 0, 1);
             tableLayout.Controls.Add(checkBoxGrammar, 1, 1);
             tableLayout.Controls.Add(labelKind, 0, 2);
             tableLayout.Controls.Add(labelChangeTo, 0, 3);
@@ -56,7 +55,6 @@ namespace ClipX2.UI.Panels
             tableLayout.Controls.Add(buttonAdd, 0, 8);
             tableLayout.Controls.Add(buttonDelete, 0, 9);
             tableLayout.Controls.Add(checkBoxSmartReplace, 1, 3);
-            tableLayout.Controls.Add(buttonClose, 1, 9);
             tableLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             tableLayout.Location = new System.Drawing.Point(0, 0);
             tableLayout.Name = "tableLayout";
@@ -225,16 +223,6 @@ namespace ClipX2.UI.Panels
             toolTip.SetToolTip(checkBoxGrammar, "Check grammar too, with LanguageTool (the text is sent to its server)");
             checkBoxGrammar.UseVisualStyleBackColor = true;
             // 
-            // buttonClose
-            // 
-            buttonClose.Dock = System.Windows.Forms.DockStyle.Fill;
-            buttonClose.Location = new System.Drawing.Point(124, 394);
-            buttonClose.Name = "buttonClose";
-            buttonClose.Size = new System.Drawing.Size(114, 31);
-            buttonClose.TabIndex = 13;
-            buttonClose.Text = "Close";
-            buttonClose.UseVisualStyleBackColor = true;
-            // 
             // labelWord
             // 
             labelWord.AutoEllipsis = true;
@@ -279,7 +267,6 @@ namespace ClipX2.UI.Panels
         private System.Windows.Forms.Button buttonChangeAll;
         private System.Windows.Forms.Button buttonAdd;
         private System.Windows.Forms.Button buttonDelete;
-        private System.Windows.Forms.Button buttonClose;
         private System.Windows.Forms.CheckBox checkBoxSmartReplace;
         private System.Windows.Forms.CheckBox checkBoxGrammar;
         private System.Windows.Forms.ToolTip toolTip;

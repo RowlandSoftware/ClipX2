@@ -28,7 +28,6 @@ namespace ClipX2.UI.Panels
             radioTab.CheckedChanged += (s, e) => OptionsChanged();
             checkBoxJustify.CheckedChanged += (s, e) => OptionsChanged();
             buttonApply.Click += (s, e) => Apply();
-            buttonClose.Click += (s, e) => RequestClose();
         }
 
         /// <summary>Connects the panel to the editor; once, after creation.</summary>
@@ -41,6 +40,9 @@ namespace ClipX2.UI.Panels
         }
 
         internal bool IsAttached => _box != null;
+
+        /// <summary>Plain text / rich text switched: the note (and what Apply can do) depend on it.</summary>
+        protected internal override void OnModeChanged() => OptionsChanged();
 
         protected internal override void OnActivated()
         {

@@ -21,7 +21,6 @@ namespace ClipX2.UI.Panels
             checkBoxMultiple.CheckedChanged += (s, e) => OptionsChanged();
             checkBoxSingle.CheckedChanged += (s, e) => OptionsChanged();
             buttonApply.Click += (s, e) => Apply();
-            buttonClose.Click += (s, e) => RequestClose();
         }
 
         /// <summary>Connects the panel to the editor; once, after creation.</summary>

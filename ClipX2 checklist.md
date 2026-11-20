@@ -74,7 +74,7 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Rich text: live lists (TOM): levels from indentation or an existing list, numbers 1 → a → i → I → A down the levels, one Undo step; Legal and bullets other than • are typed (RichEdit can't do them live)
 - [x] Rich → plain: live numbers and bullets written in as text (tab after); Done: plain text and HTML already handled
 - [x] Remove bullets (liRMB), Remove numbers (liREM): typed and live; indentation kept (live levels turned back into tabs / pad widths; lines moved along by 1/a/i numbering moved back), so add then remove gives the original text; click or right-click
-- [ ] Line numbers (liREN), Remove line numbers (liRLN)
+- [x] Line numbers (liREN): options in the side panel (start, increment, show every nth, skip blank lines, pad right/left, renumber), right-click = last used; setting `NumLines` with ClipX 1's key names. Remove line numbers (liRLN): click or right-click; indentation after the number kept, so add then remove gives the original. Typed in rich text too (formatting kept); numbers line up only in a fixed-width font
 - [x] Live numbered lists: blank lines between items become unnumbered items, so the numbering runs on (as plain text); exports keep them as blank lines
 - [ ] Typed lists in rich text: hanging indent so wrapped lines line up; Tab/Shift+Tab to change a live item's level
 - [ ] Settings: import of ClipX 1's .pref (XML) — keys already match for lists
@@ -85,3 +85,21 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] All work on whole lines (selection widened) or the whole text; edits in place, so rich text keeps its formatting; one Undo step
 - [ ] Rich text: indenting by paragraph indents rather than typed tabs/spaces
 - [ ] Tab key: RichTextBox doesn't accept it (AcceptsTab?); ClipX 1 used Ctrl+I for a tab, now italics; choose a key
+
+## Quick search (bottom bar)
+- [x] Ctrl+F to the box; Enter finds downwards from the cursor and selects (Shift+Enter upwards); ▲ ▼ previous/next; Match case, Whole words; "Not found", "Reached end of text", "Reached start of text" in the status label
+- [x] Find all (a button): every match highlighted (the spelling marker, several at once), count in the status label, cursor unmoved. Esc otherwise back to the text with the match selected
+- [x] Search history in the drop-down, latest first, 15 kept, saved in settings.json (`QuickSearchHistory`)
+- [x] At the end/start: message and beep, selection unchanged; the next search that way goes round from the other end
+- [x] F3 / Shift+F3 = next / previous match while Quick search is active (from Ctrl+F, the box or a search, until Esc, a click in the text or another tool); otherwise Shift+F3 cycles case. Search and Replace to do the same when active
+- [x] Find all's highlights go on Esc, another tool, a new search, Next/Previous match (arrows, F3), a click in the text
+
+## Edit
+- [x] Decode URL (edUDC), HTML (edHDC), UTF-8 (edUTF), MIME (edMIM): selection exactly or whole text; bytes as UTF-8 where valid, else Windows-1252; all named HTML entities; MIME soft line breaks and encoded words (=?utf-8?Q?...?=)
+- [x] Plain characters (edPLA: – → --, — → ---, so it reverses Curly quotes), Curly quotes etc. (edCRL: quotes by context, apostrophes, feet/inches left straight, -- – , --- —, ... …), Regularise line ends (edEOL: soft line breaks, U+2028/2029, NEL, form feeds)
+
+## Statistics (chSTAT)
+- [x] Side panel, kept up to date while open: Selection (only when there is one) above Whole text. Words, characters, without spaces, sentences, paragraphs, words per sentence, size (UTF-8 for plain text, RTF for rich text); lines left out (same as paragraphs)
+- [x] Readability (English only, from the spelling language): Flesch Reading Ease with Flesch's level, Flesch–Kincaid grade, Gunning Fog. Syllables estimated by English rules; "rough under 100 words"
+- [x] Readability for other languages: German (Amstad), French (Kandel–Moles), Spanish (Fernández Huerta), Italian (Flesch–Vacca), Dutch (Douma), Portuguese (Martins), Russian (Oborneva); syllables from LibreOffice's hyphenation patterns (`Hyphenator`, Liang), downloaded with the dictionary as name.hyph.dic (licence name.hyph.licence.txt); Options offers "Update" for an installed dictionary lacking them. Tested: German 38/40, Spanish 28/30, Italian 28/30, Dutch 30/30 words right. English keeps its own rules (89% against the patterns' 59%)
+- [ ] Hyphenation for word wrap (patterns are there: `Hyphenator.Breaks(word, forPrint: true)`)

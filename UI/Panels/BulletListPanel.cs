@@ -24,7 +24,6 @@ namespace ClipX2.UI.Panels
             radioTab.CheckedChanged += (s, e) => OptionsChanged();
             numericPad.ValueChanged += (s, e) => OptionsChanged();
             buttonApply.Click += (s, e) => Apply();
-            buttonClose.Click += (s, e) => RequestClose();
         }
 
         /// <summary>Connects the panel to the editor; once, after creation.</summary>
@@ -37,6 +36,9 @@ namespace ClipX2.UI.Panels
         }
 
         internal bool IsAttached => _box != null;
+
+        /// <summary>Plain text / rich text switched: the note (and what Apply can do) depend on it.</summary>
+        protected internal override void OnModeChanged() => OptionsChanged();
 
         /// <summary>Shows the last-used options; keeps the editor's selection visible (it is what Apply works on).</summary>
         protected internal override void OnActivated()

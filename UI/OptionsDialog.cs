@@ -272,9 +272,10 @@ namespace ClipX2.UI
             public DictionaryEntry Installed;   // null if not installed
             public DictionaryEntry Remote;      // null if not (yet) known to be downloadable
             public bool Newer;                  // installed, and LibreOffice's current one differs (usually newer)
+            public bool LacksHyphenation;       // installed, but not the hyphenation file its readability needs (LibreOffice has one)
             public string Name => (Installed ?? Remote).Name;
             public string Description => (Installed ?? Remote).Description;
-            public bool CanDownload => Remote != null && (Installed == null || Newer);
+            public bool CanDownload => Remote != null && (Installed == null || Newer || LacksHyphenation);
             public bool CanRemove => Installed != null && Installed.Source == DictionarySource.User;
         }
 
@@ -293,7 +294,12 @@ namespace ClipX2.UI
             foreach (DictionaryEntry i in DictionaryCatalogue.Installed())
             {
                 DictionaryEntry remote = _available?.FirstOrDefault(a => string.Equals(a.Name, i.Name, StringComparison.OrdinalIgnoreCase));
-                rows.Add(new DictionaryRow { Installed = i, Remote = remote, Newer = remote != null && DictionaryCatalogue.DiffersFromRemote(i.Name, remote) });
+                rows.Add(new DictionaryRow
+                {
+                    Installed = i, Remote = remote,
+                    Newer = remote != null && DictionaryCatalogue.DiffersFromRemote(i.Name, remote),
+                    LacksHyphenation = DictionaryCatalogue.LacksHyphenation(i.Name, remote),
+                });
             }
             if (_available != null)
                 foreach (DictionaryEntry a in _available)
@@ -315,11 +321,11 @@ namespace ClipX2.UI
                 string where = r.Installed == null ? "No"
                     : (r.Installed.Source == DictionarySource.User ? "Yours" : "Supplied")
                       + (isDefault ? " · default" : "")
-                      + (r.Newer ? " – LibreOffice's differs" : "");
+                      + (r.Newer ? " – LibreOffice's differs" : r.LacksHyphenation ? " – hyphenation available" : "");
                 string from = r.Remote != null ? "LibreOffice (" + r.Remote.RemoteFolder + ")" : "";
                 var item = new ListViewItem(new[] { r.Name, r.Description, where, from }) { Tag = r };
                 if (r.Installed == null) item.ForeColor = System.Drawing.SystemColors.GrayText;
-                else if (r.Newer) item.ForeColor = System.Drawing.Color.DarkGreen;
+                else if (r.Newer || r.LacksHyphenation) item.ForeColor = System.Drawing.Color.DarkGreen;
                 if (isDefault) item.Font = new System.Drawing.Font(listViewDictionaries.Font, System.Drawing.FontStyle.Bold);
                 listViewDictionaries.Items.Add(item);
             }
@@ -343,7 +349,7 @@ namespace ClipX2.UI
             DictionaryRow r = SelectedDictionary;
             bool busy = _work != null;
             buttonDownload.Enabled = !busy && r != null && r.CanDownload;
-            buttonDownload.Text = r != null && r.Newer ? "&Update" : "&Download";
+            buttonDownload.Text = r != null && (r.Newer || r.LacksHyphenation) ? "&Update" : "&Download";
             buttonRemove.Enabled = !busy && r != null && r.CanRemove;
             buttonSetDefault.Enabled = r != null && r.Installed != null && !IsDefault(r.Name);
             buttonShowAvailable.Enabled = !busy && _available == null;
@@ -383,6 +389,9 @@ namespace ClipX2.UI
                     ? $"Download LibreOffice's current {e.Description} ({e.Name})?\n\nIt will be used instead of the {e.Name} supplied with ClipX. To go back, remove it."
                     : $"Download {e.Description} ({e.Name}) from LibreOffice's dictionaries?";
             question += "\n\nIts licence and credits are saved beside it, as " + e.Name + ".licence.txt.";
+            if (e.RemoteHyph.Length > 0)
+                question += "\n\nIts hyphenation patterns come too (" + e.Name + HyphenationFiles.Extension + ")"
+                    + (ClipX2.TextEngine.TextStatistics.NeedsHyphenation(e.Name) ? ", for the readability scores in Statistics." : ".");
             if (MessageBox.Show(this, question, "Download dictionary", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 return;
 

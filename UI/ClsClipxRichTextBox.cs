@@ -116,46 +116,51 @@ public class ClipXRichTextBox : RichTextBox
     // what Done exports, and there is nothing to remove before a replacement. Any change to the
     // text clears it (its position would be stale).
 
-    private int _markStart = -1, _markLength;
+    // Quick search's Find all marks every match the same way: several markers, in text order.
+    private readonly List<(int Start, int Length)> _marks = new List<(int Start, int Length)>();
 
     /// <summary>The marker's colour; translucent, so the text shows through (a highlighter).</summary>
     [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Color MarkerColor { get; set; } = Color.FromArgb(120, 255, 210, 0);
 
     /// <summary>Highlights the given characters until <see cref="ClearMarker"/> or the text changes.</summary>
-    public void SetMarker(int start, int length)
+    public void SetMarker(int start, int length) => SetMarkers(new[] { (start, length) });
+
+    /// <summary>Highlights several stretches of text (in text order), replacing any marker.</summary>
+    public void SetMarkers(IEnumerable<(int Start, int Length)> marks)
     {
-        _markStart = start;
-        _markLength = Math.Max(0, length);
+        _marks.Clear();
+        foreach (var m in marks)
+            if (m.Start >= 0 && m.Length > 0) _marks.Add(m);
         Invalidate();
     }
 
     public void ClearMarker()
     {
-        if (_markStart < 0) return;
-        _markStart = -1;
+        if (_marks.Count == 0) return;
+        _marks.Clear();
         Invalidate();
     }
 
     [Browsable(false)]
-    public bool HasMarker => _markStart >= 0;
+    public bool HasMarker => _marks.Count > 0;
 
     private const int WM_PAINT = 0x000F;
 
     private const int WM_HSCROLL = 0x0114, WM_VSCROLL = 0x0115, WM_MOUSEWHEEL = 0x020A, WM_MOUSEHWHEEL = 0x020E;
 
-    protected override void OnVScroll(EventArgs e) { base.OnVScroll(e); if (_markStart >= 0) Invalidate(); }
-    protected override void OnHScroll(EventArgs e) { base.OnHScroll(e); if (_markStart >= 0) Invalidate(); }
+    protected override void OnVScroll(EventArgs e) { base.OnVScroll(e); if (HasMarker) Invalidate(); }
+    protected override void OnHScroll(EventArgs e) { base.OnHScroll(e); if (HasMarker) Invalidate(); }
 
     protected override void WndProc(ref Message m)
     {
-        if (_markStart >= 0 && (m.Msg == WM_VSCROLL || m.Msg == WM_HSCROLL || m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL))
+        if (HasMarker && (m.Msg == WM_VSCROLL || m.Msg == WM_HSCROLL || m.Msg == WM_MOUSEWHEEL || m.Msg == WM_MOUSEHWHEEL))
         {
             base.WndProc(ref m);
             Invalidate(); // see the note below on scrolling
             return;
         }
-        if (m.Msg != WM_PAINT || _markStart < 0)
+        if (m.Msg != WM_PAINT || !HasMarker)
         {
             base.WndProc(ref m);
             return;
@@ -220,27 +225,37 @@ public class ClipXRichTextBox : RichTextBox
         if (doc == null) return rects;
         try
         {
-            int end = Math.Min(_markStart + _markLength, TextLength);
-            for (int k = _markStart; k < end; k++)
+            // Only the characters on screen (Find all may mark thousands): from the first visible
+            // character to the end of the last visible line
+            int length = TextLength;
+            int firstVisible = GetCharIndexFromPosition(Point.Empty);
+            int lastLine = GetLineFromCharIndex(GetCharIndexFromPosition(new Point(ClientSize.Width - 1, ClientSize.Height - 1)));
+            int afterVisible = GetFirstCharIndexFromLine(lastLine + 1);
+            if (afterVisible < 0) afterVisible = length;
+            foreach (var mark in _marks)
             {
-                ITextRange ch = doc.Range(k, k + 1);
-                try
+                int end = Math.Min(Math.Min(mark.Start + mark.Length, length), afterVisible);
+                for (int k = Math.Max(mark.Start, firstVisible); k < end; k++)
                 {
-                    // Only points actually on screen (S_OK); otherwise the coordinates are junk
-                    if (ch.GetPoint(RichEditTom.tomStart | RichEditTom.TA_TOP | RichEditTom.TA_LEFT, out int x1, out int y1) != 0) continue;
-                    if (ch.GetPoint(RichEditTom.tomEnd | RichEditTom.TA_BOTTOM | RichEditTom.TA_LEFT, out int x2, out int y2) != 0) continue;
-                    Point a = PointToClient(new Point(x1, y1)), b = PointToClient(new Point(x2, y2));
-                    if (b.X <= a.X || b.Y <= a.Y) continue; // end wrapped to the next line: skip this character
-                    var r = Rectangle.FromLTRB(a.X, a.Y, b.X, b.Y);
-                    if (r.Width > ClientSize.Width / 2 || !ClientRectangle.IntersectsWith(r)) continue; // not plausible / not visible
-                    int last = rects.Count - 1;
-                    if (last >= 0 && rects[last].Top == r.Top && rects[last].Bottom == r.Bottom && Math.Abs(rects[last].Right - r.Left) <= 1)
-                        rects[last] = Rectangle.Union(rects[last], r); // same line: one box
-                    else
-                        rects.Add(r);
+                    ITextRange ch = doc.Range(k, k + 1);
+                    try
+                    {
+                        // Only points actually on screen (S_OK); otherwise the coordinates are junk
+                        if (ch.GetPoint(RichEditTom.tomStart | RichEditTom.TA_TOP | RichEditTom.TA_LEFT, out int x1, out int y1) != 0) continue;
+                        if (ch.GetPoint(RichEditTom.tomEnd | RichEditTom.TA_BOTTOM | RichEditTom.TA_LEFT, out int x2, out int y2) != 0) continue;
+                        Point a = PointToClient(new Point(x1, y1)), b = PointToClient(new Point(x2, y2));
+                        if (b.X <= a.X || b.Y <= a.Y) continue; // end wrapped to the next line: skip this character
+                        var r = Rectangle.FromLTRB(a.X, a.Y, b.X, b.Y);
+                        if (r.Width > ClientSize.Width / 2 || !ClientRectangle.IntersectsWith(r)) continue; // not plausible / not visible
+                        int last = rects.Count - 1;
+                        if (last >= 0 && rects[last].Top == r.Top && rects[last].Bottom == r.Bottom && Math.Abs(rects[last].Right - r.Left) <= 1)
+                            rects[last] = Rectangle.Union(rects[last], r); // same line: one box
+                        else
+                            rects.Add(r);
+                    }
+                    catch (COMException) { /* off screen */ }
+                    finally { Marshal.ReleaseComObject(ch); }
                 }
-                catch (COMException) { /* off screen */ }
-                finally { Marshal.ReleaseComObject(ch); }
             }
         }
         finally { Marshal.ReleaseComObject(doc); }

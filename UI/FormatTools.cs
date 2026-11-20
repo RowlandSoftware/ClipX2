@@ -47,6 +47,75 @@ namespace ClipX2.UI
                 ? $"Wrapped at {o.Width} characters" : "Nothing to wrap";
         }
 
+        /************ Lists: line numbers ************/
+
+        public static string LineNumbers(ClipXRichTextBox box, LineNumberOptions o) =>
+            Run(box, (t, f, e) => TextEngine.LineNumbers.Add(t, f, e, o)).Edits > 0 ? "Lines numbered" : "No lines to number";
+
+        public static string RemoveLineNumbers(ClipXRichTextBox box) =>
+            Run(box, TextEngine.LineNumbers.Remove).Edits > 0 ? "Line numbers removed" : "No line numbers found";
+
+        /************ Edit group: decoding ************/
+
+        public static string DecodeUrl(ClipXRichTextBox box) => Decode(box, TextDecoder.Url, "URL escape");
+        public static string DecodeHtml(ClipXRichTextBox box) => Decode(box, TextDecoder.Html, "HTML entity", "HTML entities");
+        public static string DecodeUtf8(ClipXRichTextBox box) => Decode(box, TextDecoder.Utf8, "UTF-8 character");
+        public static string DecodeMime(ClipXRichTextBox box) => Decode(box, TextDecoder.Mime, "MIME code");
+
+        private static string Decode(ClipXRichTextBox box, Func<string, int, int, List<TextEdit>> make, string one, string many = null)
+        {
+            int n = InPlace(box, make);
+            return n == 0 ? $"Nothing to decode: no {many ?? one + "s"} found"
+                : n == 1 ? $"Decoded 1 {one}" : $"Decoded {n:N0} {many ?? one + "s"}";
+        }
+
+        /************ Edit group: characters ************/
+
+        public static string PlainCharacters(ClipXRichTextBox box)
+        {
+            int n = InPlace(box, Typography.PlainCharacters);
+            return n == 0 ? "No special characters" : n == 1 ? "1 character made plain" : $"{n:N0} characters made plain";
+        }
+
+        /// <summary>Curly quotes; mentions paragraphs whose double quotes don't pair up (as ClipX 1 did).</summary>
+        public static string CurlyQuotes(ClipXRichTextBox box)
+        {
+            Typography.CurlyResult result = null;
+            int n = InPlace(box, (t, f, e) => (result = Typography.CurlyQuotes(t, f, e)).Edits);
+            string done = n == 0 ? "No straight quotes, -- or ..." : n == 1 ? "1 change" : $"{n:N0} changes";
+            int odd = result?.Unmatched.Count ?? 0;
+            return odd == 0 ? done
+                : done + (odd == 1 ? "; a paragraph has" : $"; {odd} paragraphs have") + " unpaired double quotes (fine if a quotation runs on)";
+        }
+
+        public static string RegulariseLineEnds(ClipXRichTextBox box)
+        {
+            int n = InPlace(box, (t, f, e) => Typography.RegulariseLineEnds(t, f, e));
+            return n == 0 ? "Line ends are already regular" : n == 1 ? "1 line end regularised" : $"{n:N0} line ends regularised";
+        }
+
+        /// <summary>
+        /// Applies edits to the selection exactly as selected (characters can sit anywhere in a
+        /// line), or the whole text; what was selected stays selected. One Undo step, formatting
+        /// kept. Returns the number of edits.
+        /// </summary>
+        private static int InPlace(ClipXRichTextBox box, Func<string, int, int, List<TextEdit>> make)
+        {
+            bool hadSelection = box.SelectionLength > 0;
+            int from = hadSelection ? box.SelectionStart : 0;
+            int to = hadSelection ? from + box.SelectionLength : box.TextLength;
+            List<TextEdit> edits = make(box.Text, from, to);
+            if (edits.Count == 0) return 0;
+            int delta = edits.Sum(e => e.Replacement.Length - e.Length);
+            using (box.BeginBulkEdit())
+            {
+                box.ApplyEdits(edits);
+                if (hadSelection) box.Select(from, Math.Max(0, to + delta - from));
+                else box.Select(0, 0);
+            }
+            return edits.Count;
+        }
+
         /// <summary>Applies a tool's edits to the scope and reselects the lines.</summary>
         private static (int Edits, int Delta) Run(ClipXRichTextBox box, Func<string, int, int, List<TextEdit>> make)
         {

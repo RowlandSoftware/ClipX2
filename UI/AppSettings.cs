@@ -27,6 +27,9 @@ namespace ClipX2.UI
 
         public DisplaySettings Display { get; set; } = new DisplaySettings();
 
+        /// <summary>Quick search's recent searches, latest first (kept short).</summary>
+        public System.Collections.Generic.List<string> QuickSearchHistory { get; set; } = new System.Collections.Generic.List<string>();
+
         // List tools: the same section and key names as ClipX 1's settings (BulletList, NumList), so its
         // settings can be brought across directly; Style and FollowChar keep ClipX 1's numbering
 
@@ -35,6 +38,9 @@ namespace ClipX2.UI
 
         /// <summary>Numbers: Style, StartNumber, Renumber, FollowChar, Tab, PadChars.</summary>
         public ClipX2.TextEngine.NumberOptions NumList { get; set; } = new ClipX2.TextEngine.NumberOptions();
+
+        /// <summary>Line numbers: Start, Step, Every, IgnoreBlanks, Pad, RangeRight, Renumber.</summary>
+        public ClipX2.TextEngine.LineNumberOptions NumLines { get; set; } = new ClipX2.TextEngine.LineNumberOptions();
 
         // Format tools: ClipX 1's names too (Indent, Wordwrap, RemLines)
 
@@ -85,6 +91,8 @@ namespace ClipX2.UI
                 s.Display ??= new DisplaySettings();
                 s.BulletList ??= new ClipX2.TextEngine.BulletOptions();
                 s.NumList ??= new ClipX2.TextEngine.NumberOptions();
+                s.NumLines ??= new ClipX2.TextEngine.LineNumberOptions();
+                s.QuickSearchHistory ??= new System.Collections.Generic.List<string>();
                 s.Indent ??= new ClipX2.TextEngine.IndentOptions();
                 s.Wordwrap ??= new ClipX2.TextEngine.WordWrapOptions();
                 s.RemLines ??= new ClipX2.TextEngine.RemoveLinesOptions();

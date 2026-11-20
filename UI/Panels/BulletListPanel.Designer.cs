@@ -26,7 +26,6 @@ namespace ClipX2.UI.Panels
             textBoxSample = new System.Windows.Forms.TextBox();
             labelNote = new System.Windows.Forms.Label();
             buttonApply = new System.Windows.Forms.Button();
-            buttonClose = new System.Windows.Forms.Button();
             toolTip = new System.Windows.Forms.ToolTip(components);
             tableLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numericPad).BeginInit();
@@ -46,8 +45,7 @@ namespace ClipX2.UI.Panels
             tableLayout.Controls.Add(labelSample, 0, 4);
             tableLayout.Controls.Add(textBoxSample, 0, 5);
             tableLayout.Controls.Add(labelNote, 0, 6);
-            tableLayout.Controls.Add(buttonApply, 0, 8);
-            tableLayout.Controls.Add(buttonClose, 1, 8);
+            tableLayout.Controls.Add(buttonApply, 1, 8);
             tableLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             tableLayout.Location = new System.Drawing.Point(0, 0);
             tableLayout.Name = "tableLayout";
@@ -183,16 +181,6 @@ namespace ClipX2.UI.Panels
             buttonApply.Text = "&Apply";
             buttonApply.UseVisualStyleBackColor = true;
             //
-            // buttonClose
-            //
-            buttonClose.Dock = System.Windows.Forms.DockStyle.Fill;
-            buttonClose.Location = new System.Drawing.Point(124, 433);
-            buttonClose.Name = "buttonClose";
-            buttonClose.Size = new System.Drawing.Size(114, 30);
-            buttonClose.TabIndex = 10;
-            buttonClose.Text = "Close";
-            buttonClose.UseVisualStyleBackColor = true;
-            //
             // BulletListPanel
             //
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
@@ -219,7 +207,6 @@ namespace ClipX2.UI.Panels
         private System.Windows.Forms.TextBox textBoxSample;
         private System.Windows.Forms.Label labelNote;
         private System.Windows.Forms.Button buttonApply;
-        private System.Windows.Forms.Button buttonClose;
         private System.Windows.Forms.ToolTip toolTip;
     }
 }
