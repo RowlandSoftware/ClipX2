@@ -27,6 +27,72 @@ namespace ClipX2.UI
         public static string Unindent(ClipXRichTextBox box, IndentOptions o) =>
             Run(box, (t, f, e) => LineFormatter.Unindent(t, f, e, o)).Edits > 0 ? "Indent reduced" : "No line starts with that indent";
 
+        /// <summary>
+        /// Increase / decrease indent in plain text (Styles tab, Tab, Shift+Tab): the selected
+        /// lines, or the caret's line (not the whole text, unlike the Format tools). The caret
+        /// stays with its text; selected lines stay selected.
+        /// </summary>
+        public static string IndentHere(ClipXRichTextBox box, IndentOptions o, bool increase,
+            BulletOptions bullets = null, NumberOptions numbers = null)
+        {
+            string text = box.Text;
+            int start = box.SelectionStart, length = box.SelectionLength;
+            List<TextEdit> edits = increase
+                ? LineFormatter.Indent(text, start, start + length, o)
+                : LineFormatter.Unindent(text, start, start + length, o);
+            if (edits.Count == 0) return increase ? "Nothing to indent" : "No line starts with that indent";
+
+            // Then, on the indented text, typed lists follow their new levels: bullets • ◦ ▪,
+            // numbers 1 → a → i and renumbered
+            string indented = ListFormatter.Apply(text, edits);
+            int s1 = Map(edits, start), e1 = Map(edits, start + length);
+            var follow = new List<TextEdit>();
+            if (bullets != null) follow.AddRange(ListFormatter.RebulletEdits(indented, s1, e1, bullets));
+            if (numbers != null) follow.AddRange(ListFormatter.RenumberEdits(indented, s1, e1, numbers));
+            follow.Sort((a, b) => a.Start.CompareTo(b.Start));
+            string result = ListFormatter.Apply(indented, follow);
+            int s2 = Map(follow, s1), e2 = Map(follow, e1);
+
+            // All of it as one change (one Undo step): the stretch between what is unchanged at either end
+            int prefix = 0, max = Math.Min(text.Length, result.Length);
+            while (prefix < max && text[prefix] == result[prefix]) prefix++;
+            int suffix = 0;
+            while (suffix < max - prefix && text[text.Length - 1 - suffix] == result[result.Length - 1 - suffix]) suffix++;
+            using (box.BeginBulkEdit())
+            {
+                box.ApplyEdits(new[] { new TextEdit(prefix, text.Length - prefix - suffix, result.Substring(prefix, result.Length - prefix - suffix)) });
+                if (length > 0)
+                {
+                    // The whole lines stay selected
+                    int from = result.LastIndexOf('\n', Math.Max(0, s2 - 1)) + 1;
+                    if (s2 == 0) from = 0;
+                    int to = result.IndexOf('\n', Math.Max(s2, e2 - 1));
+                    if (to < 0) to = result.Length;
+                    box.Select(from, Math.Max(0, to - from));
+                }
+                else box.Select(s2, 0); // the caret stays with its text
+            }
+            return increase ? "Indent increased" : "Indent reduced";
+        }
+
+        /// <summary>
+        /// Where a position goes when the edits are made: text inserted at it (an indent at the
+        /// line start) goes before it; a marker replaced from it stays after it.
+        /// </summary>
+        private static int Map(List<TextEdit> edits, int position)
+        {
+            int delta = 0;
+            foreach (TextEdit e in edits) // in text order
+            {
+                if (e.Start > position) break;
+                if (e.Length == 0) { delta += e.Replacement.Length; continue; }                   // inserted at or before it
+                if (e.Start == position) break;                                                    // replaced from it: it stays in front
+                if (e.Start + e.Length <= position) { delta += e.Replacement.Length - e.Length; continue; } // all before it
+                return e.Start + delta;                                                            // inside a replaced stretch: its start
+            }
+            return position + delta;
+        }
+
         public static string TabsToSpaces(ClipXRichTextBox box) =>
             Run(box, LineFormatter.TabsToSpaces).Edits > 0 ? "Tabs converted to spaces" : "No tabs";
 

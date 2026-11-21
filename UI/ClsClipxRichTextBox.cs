@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using ClipX2.TextEngine;
@@ -562,6 +563,61 @@ public class ClipXRichTextBox : RichTextBox
     }
 
     /// <summary>
+    /// Rewrites a block of consecutive lines (paragraphs) in a new order, each line keeping its
+    /// own formatting, character and paragraph (Sorting tools). <paramref name="order"/> lists
+    /// indexes into <paramref name="lines"/>; a line left out goes (blank lines when sorting).
+    /// One Undo step. Positions are those of <see cref="TextBoxBase.Text"/>.
+    /// </summary>
+    public void ReorderLines(IReadOnlyList<ClipX2.TextEngine.ListFormatter.Line> lines, IReadOnlyList<int> order)
+    {
+        if (lines == null || lines.Count == 0 || order == null || order.Count == 0) return;
+        int start = lines[0].Start, end = lines[lines.Count - 1].End;
+
+        using (BeginBulkEdit())
+        {
+            bool done = EditWithTom(doc =>
+            {
+                // 1. A paragraph break at the end of the block, so every line ends with one and
+                //    each copy carries its paragraph's formatting
+                ITextRange r = doc.Range(end, end);
+                try
+                {
+                    r.Text = "\r";
+                    // 2. Copies, in the new order, after the block
+                    int at = end + 1;
+                    foreach (int i in order)
+                    {
+                        ITextRange source = doc.Range(lines[i].Start, lines[i].End + 1);
+                        try
+                        {
+                            r.SetRange(at, at);
+                            r.FormattedText = source.FormattedText;
+                            at += lines[i].Length + 1;
+                        }
+                        finally { Marshal.ReleaseComObject(source); }
+                    }
+                    // 3. The originals go (with the break added in step 1); then the copies' last
+                    //    break, which the line after the block already provides
+                    r.SetRange(start, end + 1);
+                    r.Text = "";
+                    int copied = at - (end + 1);
+                    r.SetRange(start + copied - 1, start + copied);
+                    r.Text = "";
+                }
+                finally { Marshal.ReleaseComObject(r); }
+            });
+
+            if (!done) // TOM not available: plain text
+            {
+                string text = Text;
+                string block = string.Join("\n", order.Select(i => text.Substring(lines[i].Start, lines[i].Length)));
+                Select(start, end - start);
+                SelectedText = block;
+            }
+        }
+    }
+
+    /// <summary>
     /// Ctrl+T (ClipX 1's doKBTranspose): swaps the characters either side of the caret and moves
     /// the caret one place right (ab|cd → acb|d), so repeated presses carry a character along.
     /// With a selection, its first character is the right-hand one, and the selection is
@@ -773,26 +829,491 @@ public class ClipXRichTextBox : RichTextBox
 
     private void ToggleStyle(FontStyleFlags flag)
     {
-        var f = this.SelectionFont;
-        if (f == null) return;
-        System.Drawing.FontStyle newStyle;// = f.Style;
-        newStyle = FontStyle.Regular;
         switch (flag)
         {
-            case FontStyleFlags.None:
-            newStyle = FontStyle.Regular; // TODO Set default font
-                break;
-            case FontStyleFlags.Italics:
-                newStyle = f.Style ^ FontStyle.Italic;
-                break;
-            case FontStyleFlags.Bold:
-                newStyle = f.Style ^ FontStyle.Bold;
-                break;
-             case FontStyleFlags.Underline:
-                newStyle = f.Style ^ FontStyle.Underline;
+            case FontStyleFlags.Italics: ToggleFontStyle(FontStyle.Italic); break;
+            case FontStyleFlags.Bold: ToggleFontStyle(FontStyle.Bold); break;
+            case FontStyleFlags.Underline: ToggleFontStyle(FontStyle.Underline); break;
+            case FontStyleFlags.None: // plain: bold, italic and underline off
+                var f = SelectionFont;
+                if (SelectionLength == 0) { if (f != null) SelectionFont = new Font(f, FontStyle.Regular); }
+                else SetFontProperties(font => { font.Bold = tomFalse; font.Italic = tomFalse; font.Underline = 0; });
                 break;
         }
-        this.SelectionFont = new Font(f, newStyle);
+    }
+
+    /************ Styles (the Styles tab): character formatting through TOM ************/
+
+    // TOM ITextFont values: tomTrue = -1, tomFalse = 0, tomUndefined = -9999999 (mixed)
+    private const int tomTrue = -1, tomFalse = 0, tomUndefined = -9999999;
+
+    /// <summary>
+    /// Bold, italic or underline on or off for the selection, leaving its other formatting alone
+    /// (fonts and sizes may be mixed). On if any of it is off (as Word); with no selection, for
+    /// what is typed next. One Undo step.
+    /// </summary>
+    public void ToggleFontStyle(FontStyle style)
+    {
+        if (SelectionLength == 0)
+        {
+            Font f = SelectionFont;
+            if (f != null) SelectionFont = new Font(f, f.Style ^ style);
+            return;
+        }
+        bool? on = SelectionHas(style);
+        bool turnOn = on != true;
+        SetFontProperties(font =>
+        {
+            if (style == FontStyle.Bold) font.Bold = turnOn ? tomTrue : tomFalse;
+            else if (style == FontStyle.Italic) font.Italic = turnOn ? tomTrue : tomFalse;
+            else if (style == FontStyle.Underline) font.Underline = turnOn ? 1 : 0; // tomSingle / tomNone
+            else if (style == FontStyle.Strikeout) font.StrikeThrough = turnOn ? tomTrue : tomFalse;
+        });
+    }
+
+    /// <summary>
+    /// Superscript (or subscript) on or off for the selection, or for what is typed next. On if
+    /// any of the selection isn't already; turning one on turns the other off. One Undo step.
+    /// </summary>
+    public void ToggleScript(bool superscript)
+    {
+        bool? on = null;
+        ReadFont(font => on = Flag(superscript ? (int)font.Superscript : (int)font.Subscript));
+        int value = on == true ? tomFalse : tomTrue;
+        ChangeCharacterFormat(font =>
+        {
+            if (superscript) font.Superscript = value; else font.Subscript = value;
+        });
+    }
+
+    /// <summary>Font colour (0xRRGGBB), or null for automatic (the default), of the selection or what is typed next.</summary>
+    public void SetTextColour(int? rgb) => ChangeCharacterFormat(font => font.ForeColor = rgb.HasValue ? ToColorRef(rgb.Value) : tomAutoColor);
+
+    /// <summary>Highlight (0xRRGGBB), or null for none, of the selection or what is typed next.</summary>
+    public void SetHighlight(int? rgb) => ChangeCharacterFormat(font => font.BackColor = rgb.HasValue ? ToColorRef(rgb.Value) : tomAutoColor);
+
+    /// <summary>
+    /// Clear formatting: the selection's (or, with none, the whole text's) characters back to
+    /// plain <paramref name="baseFont"/>: no bold, italic, underline, strikethrough, super- or
+    /// subscript, colour or highlight. Paragraphs (lists, indents, alignment) are left as they are.
+    /// </summary>
+    public void ClearCharacterFormatting(Font baseFont)
+    {
+        int start = SelectionStart, length = SelectionLength;
+        int from = length > 0 ? start : 0, to = length > 0 ? start + length : TextLength;
+        using (BeginBulkEdit())
+        {
+            EditWithTom(doc =>
+            {
+                ITextRange range = doc.Range(from, to);
+                object font = range.Font;
+                try
+                {
+                    dynamic f = font;
+                    f.Bold = tomFalse; f.Italic = tomFalse; f.Underline = 0; f.StrikeThrough = tomFalse;
+                    f.Superscript = tomFalse; f.Subscript = tomFalse;
+                    f.ForeColor = tomAutoColor; f.BackColor = tomAutoColor;
+                    if (baseFont != null) { f.Name = baseFont.Name; f.Size = baseFont.SizeInPoints; }
+                    range.Font = font;
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(font);
+                    Marshal.ReleaseComObject(range);
+                }
+            });
+            Select(start, length);
+        }
+    }
+
+    /// <summary>The alignment of the paragraphs touching the selection (the caret's paragraph if none). One Undo step.</summary>
+    public void SetParagraphAlignment(HorizontalAlignment? align, bool justify = false)
+    {
+        int start = SelectionStart, length = SelectionLength;
+        var lines = ListFormatter.LinesIn(Text, start, start + length);
+        int tomAlign = justify ? 3 : align == HorizontalAlignment.Center ? 1 : align == HorizontalAlignment.Right ? 2 : 0;
+        using (BeginBulkEdit())
+        {
+            EditWithTom(doc =>
+            {
+                foreach (var line in lines)
+                {
+                    ITextRange range = doc.Range(line.Start, line.Start);
+                    object para = range.Para;
+                    try { ((dynamic)para).Alignment = tomAlign; range.Para = para; }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(para);
+                        Marshal.ReleaseComObject(range);
+                    }
+                }
+            });
+            Select(start, length);
+        }
+    }
+
+    /// <summary>A heading's look, as web pages show them: h1 24 pt bold … h6 9 pt bold (as the HTML import).</summary>
+    public static float HeadingSize(int level) => level switch { 1 => 24, 2 => 18, 3 => 14, 4 => 12, 5 => 10, _ => 9 };
+
+    /// <summary>
+    /// Makes the paragraphs touching the selection headings of a level (1–6), or ordinary
+    /// paragraphs (0): the editor's built-in heading tag (Word's Heading 1…, HTML's h1… on the way
+    /// out) and the look to go with it, bold and larger. Back to 0, a heading's bold and size go
+    /// back to <paramref name="baseFont"/>'s. One Undo step.
+    /// </summary>
+    public void SetHeadingLevel(int level, Font baseFont)
+    {
+        int start = SelectionStart, length = SelectionLength;
+        var lines = ListFormatter.LinesIn(Text, start, start + length);
+        using (BeginBulkEdit())
+        {
+            EditWithTom(doc =>
+            {
+                foreach (var line in lines)
+                {
+                    ITextRange para = doc.Range(line.Start, line.Start);
+                    ITextRange content = doc.Range(line.Start, line.End);
+                    object pf = para.Para, font = content.Font;
+                    try
+                    {
+                        dynamic p = pf, f = font;
+                        int old = p.Style;
+                        bool wasHeading = old <= -2 && old >= -10;
+                        p.Style = level >= 1 ? -1 - level : -1; // tomStyleHeading1 = -2 …; tomStyleNormal = -1
+                        para.Para = pf;
+                        if (level >= 1)
+                        {
+                            f.Bold = tomTrue;
+                            f.Size = HeadingSize(level);
+                        }
+                        else if (wasHeading)
+                        {
+                            f.Bold = tomFalse;
+                            if (baseFont != null) f.Size = baseFont.SizeInPoints;
+                        }
+                        if (line.Length > 0) content.Font = font;
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(font);
+                        Marshal.ReleaseComObject(pf);
+                        Marshal.ReleaseComObject(content);
+                        Marshal.ReleaseComObject(para);
+                    }
+                }
+            });
+            Select(start, length);
+        }
+    }
+
+    /// <summary>The heading level of the paragraphs touching the selection (0 ordinary), or -1 if they differ.</summary>
+    public int HeadingLevelAt()
+    {
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { }
+        if (doc == null) return 0;
+        int result = int.MinValue;
+        try
+        {
+            foreach (var line in ListFormatter.LinesIn(Text, SelectionStart, SelectionStart + SelectionLength))
+            {
+                ITextRange range = doc.Range(line.Start, line.Start);
+                object pf = range.Para;
+                try
+                {
+                    int style = ((dynamic)pf).Style;
+                    int level = style <= -2 && style >= -10 ? -1 - style : 0;
+                    if (result == int.MinValue) result = level;
+                    else if (result != level) return -1;
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(pf);
+                    Marshal.ReleaseComObject(range);
+                }
+            }
+        }
+        catch (Exception) { return 0; }
+        finally { Marshal.ReleaseComObject(doc); }
+        return result == int.MinValue ? 0 : result;
+    }
+
+    /// <summary>The caret's paragraph alignment: 0 left, 1 centre, 2 right, 3 justify.</summary>
+    public int ParagraphAlignment()
+    {
+        int result = 0;
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { }
+        if (doc == null) return 0;
+        ITextRange range = doc.Range(SelectionStart, SelectionStart);
+        object para = range.Para;
+        try { result = ((dynamic)para).Alignment; }
+        catch (Exception) { }
+        finally
+        {
+            Marshal.ReleaseComObject(para);
+            Marshal.ReleaseComObject(range);
+            Marshal.ReleaseComObject(doc);
+        }
+        return result;
+    }
+
+    /// <summary>The selection's (or the caret's) underline, strikethrough, superscript, subscript: null where mixed.</summary>
+    public (bool? Underline, bool? Strike, bool? Super, bool? Sub) SelectionEffects()
+    {
+        bool? u = null, s = null, sup = null, sub = null;
+        ReadFont(font => // the selection's, or at the caret, the formatting for what is typed next
+        {
+            int under = font.Underline;
+            u = under == tomUndefined ? (bool?)null : under != 0;
+            s = Flag((int)font.StrikeThrough);
+            sup = Flag((int)font.Superscript);
+            sub = Flag((int)font.Subscript);
+        });
+        return (u, s, sup, sub);
+    }
+
+    private const int tomAutoColor = -9999997;
+
+    // RichEdit shows justified paragraphs as left-aligned unless advanced typography is on
+    private const int EM_SETTYPOGRAPHYOPTIONS = 0x0400 + 202, TO_ADVANCEDTYPOGRAPHY = 1;
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        SendMessage(Handle, EM_SETTYPOGRAPHYOPTIONS, (IntPtr)TO_ADVANCEDTYPOGRAPHY, (IntPtr)TO_ADVANCEDTYPOGRAPHY);
+    }
+
+    /// <summary>0xRRGGBB to the editor's COLORREF (0x00BBGGRR).</summary>
+    private static int ToColorRef(int rgb) => ((rgb & 0xFF) << 16) | (rgb & 0xFF00) | ((rgb >> 16) & 0xFF);
+
+    /// <summary>
+    /// Changes character formatting: the selection's, through a TOM range (one Undo step), or with
+    /// no selection, what is typed next (the TOM selection's own formatting).
+    /// </summary>
+    private void ChangeCharacterFormat(Action<dynamic> change)
+    {
+        if (SelectionLength > 0) { SetFontProperties(change); return; }
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { }
+        if (doc == null) return;
+        object selection = null, font = null;
+        try
+        {
+            selection = ((dynamic)doc).Selection;
+            font = ((dynamic)selection).Font;
+            change(font);
+            ((dynamic)selection).Font = font;
+        }
+        catch (Exception) { /* not available */ }
+        finally
+        {
+            if (font != null) Marshal.ReleaseComObject(font);
+            if (selection != null) Marshal.ReleaseComObject(selection);
+            Marshal.ReleaseComObject(doc);
+        }
+    }
+
+    /// <summary>Sets the font of the selection (or of what is typed next), keeping sizes and styles.</summary>
+    public void SetFontName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        if (SelectionLength == 0)
+        {
+            Font f = SelectionFont ?? Font;
+            try { SelectionFont = new Font(name, f.Size, f.Style); } catch (ArgumentException) { }
+            return;
+        }
+        SetFontProperties(font => font.Name = name);
+    }
+
+    /// <summary>Sets the size, in points, of the selection (or of what is typed next), keeping fonts and styles.</summary>
+    public void SetFontSize(float points)
+    {
+        if (points <= 0) return;
+        if (SelectionLength == 0)
+        {
+            Font f = SelectionFont ?? Font;
+            SelectionFont = new Font(f.FontFamily, points, f.Style);
+            return;
+        }
+        SetFontProperties(font => font.Size = points);
+    }
+
+    /// <summary>The selection's character formatting: null where it is mixed.</summary>
+    public (string Name, float? Size, bool? Bold, bool? Italic) SelectionFormat()
+    {
+        string name = null; float? size = null; bool? bold = null, italic = null;
+        // At the caret: the formatting for what is typed next (ReadFont); else null if the fonts differ
+        string sameName = SelectionLength == 0 ? "" : SelectionFontNameIfSame();
+        ReadFont(font =>
+        {
+            string n = font.Name;
+            name = string.IsNullOrEmpty(n) || sameName == null ? null : n;
+            float s = font.Size;
+            size = s > 0 ? s : (float?)null;
+            bold = Flag((int)font.Bold);
+            italic = Flag((int)font.Italic);
+        });
+        return (name, size, bold, italic);
+    }
+
+    /// <summary>
+    /// The font name if the whole selection has the same one, else null. (TOM gives the first
+    /// run's name even when they differ, so the formatting runs are walked; there are few.)
+    /// </summary>
+    private string SelectionFontNameIfSame()
+    {
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { }
+        if (doc == null) return SelectionFont?.Name;
+        int start = SelectionStart, end = start + SelectionLength;
+        ITextRange run = doc.Range(start, start);
+        string found = null;
+        try
+        {
+            for (int pos = start, guard = 0; pos < end && guard < 10000; guard++)
+            {
+                run.SetRange(pos, pos);
+                run.MoveEnd(RichEditTom.tomCharFormat, 1);
+                object font = run.Font;
+                try
+                {
+                    string n = ((dynamic)font).Name;
+                    if (found == null) found = n;
+                    else if (!string.Equals(found, n, StringComparison.OrdinalIgnoreCase)) return null;
+                }
+                finally { Marshal.ReleaseComObject(font); }
+                if (run.End <= pos) break;
+                pos = run.End;
+            }
+            return found;
+        }
+        catch (Exception) { return null; }
+        finally
+        {
+            Marshal.ReleaseComObject(run);
+            Marshal.ReleaseComObject(doc);
+        }
+    }
+
+    private static bool? Flag(int value) => value == tomTrue ? true : value == tomFalse ? false : (bool?)null;
+
+    /// <summary>Whether the whole selection has a style: true, false, or null if mixed.</summary>
+    private bool? SelectionHas(FontStyle style)
+    {
+        bool? result = null;
+        ReadFont(font =>
+        {
+            if (style == FontStyle.Bold) result = Flag((int)font.Bold);
+            else if (style == FontStyle.Italic) result = Flag((int)font.Italic);
+            else if (style == FontStyle.Underline) { int u = font.Underline; result = u == tomUndefined ? (bool?)null : u != 0; }
+            else if (style == FontStyle.Strikeout) result = Flag((int)font.StrikeThrough);
+        });
+        return result;
+    }
+
+    /// <summary>
+    /// Reads the selection's character formatting; with no selection, the formatting for what is
+    /// typed next (TOM's selection), so the Styles buttons show a change made at the caret
+    /// before anything is typed, rather than the character beside it.
+    /// </summary>
+    private void ReadFont(Action<dynamic> read)
+    {
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { }
+        if (doc == null) return;
+        object range = null, font = null;
+        try
+        {
+            range = SelectionLength > 0 ? doc.Range(SelectionStart, SelectionStart + SelectionLength) : ((dynamic)doc).Selection;
+            font = ((dynamic)range).Font;
+            read(font);
+        }
+        catch (Exception) { /* not available */ }
+        finally
+        {
+            if (font != null) Marshal.ReleaseComObject(font);
+            if (range != null) Marshal.ReleaseComObject(range);
+            Marshal.ReleaseComObject(doc);
+        }
+    }
+
+    /// <summary>
+    /// Ctrl+M with nothing selected: what is typed next is plain <paramref name="baseFont"/>
+    /// (no bold, italic, underline, strikethrough, super- or subscript, colour or highlight);
+    /// the text itself is left alone.
+    /// </summary>
+    public void ClearTypingFormat(Font baseFont) => ChangeCharacterFormat(f =>
+    {
+        f.Bold = tomFalse; f.Italic = tomFalse; f.Underline = 0; f.StrikeThrough = tomFalse;
+        f.Superscript = tomFalse; f.Subscript = tomFalse;
+        f.ForeColor = tomAutoColor; f.BackColor = tomAutoColor;
+        if (baseFont != null) { f.Name = baseFont.Name; f.Size = baseFont.SizeInPoints; }
+    });
+
+    /// <summary>Changes the selection's character formatting through TOM, as one Undo step.</summary>
+    private void SetFontProperties(Action<dynamic> change)
+    {
+        int start = SelectionStart, end = start + SelectionLength;
+        using (BeginBulkEdit())
+        {
+            EditWithTom(doc =>
+            {
+                ITextRange range = doc.Range(start, end);
+                object font = range.Font;
+                try { change(font); range.Font = font; }
+                finally
+                {
+                    Marshal.ReleaseComObject(font);
+                    Marshal.ReleaseComObject(range);
+                }
+            });
+            Select(start, end - start);
+        }
+    }
+
+    /// <summary>
+    /// Increase / decrease indent (rich text): each paragraph touching the selection moves its
+    /// left indent by <paramref name="points"/>, keeping its first-line and right indents (so
+    /// different indents stay different). Not below the margin. Returns false if nothing moved.
+    /// </summary>
+    public bool ChangeParagraphIndent(float points, bool skipListItems = false)
+    {
+        int selStart = SelectionStart, selLength = SelectionLength;
+        var lines = ListFormatter.LinesIn(Text, selStart, selStart + selLength);
+        bool moved = false;
+        using (BeginBulkEdit())
+        {
+            EditWithTom(doc =>
+            {
+                foreach (var line in lines)
+                {
+                    ITextRange range = doc.Range(line.Start, line.Start);
+                    object para = range.Para;
+                    try
+                    {
+                        dynamic p = para;
+                        if (skipListItems && ((int)p.ListType & 0xFFFF) != 0) continue; // list items change level instead
+                        float left = p.LeftIndent, first = p.FirstLineIndent, right = p.RightIndent;
+                        if (left < 0 || left > 10000) left = 0; // undefined
+                        float newLeft = Math.Max(0, left + points);
+                        if (newLeft + first < 0) first = -newLeft; // a hanging first line can't go past the margin
+                        if (Math.Abs(newLeft - left) < 0.01f) continue;
+                        p.SetIndents(first, newLeft, right);
+                        range.Para = para;
+                        moved = true;
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(para);
+                        Marshal.ReleaseComObject(range);
+                    }
+                }
+            });
+            Select(selStart, selLength);
+        }
+        return moved;
     }
     private void HandlePaste(bool forcePlain)
     {

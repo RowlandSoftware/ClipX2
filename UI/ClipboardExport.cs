@@ -19,7 +19,21 @@ namespace ClipX2.UI
             var data = new DataObject();
             if (!richText)
             {
-                data.SetData(DataFormats.UnicodeText, ToCrLf(rtb.Text));
+                // Plain text as it is; and, for programs that take formatting, the same text with
+                // its typed lists and indents recognised: RTF with live lists, HTML lists. No fonts
+                // in the HTML, so it takes the destination's; RTF has the rich-text font.
+                string text = rtb.Text;
+                data.SetData(DataFormats.UnicodeText, ToCrLf(text));
+                AppSettings s = AppSettings.Current;
+                FormattedDocument recognised = ClipX2.TextEngine.Import.PlainTextReader.Read(text, s.BulletList, s.NumList);
+                data.SetData(DataFormats.Html, ToClipboardHtml(DocumentExport.ToHtml(recognised)));
+                using (var temp = new ClipXRichTextBox())
+                {
+                    temp.CreateControl();
+                    IntPtr unused = temp.Handle; // TOM needs the window
+                    RichEditWriter.Write(temp, recognised, Form1.RichBaseFont());
+                    data.SetData(DataFormats.Rtf, temp.Rtf);
+                }
                 return data;
             }
 
@@ -121,8 +135,17 @@ namespace ClipX2.UI
                 int listType = d.ListType;
                 if (listType != tomUndefined)
                 {
-                    p.ListKind = ToListKind(listType & 0xFFFF);
-                    p.ListNumberStyle = ToNumberStyle(listType & 0xF0000);
+                    int kind = listType & 0xFFFF;
+                    if (kind > 32) // a bullet given by its character (◦, ▪ on deeper levels)
+                    {
+                        p.ListKind = ListKind.Bullet;
+                        p.BulletCharacter = char.ConvertFromUtf32(kind);
+                    }
+                    else
+                    {
+                        p.ListKind = ToListKind(kind);
+                        p.ListNumberStyle = ToNumberStyle(listType & 0xF0000);
+                    }
                 }
                 if (p.ListKind != ListKind.None)
                 {
@@ -141,6 +164,9 @@ namespace ClipX2.UI
                 float left = d.LeftIndent, first = d.FirstLineIndent;
                 if (left > tomUndefined) p.LeftIndent = left;
                 if (first > tomUndefined) p.FirstLineIndent = first;
+                // A built-in heading style (tomStyleHeading1 = -2 … Heading 9 = -10): its level
+                int style = d.Style;
+                if (style <= -2 && style >= -10) p.HeadingLevel = Math.Min(6, -style - 1);
             }
             catch (Exception) { /* keep whatever was read */ }
             finally

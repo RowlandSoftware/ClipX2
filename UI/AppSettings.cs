@@ -27,6 +27,12 @@ namespace ClipX2.UI
 
         public DisplaySettings Display { get; set; } = new DisplaySettings();
 
+        /// <summary>
+        /// Don't warn that formatting may be lost on switching to plain text (the warning's own
+        /// "Do not show this warning again", and Options, General: "Hide warning about loss of formatting").
+        /// </summary>
+        public bool HideFormattingLossWarning { get; set; }
+
         /// <summary>Quick search's recent searches, latest first (kept short).</summary>
         public System.Collections.Generic.List<string> QuickSearchHistory { get; set; } = new System.Collections.Generic.List<string>();
 

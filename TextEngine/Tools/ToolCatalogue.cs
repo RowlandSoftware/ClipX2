@@ -48,7 +48,7 @@ namespace ClipX2.TextEngine.Tools
     public static class ToolCatalogue
     {
         private const string Extras = "PowerButton Extras", Case = "Change Case", Edit = "Edit", Format = "Format",
-            Lists = "Lists", Sorting = "Sorting", Language = "Language Tools", ClipX = "ClipX";
+            Lists = "Lists", Sorting = "Sorting", Language = "Language Tools", Styles = "Styles", ClipX = "ClipX";
 
         private static readonly ToolInfo[] Tools =
         {
@@ -60,6 +60,25 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("pbINS", "Insert text", Extras, ToolKind.Editor, typeof(string), "Insert text at cursor position", true),
             new ToolInfo("pbDEL", "Delete selected text", Extras, ToolKind.Editor, null, "Delete the selected text (if any)", true),
             new ToolInfo("pbPBT", "PowerButton", Extras, ToolKind.Editor, typeof(string), "Include another PowerButton in this one", true),
+
+            new ToolInfo("stFNT", "Font", Styles, ToolKind.Editor, typeof(string), "Font of the selected text (rich text)"),
+            new ToolInfo("stSIZ", "Font size", Styles, ToolKind.Editor, typeof(float), "Font size of the selected text, in points (rich text)"),
+            new ToolInfo("stBLD", "Bold", Styles, ToolKind.Editor, null, "Bold on or off (Ctrl+B; rich text)"),
+            new ToolInfo("stITA", "Italic", Styles, ToolKind.Editor, null, "Italic on or off (Ctrl+I; rich text)"),
+            new ToolInfo("stUND", "Underline", Styles, ToolKind.Editor, null, "Underline on or off (Ctrl+U; rich text)"),
+            new ToolInfo("stHDG", "Heading level", Styles, ToolKind.Editor, typeof(int), "Normal or Heading 1–6: a heading in Word and on web pages, and looking like one (rich text)"),
+            new ToolInfo("stSTR", "Strikethrough", Styles, ToolKind.Editor, null, "Strikethrough on or off (rich text)"),
+            new ToolInfo("stSUP", "Superscript", Styles, ToolKind.Editor, null, "Superscript on or off (rich text)"),
+            new ToolInfo("stSUB", "Subscript", Styles, ToolKind.Editor, null, "Subscript on or off (rich text)"),
+            new ToolInfo("stCLR", "Clear formatting", Styles, ToolKind.Editor, null, "Fonts, sizes, colours and styles back to plain, in the selection or the whole text (rich text)"),
+            new ToolInfo("stALL", "Align left", Styles, ToolKind.Editor, null, "Align the paragraphs left (rich text)"),
+            new ToolInfo("stALC", "Centre", Styles, ToolKind.Editor, null, "Centre the paragraphs (rich text)"),
+            new ToolInfo("stALR", "Align right", Styles, ToolKind.Editor, null, "Align the paragraphs right (rich text)"),
+            new ToolInfo("stALJ", "Justify", Styles, ToolKind.Editor, null, "Justify the paragraphs: both edges straight (rich text)"),
+            new ToolInfo("stCOL", "Font colour", Styles, ToolKind.Editor, typeof(int), "Colour of the selected text (rich text)"),
+            new ToolInfo("stHIL", "Highlight", Styles, ToolKind.Editor, typeof(int), "Highlight the selected text (rich text)"),
+            new ToolInfo("stIIN", "Increase indent", Styles, ToolKind.Editor, null, "Indent the paragraphs further (rich text), or one more level of typed indentation (plain text)"),
+            new ToolInfo("stDIN", "Decrease indent", Styles, ToolKind.Editor, null, "Reduce the paragraphs' indent (rich text), or take off one level of typed indentation (plain text)"),
 
             new ToolInfo("ccUPP", "UPPER CASE", Case, ToolKind.Text, null, "All capitals"),
             new ToolInfo("ccLOW", "lower case", Case, ToolKind.Text, null, "All small letters"),
@@ -99,6 +118,7 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("liREM", "Remove numbers", Lists, ToolKind.Text, null, "Remove numbering"),
             new ToolInfo("liRLN", "Remove line numbers", Lists, ToolKind.Text, null, "Remove line numbering"),
 
+            new ToolInfo("soSMA", "Smart sort", Sorting, ToolKind.Text, null, "Sort paragraphs in natural order: numbers by value (2 before 10), numbers before letters"),
             new ToolInfo("soALP", "Alphabetic", Sorting, ToolKind.Text, null, "Sort paragraphs alphabetically"),
             new ToolInfo("soNUM", "Numeric", Sorting, ToolKind.Text, null, "Sort paragraphs numerically"),
             new ToolInfo("soREV", "Reverse", Sorting, ToolKind.Text, null, "Reverse order of selected paragraphs"),
@@ -111,6 +131,11 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("chGRA", "Spelling && Grammar", Language, ToolKind.Interactive, null, "Spelling and grammar checker"),
             new ToolInfo("chSTAT", "Statistics", Language, ToolKind.Interactive, null, "Document statistics: word count etc."),
 
+            new ToolInfo("clipxOPT", "Settings", ClipX, ToolKind.Interactive, null, "Options: fonts, spelling, dictionaries, grammar, warnings"),
+            new ToolInfo("clipxFIN", "Done", ClipX, ToolKind.Interactive, null, "Put the text on the clipboard, ready to paste, and close ClipX (Alt+D)"),
+            new ToolInfo("clipxMOD", "Plain or rich text", ClipX, ToolKind.Interactive, null, "Switch between plain text and rich (formatted) text"),
+            new ToolInfo("clipxQSR", "Quick search", ClipX, ToolKind.Interactive, null, "Find words in the text (Ctrl+F)"),
+            new ToolInfo("clipxREF", "Refresh", ClipX, ToolKind.Interactive, null, "Start again: the text from the clipboard again, as when ClipX started"),
             new ToolInfo("clipxRPT", "Repeat last tool", ClipX, ToolKind.Interactive, null, "Run the last tool used again, with its last settings (Ctrl+R)"),
         };
 

@@ -39,9 +39,13 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
   
 ## Conversion
   
-- [ ] Convert formatted text to plain (if plain is selected) on startup and when toggle
-- [ ] Convert plain lists etc. to RTF as above
-- [ ] HTML to plain or RTF on startup
+- [x] Startup: Plain or Formatted always offered (the HTML-as-code choice hidden); what isn't on the clipboard is converted from what is: formatted from RTF, else HTML (formatting, headings, lists, tables, indents kept), else plain text (typed lists made live, leading tabs paragraph indents); plain from the clipboard's own text, else HTML or RTF converted (lists typed)
+- [x] Toggle: rich → plain keeps lists (typed) and indents (tabs), with a warning ("Do not show this warning again"; Options, General: Hide warning about loss of formatting); plain → rich makes typed lists live, tabs paragraph indents
+- [x] Refresh (clipxREF; ClipX 1's cmdRefresh): ↻ left of Finish; the clipboard again as at startup (format dialog, conversions), one Undo step; "Text retrieved from clipboard"
+- [x] Plain-only clipboard text that is HTML code (a text editor) is taken as HTML: HTML (code) shows it, Formatted and Plain render it. Plain from HTML is converted (list numbers typed)
+- [x] Done: rich mode, plain text with typed lists and tabs for indents; plain mode, RTF (live lists) and HTML (real lists) made from the recognised plain text as well as the text
+- [x] Engine: Import/PlainTextReader, Import/HtmlReader, Import/TypedListRecognition (Word's typed "1." and "·" too); UI: RichEditWriter (document into the editor)
+- [ ] Rich text's font for converted plain text: the proportional display font (Options, Display); a separate setting?
 
 ## Grammar (LanguageTool)
 
@@ -76,7 +80,7 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Remove bullets (liRMB), Remove numbers (liREM): typed and live; indentation kept (live levels turned back into tabs / pad widths; lines moved along by 1/a/i numbering moved back), so add then remove gives the original text; click or right-click
 - [x] Line numbers (liREN): options in the side panel (start, increment, show every nth, skip blank lines, pad right/left, renumber), right-click = last used; setting `NumLines` with ClipX 1's key names. Remove line numbers (liRLN): click or right-click; indentation after the number kept, so add then remove gives the original. Typed in rich text too (formatting kept); numbers line up only in a fixed-width font
 - [x] Live numbered lists: blank lines between items become unnumbered items, so the numbering runs on (as plain text); exports keep them as blank lines
-- [ ] Typed lists in rich text: hanging indent so wrapped lines line up; Tab/Shift+Tab to change a live item's level
+- [ ] Typed lists in rich text: hanging indent so wrapped lines line up
 - [ ] Settings: import of ClipX 1's .pref (XML) — keys already match for lists
 
 ## Format
@@ -110,4 +114,37 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] ClipX: one handler, `Form1.RunTool(tag, how, options)` (UI/Form1.Tools.cs): every tagged button wired once by tag (click = options panel, right-click = last settings), keys (F7, Shift+F3 = ccCYC, Ctrl+R = Repeat last tool), PowerButtons later (`ToolTrigger.PowerButton` with their own options). Counts in usage.json (Usage/Total, PowerButton counts apart), remembers the last tool, closes other options panels, ends Quick search, clears the status bar
 - [ ] Usage upload (ask first, like grammar); a view of the statistics
 - [ ] PowerButtons: a list of tags + options run through RunTool
-- [ ] Not yet written: soALP soNUM soREV soNUP soNUD soKEY (Sorting), edSRC/edREP (Search and Replace), pb* extras
+- [ ] Not yet written: edSRC/edREP (Search and Replace), pb* extras
+
+## Sorting
+- [x] Alphabetic (soALP), Numeric (soNUM), Smart (soSMA, new), Reverse (soREV), Nudge up/down (soNUP/soNUD; Alt+Up/Alt+Down in the text), List sort (soKEY: comma separated items on a line). Lines move whole with their own formatting (TOM FormattedText), one Undo step; the selected lines, or the whole text; blank lines removed when sorting (as ClipX 1). Engine: `LineSorter`; sorts ignore case and indentation, use the language's alphabet (é with e), keep equal lines in order
+- [ ] Smart sort: check the order against the Oracle Style Guide (now: symbols, then numbers, then letters; numbers inside lines by value, item 2 before item 10)
+
+## Styles (new in ClipX2)
+- [x] Font list (installed fonts, type to find), size list (or type a size), Bold, Italic: rich text only (off in plain text); through TOM, so a mixed selection keeps its other formatting (bold on mixed fonts keeps each font). Controls follow the selection (blank where mixed). Ctrl+B / Ctrl+I / Ctrl+U go through the tool handler too (stBLD, stITA, stUND); Ctrl+R repeats the last font or size
+- [x] Increase / decrease indent (stIIN, stDIN): rich text, each paragraph's left indent ±36 pt (relative indents kept, not past the margin); plain text, a tab (or spaces, from the Indent settings) typed in or taken off
+- [ ] Icons for the Styles buttons (text and drawn stand-ins for now)
+- [x] Small two-row toolbar beside the font lists (table layout, 22 px buttons a pixel apart, 2 px under the bottom row: 50 high in the 58 tab page): B, I, U, S, x², x₂, Clear formatting (selection or whole text; lists and indents stay), Font colour ▾ (Word's standard colours, More colours…), align left/centre/right/justify (advanced typography on, so justify shows), indent ⇥ ⇤, Highlight ▾. Split buttons: click = last colour. States shown at the caret. Tags stSTR stSUP stSUB stCLR stALL stALC stALR stALJ stCOL stHIL
+- [x] Heading level list (stHDG), labelled, under font and size; Ctrl+M = Clear formatting (stCLR; with nothing selected, only what is typed next; the button clears the whole text); Styles buttons show the typing format at the caret: Normal, Heading 1–6. Sets the editor's built-in heading tag (RTF "heading N": Word's Heading styles) and the look (24/18/14/12/10/9 pt bold, as HTML); Normal takes them off. Shows the caret's level (blank when mixed). HTML h1–h6 in and out; plain text just the words. No custom styles: RichEdit drops them
+- [x] Live list items: Increase/Decrease indent and Tab/Shift+Tab change the level (bullet • ◦ ▪, number 1 → a → i follow); other paragraphs move. Tab/Shift+Tab indent when at a line start (or in its leading white space) or over several lines, else a tab is typed. Plain text: the caret's line (or the selected lines), typed bullets • ◦ ▪ by level
+- [x] Bullets by level, • ◦ ▪ (live: RichEdit takes a list type above 32 as the bullet character; typed too); any single bullet character can be live now. Live lists take levels from tabs and spaces (mixed), an existing list, or paragraph indents. Done: ◦ and ▪ exported (plain text, HTML circle/square)
+- [x] Typed numbered lists: hierarchical, 1 → a → i → I → A from the chosen style (indented lines numbered, a sub-list restarting under each item; levels from the list's shallowest line; indentation kept, so Remove numbers gives the original back; Legal keeps its indentation too). Tab / Increase indent in plain text recognise the typed list (style, punctuation, start, padding from its first top-level number; Legal if any number is) and renumber it; one Undo step. Numbers without punctuation (a, iv + tab or two spaces) recognised. Live lists: an item moving level takes that level's start number (else the editor starts a new list)
+
+## Pasting
+- [ ] Should not embed files, but extract text if possible
+- [ ] Vet pastes to block images etc.
+
+## What do you want to do?
+- [x] Right-hand tab: label and box on the left (Alt+Q goes to it), icons (Settings; later Help, About) docked right. Suggestions under the box as you type: name and description, best first; Up/Down, Enter (or click) runs it through RunTool as its button would, Esc closes
+- [x] Engine: `Tools/ToolFinder` (names, button captions and tooltips, synonyms, descriptions, groups; prefixes, plurals, typos; filler words ignored; "get rid of"/"delete"/"strip" = remove; Remove… tools lower unless removing) and `Tools/ToolKeywords` (synonyms per tool, US spellings, examples such as %20, â€™)
+- [x] App actions searchable: Settings, Done, Plain or rich text, Quick search, Refresh, Repeat, Cycle case (tags clipxOPT clipxFIN clipxMOD clipxQSR)
+- [ ] Synonyms in other languages, with the translations
+- [ ] Perhaps: note searches that find nothing (locally, or with usage statistics if the user agrees) to improve the synonyms
+- [ ] Perhaps: suggest help topics as well as tools, once there is help
+
+## To Do
+- [ ] Help
+- [ ] Updates
+- [ ] About...
+- [ ] Style tool
+- [ ] Upload usage

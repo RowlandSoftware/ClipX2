@@ -81,10 +81,10 @@ namespace ClipX2.UI.Panels
             textBoxSample.Text = Sample(o);
             bool rich = _isRichText?.Invoke() ?? false;
             labelNote.Text = !rich
-                ? $"Indent a line by {(o.Tab ? "a tab" : o.PadChars + " spaces")} to put it a level down."
+                ? "Indent a line (a tab, Tab at its start, or Increase indent) to put it a level down: bullets go • ◦ ▪."
                 : ListTools.BulletsAreLive(o)
-                    ? $"Rich text: a live list. Indent a line by {(o.Tab ? "a tab" : o.PadChars + " spaces")} to put it a level down."
-                    : "Rich text: live lists use •; this bullet is typed in, as in plain text.";
+                    ? "Rich text: a live list. Indented lines go a level down; Tab or Increase indent moves an item down, Shift+Tab or Decrease indent up. Bullets go • ◦ ▪."
+                    : "Rich text: this bullet is typed in, as in plain text.";
         }
 
         /// <summary>Three items, one a level down, bulleted with the options.</summary>

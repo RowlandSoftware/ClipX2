@@ -20,11 +20,17 @@ namespace ClipX2.TextEngine.Export
         public ListKind ListKind { get; set; }
         public ListNumberStyle ListNumberStyle { get; set; }
 
+        /// <summary>A bullet item's bullet if not the usual • (◦ and ▪ on deeper levels); null for •.</summary>
+        public string BulletCharacter { get; set; }
+
         /// <summary>The number the list starts at (for lettered and Roman lists too: 3 = c / iii).</summary>
         public int ListStart { get; set; } = 1;
 
         /// <summary>Nesting level of a list item, 0 for the outermost.</summary>
         public int ListLevel { get; set; }
+
+        /// <summary>A heading's level (1 = Heading 1 … 6), 0 for an ordinary paragraph: Word's heading styles, HTML's h1–h6.</summary>
+        public int HeadingLevel { get; set; }
 
         public ParagraphAlignment Alignment { get; set; }
 

@@ -33,6 +33,11 @@
     <AutoGen>True</AutoGen>
     <DependentUpon>Resources.resx</DependentUpon>
   </Compile>
+  <!-- Form1's code-only parts: open as code (the designer would add a .resx clashing with Form1.resx) -->
+  <Compile Update="UI\Form1.Conversion.cs"><SubType>Code</SubType></Compile>
+  <Compile Update="UI\Form1.Styles.cs"><SubType>Code</SubType></Compile>
+  <Compile Update="UI\Form1.Tools.cs"><SubType>Code</SubType></Compile>
+  <Compile Update="UI\Form1.Find.cs"><SubType>Code</SubType></Compile>
 </ItemGroup>
 <ItemGroup>
   <EmbeddedResource Update="Properties\Resources.resx">

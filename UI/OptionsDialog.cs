@@ -101,6 +101,7 @@ namespace ClipX2.UI
             radioFixed.Checked = d.UseFixedFont;
             radioProportional.Checked = !d.UseFixedFont;
             checkBoxWordWrap.Checked = d.WordWrap;
+            checkBoxHideFormattingWarning.Checked = AppSettings.Current.HideFormattingLossWarning;
 
             SpellingSettings sp = all.Spelling;
             checkBoxIgnoreUppercase.Checked = sp.IgnoreUppercase;
@@ -154,6 +155,7 @@ namespace ClipX2.UI
             d.FixedFont = Copy(_fixed);
             d.UseFixedFont = radioFixed.Checked;
             d.WordWrap = checkBoxWordWrap.Checked;
+            all.HideFormattingLossWarning = checkBoxHideFormattingWarning.Checked;
 
             SpellingSettings sp = all.Spelling;
             sp.IgnoreUppercase = checkBoxIgnoreUppercase.Checked;

@@ -28,6 +28,7 @@ namespace ClipX2
             richTextBox1.TextSettled += (s, e) => UpdateWordCount();
             richTextBox1.SelectionSettled += (s, e) => ShowWordCount();
             toolStripButtonFinish.Click += (s, e) => Done();
+            toolStripButtonRefresh.Click += (s, e) => RunTool("clipxREF", ToolTrigger.Click); // start again from the clipboard
 
             // The side panel: tool views, or button descriptions on hover (in place of tooltips)
             // Status messages (as ClipX 1's labStatus) and descriptions while a panel is open go in
@@ -49,6 +50,8 @@ namespace ClipX2
 
             // Every tool button, found by its tag (ClipX 1's token), goes to the one tool handler, RunTool
             WireToolButtons();
+            InitStyles();
+            InitFind();   // "What do you want to do?"
         }
 
         private readonly ToolStripLabel _statusHint;
@@ -77,50 +80,22 @@ namespace ClipX2
         private readonly ClipX2.UI.Panels.SidePanelHost _panels;
         private void On_FormLoad(object sender, EventArgs e)
         {
-            bool hasHtml = Clipboard.ContainsData(DataFormats.Html);
-            bool hasRtf = Clipboard.ContainsData(DataFormats.Rtf);
-            bool hasText = Clipboard.ContainsText(TextDataFormat.UnicodeText);
-
-            using var dlg = new FormatChoiceDialog(hasHtml, hasRtf || hasText, hasRtf || hasText);
-
-            if (!hasHtml && !hasRtf && !hasText)
+            bool empty = !Clipboard.ContainsText(TextDataFormat.UnicodeText) && !Clipboard.ContainsData(DataFormats.Rtf) && !Clipboard.ContainsData(DataFormats.Html);
+            if (empty)
             {
                 _isRtfMode = true;
             }
             else
             {
-                if (dlg.ShowDialog(this) != DialogResult.OK)
+                // Plain or rich, whatever the clipboard holds: it is converted if need be (Form1.Conversion.cs)
+                bool? rich = LoadFromClipboard(richTextBox1);
+                if (rich == null)
                 {
                     _isRtfMode = false;
                     return;
                 }
-
-                switch (dlg.Selected)
-                {
-                    case FormatChoiceDialog.Choice.Html:
-                        string rawHtml = Clipboard.GetText(TextDataFormat.Html);
-                        richTextBox1.Text = ExtractHtmlFragment(rawHtml);
-                        _isRtfMode = false;
-                        break;
-
-                    case FormatChoiceDialog.Choice.Rtf:
-                        if (!hasRtf)
-                        {
-                            richTextBox1.Text = Clipboard.GetText(TextDataFormat.UnicodeText);
-                        }
-                        else
-                        {
-                            string rtf = Clipboard.GetText(TextDataFormat.Rtf);
-                            richTextBox1.Rtf = rtf;
-                        }
-                        _isRtfMode = true;
-                        break;
-
-                    case FormatChoiceDialog.Choice.Text:
-                        richTextBox1.Text = Clipboard.GetText(TextDataFormat.UnicodeText);
-                        _isRtfMode = false;
-                        break;
-                }
+                _isRtfMode = rich.Value;
+                richTextBox1.ClearUndo(); // the first Undo shouldn't empty the text
             }
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
             ApplyDisplaySettings(); // plain text in the chosen font
@@ -151,11 +126,41 @@ namespace ClipX2
                 case Keys.F7:                             // next spelling issue (as Word)
                     RunTool("chSPE", ToolTrigger.Key);
                     return true;
+                case Keys.Alt | Keys.Up when richTextBox1.Focused:   // Nudge up (as ClipX 1); elsewhere Alt+Up/Down open drop-down lists
+                    RunTool("soNUP", ToolTrigger.Key);
+                    return true;
+                case Keys.Alt | Keys.Down when richTextBox1.Focused: // Nudge down
+                    RunTool("soNUD", ToolTrigger.Key);
+                    return true;
+                // Tab / Shift+Tab at the start of a line (or over several lines) indent / outdent; else a tab is typed
+                case Keys.Tab when richTextBox1.Focused && TabIndents():
+                    RunTool("stIIN", ToolTrigger.Key);
+                    return true;
+                case Keys.Shift | Keys.Tab when richTextBox1.Focused && TabIndents():
+                    RunTool("stDIN", ToolTrigger.Key);
+                    return true;
+                // Bold, italic, underline (rich text) through the tool handler too, when typing in the text
+                case Keys.Control | Keys.B when richTextBox1.Focused:
+                    RunTool("stBLD", ToolTrigger.Key);
+                    return true;
+                case Keys.Control | Keys.I when richTextBox1.Focused:
+                    RunTool("stITA", ToolTrigger.Key);
+                    return true;
+                case Keys.Control | Keys.U when richTextBox1.Focused:
+                    RunTool("stUND", ToolTrigger.Key);
+                    return true;
+                case Keys.Control | Keys.M when richTextBox1.Focused: // Clear formatting, as the T/ button
+                    RunTool("stCLR", ToolTrigger.Key);
+                    return true;
                 case Keys.Control | Keys.R:               // Repeat last tool (RichEdit's own Ctrl+R, right-align, isn't used)
                     RunTool("clipxRPT", ToolTrigger.Key);
                     return true;
                 case Keys.Shift | Keys.F3 when !_quickSearch.IsActive && richTextBox1.Focused && richTextBox1.SelectionLength > 0:
                     RunTool("ccCYC", ToolTrigger.Key);    // cycle case
+                    return true;
+                case Keys.Alt | Keys.Q:                   // "What do you want to do?" (as Office's Tell me)
+                    textBoxWhatToDo.Focus();
+                    textBoxWhatToDo.SelectAll();
                     return true;
                 case Keys.Control | Keys.F:               // Quick search
                     _quickSearch.Activate();
@@ -422,15 +427,11 @@ namespace ClipX2
 
         private void toolStripLabelRtfMode_Click(object sender, EventArgs e)
         {
-            _isRtfMode = !_isRtfMode;
-            if (!_isRtfMode)
-            {
-                // Live list numbers and bullets become typed text (else they would vanish)
-                richTextBox1.Text = ClipX2.TextEngine.Export.DocumentExport.ToPlainText(RichEditReader.Read(richTextBox1), "\n");
-            }
+            if (!SwitchMode()) return; // lists, indents converted both ways (Form1.Conversion.cs)
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
             ApplyDisplaySettings();
             _panels.Current?.OnModeChanged(); // an open panel shows what applies in the new mode
+            ShowStyles();                     // fonts and styles: rich text only
         }
     }
 }

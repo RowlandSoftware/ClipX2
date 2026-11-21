@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -134,19 +135,29 @@ namespace ClipX2.TextEngine
         /// </summary>
         public static int Level(string text, Line line, bool tab, int padChars)
         {
-            int level = 0, i = line.Start;
-            if (tab)
-            {
-                while (i < line.End && text[i] == '\t') { level++; i++; }
-                return level;
-            }
+            // Either way of indenting counts, mixed too (a tab typed into text indented with
+            // spaces): each tab is a level, and so is each run of pad-width spaces
+            int level = 0, i = line.Start, spaces = 0;
             int width = Math.Max(1, padChars);
-            while (i + width <= line.End && text.IndexOf(new string(' ', width), i, width, StringComparison.Ordinal) == i)
+            for (; i < line.End; i++)
             {
-                level++;
-                i += width;
+                if (text[i] == '\t') { level++; spaces = 0; }
+                else if (text[i] == ' ') { if (++spaces == width) { level++; spaces = 0; } }
+                else break;
             }
             return level;
+        }
+
+        /// <summary>
+        /// The bullet for a level: the chosen one at the top, then ◦ and ▪ (as Word), round again.
+        /// If the chosen one is itself ◦ or ▪, the others follow it in the same order.
+        /// </summary>
+        public static string BulletForLevel(string first, int level)
+        {
+            string[] cascade = { string.IsNullOrEmpty(first) ? "•" : first, "◦", "▪" };
+            if (cascade[0] == "◦") cascade = new[] { "◦", "▪", "•" };
+            else if (cascade[0] == "▪") cascade = new[] { "▪", "•", "◦" };
+            return cascade[Math.Max(0, level) % cascade.Length];
         }
 
         /// <summary>The indentation for a level: tabs, or pad widths of spaces.</summary>
@@ -177,8 +188,28 @@ namespace ClipX2.TextEngine
                 int level = Level(text, line, options.Tab, options.PadChars);
                 int indent = IndentLength(text, line);
                 int old = BulletLength(text, line.Start + indent, line.End);
-                string prefix = Indent(level, options.Tab, options.PadChars) + Pad(bullet, options.Tab, options.PadChars);
+                string prefix = Indent(level, options.Tab, options.PadChars) + Pad(BulletForLevel(bullet, level), options.Tab, options.PadChars);
                 AddEdit(edits, text, line.Start, indent + old, prefix);
+            }
+            return edits;
+        }
+
+        /// <summary>
+        /// After lines have been indented or unindented: each typed bullet becomes the one for its
+        /// new level (• ◦ ▪), if it is one of that cascade (a bullet of the user's own is left alone).
+        /// </summary>
+        public static List<TextEdit> RebulletEdits(string text, int from, int to, BulletOptions options)
+        {
+            var edits = new List<TextEdit>();
+            string first = string.IsNullOrEmpty(options.Character) ? "•" : options.Character;
+            string cascade = BulletForLevel(first, 0) + BulletForLevel(first, 1) + BulletForLevel(first, 2);
+            foreach (Line line in LinesIn(text, from, to))
+            {
+                int indent = IndentLength(text, line);
+                int at = line.Start + indent;
+                if (BulletLength(text, at, line.End) == 0 || cascade.IndexOf(text[at]) < 0) continue;
+                string wanted = BulletForLevel(first, Level(text, line, options.Tab, options.PadChars));
+                if (text[at].ToString() != wanted) edits.Add(new TextEdit(at, 1, wanted));
             }
             return edits;
         }
@@ -213,7 +244,11 @@ namespace ClipX2.TextEngine
         {
             var edits = new List<TextEdit>();
             var counts = new List<int> { options.StartNumber - 1 };
-            int current = 0; // the level being numbered
+            int current = 0;   // Legal: the level being numbered
+            int previous = 0;  // hierarchical: the last line's level
+            // Levels count from the list's own shallowest line (a list that is all indented starts at the top)
+            int baseLevel = LinesIn(text, from, to).Where(l => !IsBlank(text, l))
+                .Select(l => Level(text, l, options.Tab, options.PadChars)).DefaultIfEmpty(0).Min();
             foreach (Line line in LinesIn(text, from, to))
             {
                 if (IsBlank(text, line)) continue;
@@ -222,32 +257,163 @@ namespace ClipX2.TextEngine
 
                 if (options.Style == NumberStyle.Legal)
                 {
-                    int level = Level(text, line, options.Tab, options.PadChars);
+                    int level = Math.Max(0, Level(text, line, options.Tab, options.PadChars) - baseLevel);
                     while (current < level) { current++; if (counts.Count <= current) counts.Add(0); else counts[current] = 0; } // a new sub-list
                     current = level;
                     counts[current]++;
                     var label = new StringBuilder();
                     for (int j = 0; j <= current; j++) label.Append(counts[j].ToString(CultureInfo.InvariantCulture)).Append('.');
-                    string prefix = Indent(level, options.Tab, options.PadChars) + Pad(label.ToString(), options.Tab, options.PadChars);
-                    AddEdit(edits, text, line.Start, indent + old, prefix);
-                }
-                else if (indent > 0)
-                {
-                    // Indented: not numbered, moved along one level (ClipX 1)
-                    string shift = options.Tab ? "\t" : new string(' ', Math.Max(1, options.PadChars));
-                    if (old > 0) AddEdit(edits, text, line.Start + indent, old, "");
-                    edits.Add(new TextEdit(line.Start, 0, shift));
+                    AddEdit(edits, text, line.Start + indent, old, Pad(label.ToString(), options.Tab, options.PadChars)); // the indentation is kept
                 }
                 else
                 {
-                    counts[0]++;
-                    string prefix = Pad(FormatNumber(counts[0], options.Style, options.FollowChar), options.Tab, options.PadChars);
-                    AddEdit(edits, text, line.Start, old, prefix);
+                    // Hierarchical: each level numbered in the next style down (1 → a → i → I → A),
+                    // a sub-list starting again at 1 under each item; the indentation is kept
+                    int level = Math.Max(0, Level(text, line, options.Tab, options.PadChars) - baseLevel);
+                    while (counts.Count <= level) counts.Add(0);
+                    if (level > previous) for (int l = previous + 1; l <= level; l++) counts[l] = 0;
+                    previous = level;
+                    counts[level]++;
+                    string label = FormatNumber(counts[level], StyleForLevel(options.Style, level), options.FollowChar);
+                    AddEdit(edits, text, line.Start + indent, old, Pad(label, options.Tab, options.PadChars));
                 }
             }
             edits.Sort((a, b) => a.Start.CompareTo(b.Start));
             return edits;
         }
+
+        /// <summary>
+        /// The style for a level of a hierarchical list: from the chosen style, through
+        /// 1 → a → i → I → A and round again (Arabic gives 1, a, i…; capital Roman I, A, 1, a, i…).
+        /// The same cascade as the editor's live lists.
+        /// </summary>
+        public static NumberStyle StyleForLevel(NumberStyle style, int level)
+        {
+            NumberStyle[] cascade = { NumberStyle.RomanCap, NumberStyle.LettersCap, NumberStyle.Arabic, NumberStyle.Letters, NumberStyle.Roman };
+            int first = Array.IndexOf(cascade, style);
+            if (first < 0) return style; // Legal
+            return cascade[(first + Math.Max(0, level)) % cascade.Length];
+        }
+
+        /************ Typed lists: recognising and renumbering ************/
+
+        /// <summary>
+        /// Renumbers the typed numbered lists that the lines [from, to) are in, after lines have
+        /// been indented or outdented (Tab, Increase indent): each list is recognised (consecutive
+        /// numbered lines, blank lines between allowed), its style, punctuation, start number and
+        /// padding read from its first top-level number, and numbered again level by level (a line
+        /// indented under "2." becomes "a."). Lines that aren't in a numbered list are left alone.
+        /// </summary>
+        public static List<TextEdit> RenumberEdits(string text, int from, int to, NumberOptions defaults)
+        {
+            var edits = new List<TextEdit>();
+            List<Line> all = LinesIn(text, 0, text.Length);
+            List<Line> touched = LinesIn(text, from, to);
+            if (touched.Count == 0) return edits;
+            int firstTouched = all.FindIndex(l => l.Start == touched[0].Start);
+            if (firstTouched < 0) return edits;
+            int lastTouched = firstTouched + touched.Count - 1;
+            bool Numbered(int i) => !IsBlank(text, all[i]) && NumberLength(text, all[i].Start + IndentLength(text, all[i]), all[i].End) > 0;
+
+            int done = -1;
+            for (int seed = firstTouched; seed <= lastTouched; seed++)
+            {
+                if (seed <= done || !Numbered(seed)) continue;
+                // The list around the seed: numbered lines, with blank lines between them
+                int start = seed, end = seed;
+                for (int i = seed - 1; i >= 0; i--) { if (Numbered(i)) start = i; else if (!IsBlank(text, all[i])) break; }
+                for (int i = seed + 1; i < all.Count; i++) { if (Numbered(i)) end = i; else if (!IsBlank(text, all[i])) break; }
+                done = end;
+
+                NumberOptions o = RecogniseList(text, all, start, end, defaults);
+                if (o == null) continue;
+                edits.AddRange(NumberEdits(text, all[start].Start, all[end].End, o));
+            }
+            edits.Sort((a, b) => a.Start.CompareTo(b.Start));
+            return edits;
+        }
+
+        /// <summary>
+        /// A typed list's numbering, read from its first top-level number: style (1, a, A, i, I or
+        /// legal 1.1.), punctuation, start, and a tab or spaces after it. Null if unreadable.
+        /// </summary>
+        internal static NumberOptions RecogniseList(string text, List<Line> all, int start, int end, NumberOptions defaults)
+        {
+            int topLevel = int.MaxValue, top = -1;
+            for (int i = start; i <= end; i++)
+            {
+                if (IsBlank(text, all[i])) continue;
+                int level = Level(text, all[i], defaults.Tab, defaults.PadChars);
+                if (level < topLevel) { topLevel = level; top = i; }
+            }
+            if (top < 0) return null;
+            Line line = all[top];
+            int at = line.Start + IndentLength(text, line);
+            int length = NumberLength(text, at, line.End);
+            string marker = text.Substring(at, length);
+            string label = marker.TrimEnd(' ', '\t');
+            var o = new NumberOptions
+            {
+                Renumber = true,
+                Tab = marker.EndsWith("\t", StringComparison.Ordinal),
+                PadChars = marker.EndsWith("\t", StringComparison.Ordinal) ? defaults.PadChars : Math.Max(label.Length + 1, length),
+            };
+
+            // Legal (1.1.) if any of its numbers is: the first may be just "1."
+            for (int i = start; i <= end; i++)
+            {
+                if (IsBlank(text, all[i])) continue;
+                int a = all[i].Start + IndentLength(text, all[i]);
+                string m = text.Substring(a, NumberLength(text, a, all[i].End)).TrimEnd(' ', '\t');
+                if (Regex.IsMatch(m, @"^\d+(\.\d+)+\.?$")) { o.Style = NumberStyle.Legal; o.StartNumber = 1; return o; }
+            }
+
+            string core = label;
+            if (core.StartsWith("(", StringComparison.Ordinal) && core.EndsWith(")", StringComparison.Ordinal)) { o.FollowChar = NumberPunctuation.TwoBrackets; core = core.Substring(1, core.Length - 2); }
+            else if (core.EndsWith(")", StringComparison.Ordinal)) { o.FollowChar = NumberPunctuation.Bracket; core = core.Substring(0, core.Length - 1); }
+            else if (core.EndsWith(".", StringComparison.Ordinal)) { o.FollowChar = NumberPunctuation.Period; core = core.Substring(0, core.Length - 1); }
+            else o.FollowChar = NumberPunctuation.None;
+            if (core.Length == 0) return null;
+
+            if (core.All(char.IsDigit)) { o.Style = NumberStyle.Arabic; o.StartNumber = int.Parse(core, CultureInfo.InvariantCulture); }
+            else if (IsRomanStart(core))
+            {
+                o.Style = char.IsUpper(core[0]) ? NumberStyle.RomanCap : NumberStyle.Roman;
+                o.StartNumber = FromRoman(core.ToUpperInvariant());
+            }
+            else if (core.Length == 1 && char.IsLetter(core[0]))
+            {
+                o.Style = char.IsUpper(core[0]) ? NumberStyle.LettersCap : NumberStyle.Letters;
+                o.StartNumber = char.ToUpperInvariant(core[0]) - 'A' + 1;
+            }
+            else return null;
+            return o;
+        }
+
+        /// <summary>A Roman numeral rather than a letter: "i"/"I", or several Roman letters ("ii", "iv"); a lone c, d, l, m, v or x is taken as a letter.</summary>
+        private static bool IsRomanStart(string core)
+        {
+            if (core.Equals("i", StringComparison.OrdinalIgnoreCase)) return true;
+            if (core.Length < 2) return false;
+            bool lower = core.All(c => "ivxlcdm".IndexOf(c) >= 0), upper = core.All(c => "IVXLCDM".IndexOf(c) >= 0);
+            return (lower || upper) && ToRoman(FromRoman(core.ToUpperInvariant())) == core.ToUpperInvariant();
+        }
+
+        private static int FromRoman(string roman)
+        {
+            int total = 0;
+            for (int i = 0; i < roman.Length; i++)
+            {
+                int v = RomanValue(roman[i]), next = i + 1 < roman.Length ? RomanValue(roman[i + 1]) : 0;
+                total += v < next ? -v : v;
+            }
+            return Math.Max(1, total);
+        }
+
+        private static int RomanValue(char c) => c switch
+        {
+            'I' => 1, 'V' => 5, 'X' => 10, 'L' => 50, 'C' => 100, 'D' => 500, 'M' => 1000, _ => 0,
+        };
 
         /// <summary>
         /// Takes the numbers off the lines, undoing <see cref="NumberEdits"/>: indentation is kept
@@ -320,7 +486,8 @@ namespace ClipX2.TextEngine
         private static readonly Regex Number = new Regex(
             @"\G(?:\d+(?:\.\d+)+\.?[ \t]*" +
             @"|\(?\d+[.)][ \t]+|\(\d+\)[ \t]+|\d+(?:\t|[ ]{2,})[ \t]*" +
-            @"|\(?(?:[a-zA-Z]|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})[.)][ \t]+|\((?:[a-zA-Z]|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})\)[ \t]+)",
+            @"|\(?(?:[a-zA-Z]|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})[.)][ \t]+|\((?:[a-zA-Z]|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})\)[ \t]+" +
+            @"|(?:[a-zA-Z]|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})(?:\t|[ ]{2,})[ \t]*)", // a, iv with no punctuation: a tab or two spaces after, as for digits
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         /// <summary>Length of a list number and the spaces or tabs after it at <paramref name="at"/> (0 if none).</summary>

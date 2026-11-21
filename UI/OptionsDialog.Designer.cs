@@ -32,6 +32,7 @@ namespace ClipX2.UI
             buttonExport = new System.Windows.Forms.Button();
             buttonImport = new System.Windows.Forms.Button();
             labelExportNote = new System.Windows.Forms.Label();
+            checkBoxHideFormattingWarning = new System.Windows.Forms.CheckBox();
             tabSpelling = new System.Windows.Forms.TabPage();
             labelDictionaries = new System.Windows.Forms.Label();
             labelFind = new System.Windows.Forms.Label();
@@ -216,6 +217,7 @@ namespace ClipX2.UI
             tabGeneral.Controls.Add(buttonExport);
             tabGeneral.Controls.Add(buttonImport);
             tabGeneral.Controls.Add(labelExportNote);
+            tabGeneral.Controls.Add(checkBoxHideFormattingWarning);
             tabGeneral.Location = new System.Drawing.Point(4, 26);
             tabGeneral.Name = "tabGeneral";
             tabGeneral.Padding = new System.Windows.Forms.Padding(3);
@@ -269,6 +271,15 @@ namespace ClipX2.UI
             labelExportNote.Size = new System.Drawing.Size(580, 80);
             labelExportNote.TabIndex = 4;
             labelExportNote.Text = "Export copies your settings to a file, to keep or to take to another computer. Import replaces your settings with those in such a file. A LanguageTool API key is stored so that only your Windows account can read it: after importing on another computer or account, enter it again.";
+            // 
+            // checkBoxHideFormattingWarning
+            // 
+            checkBoxHideFormattingWarning.AutoSize = true;
+            checkBoxHideFormattingWarning.Location = new System.Drawing.Point(16, 215);
+            checkBoxHideFormattingWarning.Name = "checkBoxHideFormattingWarning";
+            checkBoxHideFormattingWarning.TabIndex = 5;
+            checkBoxHideFormattingWarning.Text = "&Hide warning about loss of formatting";
+            checkBoxHideFormattingWarning.UseVisualStyleBackColor = true;
             //
             // tabSpelling
             //
@@ -816,6 +827,7 @@ namespace ClipX2.UI
         private System.Windows.Forms.Button buttonExport;
         private System.Windows.Forms.Button buttonImport;
         private System.Windows.Forms.Label labelExportNote;
+        private System.Windows.Forms.CheckBox checkBoxHideFormattingWarning;
         private System.Windows.Forms.TabPage tabSpelling;
         private System.Windows.Forms.Label labelDictionaries;
         private System.Windows.Forms.Label labelFind;

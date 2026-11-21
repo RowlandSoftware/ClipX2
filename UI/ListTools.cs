@@ -19,7 +19,7 @@ namespace ClipX2.UI
     /// the list a paragraph is already in. The indentation (and an old bullet, or with Renumber an
     /// old number) is taken off; the list's own indents replace it. Numbers go down the levels as
     /// 1 → a → i → I → A (starting from the style chosen). What the editor can't do as a live
-    /// list is typed in as in plain text: Legal numbering (1.1.) and bullets other than •.
+    /// list is typed in as in plain text: Legal numbering (1.1.). Bullets go • ◦ ▪ down the levels.
     /// </summary>
     internal static class ListTools
     {
@@ -37,8 +37,12 @@ namespace ClipX2.UI
         /// <summary>The bullet the editor's live lists use; others are typed in.</summary>
         public const string LiveBullet = "•";
 
-        /// <summary>True if bullets with these options become a live list in rich text.</summary>
-        public static bool BulletsAreLive(BulletOptions o) => o.Character == LiveBullet;
+        /// <summary>
+        /// True if bullets with these options become a live list in rich text: any single
+        /// character (RichEdit shows a list type above 32 as that bullet), so each level can have its own.
+        /// </summary>
+        public static bool BulletsAreLive(BulletOptions o) =>
+            !string.IsNullOrEmpty(o.Character) && o.Character.Length == 1 && o.Character[0] > ' ';
 
         /// <summary>True if numbers with these options become a live list in rich text.</summary>
         public static bool NumbersAreLive(NumberOptions o) => o.Style != NumberStyle.Legal;
@@ -48,7 +52,7 @@ namespace ClipX2.UI
         {
             if (richText && BulletsAreLive(o))
                 return Live(box, o.Tab, o.PadChars, (text, at, end) => ListFormatter.BulletLength(text, at, end),
-                    level => tomListBullet, 1, "bullet")
+                    level => BulletKind(o.Character, level), 1, "bullet")
                     ? "Bulleted (a live list)" : TypedBullets(box, richText, o);
             return TypedBullets(box, richText, o);
         }
@@ -113,7 +117,7 @@ namespace ClipX2.UI
                     {
                         int kind = -1, level = 0;
                         SetParagraph(doc, line.Start, p => { kind = (int)p.ListType & 0xFFFF; level = Math.Max(0, (int)p.ListLevelIndex); });
-                        if (kind == tomListNone || (kind == tomListBullet) != bullets) continue;
+                        if (kind == tomListNone || IsBulletKind(kind) != bullets) continue;
                         live.Add((line, level));
                     }
 
@@ -222,7 +226,7 @@ namespace ClipX2.UI
                     blank[i] = indent == line.Length;
                     if (blank[i]) continue;
                     int level = ListFormatter.Level(text, line, tab, padChars);
-                    if (indent == 0) level = Math.Max(level, ExistingLevel(doc, line.Start));
+                    if (indent == 0) level = Math.Max(level, ExistingLevel(doc, line.Start)); // already in a list, or indented as a paragraph
                     levels[i] = level;
                     int old = markerLength(text, line.Start + indent, line.End);
                     if (indent + old > 0) edits.Add(new TextEdit(line.Start, indent + old, ""));
@@ -239,7 +243,7 @@ namespace ClipX2.UI
                     int before = i - 1, after = i + 1;
                     while (before >= 0 && blank[before]) before--;
                     while (after < lines.Count && blank[after]) after++;
-                    if (before < 0 || after >= lines.Count || (kindForLevel(0) & 0xFFFF) == tomListBullet) continue;
+                    if (before < 0 || after >= lines.Count || IsBulletKind(kindForLevel(0) & 0xFFFF)) continue;
                     levels[i] = Math.Min(levels[before], levels[after]);
                     itemKind[i] = (kindForLevel(levels[i]) & 0xFFFF) | tomListNoNumber;
                 }
@@ -260,16 +264,114 @@ namespace ClipX2.UI
             }) && Reselect(box, hadSelection, lines, edits);
         }
 
-        /// <summary>The level of the live list a paragraph is already in (0 if none).</summary>
+        /// <summary>
+        /// The level a paragraph already has: its live list's level, or else its paragraph indent
+        /// (each half inch a level, as Increase indent sets it). 0 if neither.
+        /// </summary>
         private static int ExistingLevel(ITextDocument doc, int position)
         {
             int level = 0;
             SetParagraph(doc, position, p =>
             {
                 if ((int)p.ListType != tomListNone) level = Math.Max(0, (int)p.ListLevelIndex);
+                else
+                {
+                    float left = p.LeftIndent;
+                    if (left > 0 && left < 10000) level = (int)Math.Round(left / LevelStep);
+                }
             });
-            return level;
+            return Math.Min(level, MaxLevel);
         }
+
+        /// <summary>The editor's lists have nine levels (0–8).</summary>
+        private const int MaxLevel = 8;
+
+        /// <summary>A bullet list type: the usual • (tomListBullet), or a bullet given by its character (above 32).</summary>
+        private static bool IsBulletKind(int kind) => kind == tomListBullet || kind > 32;
+
+        /// <summary>
+        /// The live list type for a bullet at a level: • (tomListBullet) or the level's own
+        /// character (◦, ▪…; RichEdit takes a list type above 32 as the bullet's character).
+        /// </summary>
+        private static int BulletKind(string first, int level)
+        {
+            string bullet = ListFormatter.BulletForLevel(first, level);
+            return bullet == LiveBullet ? tomListBullet : char.ConvertToUtf32(bullet, 0);
+        }
+
+        /// <summary>
+        /// Increase / decrease indent on live list items (rich text): each item in the selection
+        /// goes down / up a level, taking that level's bullet (• ◦ ▪) or number style (1 → a → i,
+        /// punctuation kept) and indents, so the list stays a hierarchy. Paragraphs that aren't
+        /// list items are left for the caller. Returns how many items moved, and whether any list
+        /// items were in the selection at all.
+        /// </summary>
+        public static (int Moved, bool AnyItems) ChangeListLevel(ClipXRichTextBox box, int delta, BulletOptions bullets)
+        {
+            int selStart = box.SelectionStart, selLength = box.SelectionLength;
+            string text = box.Text;
+            List<Line> all = ListFormatter.LinesIn(text, 0, text.Length);
+            List<Line> lines = ListFormatter.LinesIn(text, selStart, selStart + selLength);
+            int moved = 0;
+            bool any = false;
+            int[] cascade = { tomListNumberAsUCRoman, tomListNumberAsUCLetter, tomListNumberAsArabic, tomListNumberAsLCLetter, tomListNumberAsLCRoman };
+            using (box.BeginBulkEdit())
+            {
+                box.EditDocument(doc =>
+                {
+                    // The start number of the list's items at a level, near a line: the editor takes
+                    // an item with a different start as the beginning of a new list, so an item moving
+                    // to a level must take that level's start (above it first, then below), else a
+                    // sub-level starts at 1 and the top level keeps its own
+                    int StartAt(int index, int level, int own)
+                    {
+                        foreach (int step in new[] { -1, 1 })
+                            for (int i = index + step; i >= 0 && i < all.Count; i += step)
+                            {
+                                int type = 0, lvl = 0, start = 0;
+                                SetParagraph(doc, all[i].Start, p => { type = p.ListType; lvl = p.ListLevelIndex; start = p.ListStart; });
+                                if ((type & 0xFFFF) == tomListNone) break; // the list ends
+                                if (lvl == level) return start;
+                                if (lvl < level && level > 0) break;       // a sub-list starts again under each item
+                            }
+                        return level > 0 ? 1 : own;
+                    }
+
+                    foreach (Line line in lines)
+                    {
+                        int index = all.FindIndex(l => l.Start == line.Start);
+                        SetParagraph(doc, line.Start, p =>
+                        {
+                            int type = p.ListType;
+                            int kind = type & 0xFFFF, flags = type & ~0xFFFF;
+                            if (kind == tomListNone) return;
+                            any = true;
+                            int level = Math.Max(0, (int)p.ListLevelIndex);
+                            int newLevel = Math.Max(0, Math.Min(MaxLevel, level + delta));
+                            if (newLevel == level) return;
+
+                            int newKind;
+                            if (IsBulletKind(kind)) newKind = BulletKind(bullets.Character, newLevel);
+                            else
+                            {
+                                int at = Array.IndexOf(cascade, kind);
+                                newKind = at < 0 ? kind : cascade[((at + newLevel - level) % cascade.Length + cascade.Length) % cascade.Length];
+                            }
+                            int newStart = StartAt(index, newLevel, (int)p.ListStart);
+                            p.ListType = newKind | flags;
+                            p.ListLevelIndex = newLevel;
+                            p.ListStart = newStart;
+                            p.ListTab = Hang;
+                            p.SetIndents(-Hang, LevelStep * (newLevel + 1), 0f);
+                            moved++;
+                        });
+                    }
+                });
+                box.Select(selStart, selLength);
+            }
+            return (moved, any);
+        }
+
 
         /************ TOM helpers ************/
 

@@ -26,14 +26,14 @@ namespace ClipX2
         private string _lastTool;
 
         /// <summary>The toolbars whose buttons are tools (found by their tags).</summary>
-        private ToolStrip[] ToolStrips => new[] { toolStripCase, toolStrip6, toolStrip5, toolStrip4, toolStrip2, toolStripFavourites };
+        private ToolStrip[] ToolStrips => new[] { toolStripStyles, toolStripStylesSmall, toolStripCase, toolStrip6, toolStrip5, toolStrip4, toolStrip7, toolStrip2, toolStripFavourites };
 
         /// <summary>Every tagged tool button goes to <see cref="RunTool"/>: a click, or a right-click for the last settings.</summary>
         private void WireToolButtons()
         {
             foreach (ToolStrip strip in ToolStrips)
                 foreach (ToolStripItem item in strip.Items)
-                    if (item.Tag is string tag && tag.Length > 0)
+                    if (item.Tag is string tag && tag.Length > 0 && !(item is ToolStripControlHost) && !(item is ToolStripSplitButton)) // lists (font, size) and colour buttons have their own events
                         item.MouseUp += (s, e) =>
                         {
                             if (e.Button == MouseButtons.Left) RunTool(tag, ToolTrigger.Click);
@@ -52,6 +52,20 @@ namespace ClipX2
         {
             if (string.IsNullOrEmpty(tag)) return;
             if (tag == "clipxRPT") { RepeatLastTool(); return; }
+            switch (tag) // the app's own actions (from "What do you want to do?" or a PowerButton)
+            {
+                case "clipxOPT": UsageStatistics.Record(tag); ShowOptions(OptionsPage.Display); return;
+                case "clipxFIN": UsageStatistics.Record(tag); Done(); return;
+                case "clipxMOD": UsageStatistics.Record(tag); toolStripLabelRtfMode_Click(this, EventArgs.Empty); return;
+                case "clipxQSR": UsageStatistics.Record(tag); _quickSearch.Activate(); return;
+            }
+            if (tag == "clipxREF") // Refresh: the clipboard again (as at startup)
+            {
+                UsageStatistics.Record(tag);
+                _quickSearch.Deactivate();
+                RefreshFromClipboard();
+                return;
+            }
 
             UsageStatistics.Record(tag, fromPowerButton: how == ToolTrigger.PowerButton);
             _lastTool = tag;
@@ -134,6 +148,15 @@ namespace ClipX2
                 case "liREM": ShowStatus(ListTools.RemoveNumbers(box, _isRtfMode, s.NumList)); break;
                 case "liRLN": ShowStatus(FormatTools.RemoveLineNumbers(box)); break;
 
+                // Sorting
+                case "soALP": ShowStatus(SortTools.Sort(box, SortKind.Alphabetic)); break;
+                case "soNUM": ShowStatus(SortTools.Sort(box, SortKind.Numeric)); break;
+                case "soSMA": ShowStatus(SortTools.Sort(box, SortKind.Smart)); break;
+                case "soREV": ShowStatus(SortTools.Reverse(box)); break;
+                case "soNUP": ShowStatus(SortTools.Nudge(box, up: true)); break;
+                case "soNUD": ShowStatus(SortTools.Nudge(box, up: false)); break;
+                case "soKEY": ShowStatus(SortTools.SortItems(box)); break;
+
                 // Language tools
                 case "chPNC": CheckPunctuation(); break;
                 case "chSPE":
@@ -141,6 +164,7 @@ namespace ClipX2
                 case "chSTAT": ShowPanel<ClipX2.UI.Panels.StatisticsPanel>(p => p.Attach(box, () => _isRtfMode)); break;
 
                 default:
+                    if (RunStyleTool(tag, options, how)) break; // the Styles tab (Form1.Styles.cs)
                     _lastTool = null;
                     ShowStatus($"'{ClipX2.TextEngine.Tools.ToolCatalogue.Find(tag)?.Name ?? tag}' isn't available yet");
                     break;

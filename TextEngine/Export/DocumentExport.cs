@@ -7,6 +7,9 @@ namespace ClipX2.TextEngine.Export
     /// <summary>Turns a <see cref="FormattedDocument"/> into HTML or plain text for the clipboard.</summary>
     public static class DocumentExport
     {
+        /// <summary>One level of indentation in rich text (points): a tab in plain text.</summary>
+        private const float IndentStep = 36f;
+
         /// <summary>
         /// Plain text, one line per paragraph. List numbers and bullets are written out as plain
         /// characters, each followed by a tab ("1.\t", "•\t"), as ClipX 1 typed them, with a tab per nesting level.
@@ -26,6 +29,8 @@ namespace ClipX2.TextEngine.Export
                     sb.Append('\t', p.ListLevel);
                     if (labels[i].Label.Length > 0) sb.Append(labels[i].Label).Append('\t'); // as a typed list (ClipX 1's default: a tab)
                 }
+                else if (p.ListKind == ListKind.None && p.LeftIndent >= IndentStep / 2 && !p.Runs.TrueForAll(r => r.Text.Length == 0))
+                    sb.Append('\t', (int)System.Math.Round(p.LeftIndent / IndentStep)); // an indented paragraph: a tab per half inch
                 foreach (FormattedRun run in p.Runs)
                     sb.Append(run.Text.Replace("\v", newLine));
             }
@@ -57,9 +62,10 @@ namespace ClipX2.TextEngine.Export
                 if (p.ListKind == ListKind.None)
                 {
                     while (open.Count > 0) sb.Append("</li></").Append(open.Pop().Tag).Append('>');
-                    sb.Append("<p style=\"").Append(ParagraphStyle(p, true)).Append("\">");
+                    string tag = p.HeadingLevel >= 1 && p.HeadingLevel <= 6 ? "h" + p.HeadingLevel : "p"; // a heading: h1–h6
+                    sb.Append('<').Append(tag).Append(" style=\"").Append(ParagraphStyle(p, true)).Append("\">");
                     WriteRuns(sb, p);
-                    sb.Append("</p>");
+                    sb.Append("</").Append(tag).Append('>');
                     continue;
                 }
 
@@ -78,7 +84,11 @@ namespace ClipX2.TextEngine.Export
                 if (open.Count == 0 || open.Peek().Level < p.ListLevel)
                 {
                     string tag = p.ListKind == ListKind.Bullet ? "ul" : "ol";
-                    sb.Append('<').Append(tag).Append(" style=\"margin-top:0;margin-bottom:0\"");
+                    sb.Append('<').Append(tag).Append(" style=\"margin-top:0;margin-bottom:0");
+                    if (tag == "ul" && p.BulletCharacter != null) // ◦ and ▪ as HTML's own circle and square
+                        sb.Append(p.BulletCharacter == "◦" || p.BulletCharacter == "○" ? ";list-style-type:circle"
+                            : p.BulletCharacter == "▪" || p.BulletCharacter == "■" ? ";list-style-type:square" : "");
+                    sb.Append('"');
                     if (tag == "ol")
                     {
                         sb.Append(" type=\"").Append(HtmlListType(p.ListKind)).Append('"');
@@ -256,7 +266,7 @@ namespace ClipX2.TextEngine.Export
 
         private static string FormatLabel(FormattedParagraph p, int number)
         {
-            if (p.ListKind == ListKind.Bullet) return "•";
+            if (p.ListKind == ListKind.Bullet) return p.BulletCharacter ?? "•";
 
             string n;
             switch (p.ListKind)
