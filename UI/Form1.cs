@@ -28,8 +28,6 @@ namespace ClipX2
             richTextBox1.TextSettled += (s, e) => UpdateWordCount();
             richTextBox1.SelectionSettled += (s, e) => ShowWordCount();
             toolStripButtonFinish.Click += (s, e) => Done();
-            toolStripButtonCheckPunctuation.Click += (s, e) => CheckPunctuation();
-            toolStripButtonSpellcheck.Click += (s, e) => SpellNext();
 
             // The side panel: tool views, or button descriptions on hover (in place of tooltips)
             // Status messages (as ClipX 1's labStatus) and descriptions while a panel is open go in
@@ -47,191 +45,14 @@ namespace ClipX2
             toolStripButtonOptions.MouseUp += OptionsButtonMouseUp;
             ApplyDisplaySettings();
 
-            // Any tool button closes an open options panel, unless it is that panel's own tool, or
-            // it opens its own panel (which replaces it). First, so it runs before the tools do.
-            foreach (ToolStrip strip in new[] { toolStripCase, toolStrip4, toolStrip2, toolStrip5, toolStrip6 })
-                foreach (ToolStripItem item in strip.Items)
-                    if (item.Tag is string toolTag) item.MouseUp += (s, e) =>
-                    {
-                        if (e.Button is MouseButtons.Left or MouseButtons.Right) _quickSearch.Deactivate(); // Find all's highlights go
-                        CloseOtherOptions(toolTag, e);
-                    };
-
-            // Lists: a click shows the options in the side panel; a right-click applies the last used
             _statusHint = statusHint;
-            toolStripButtonLiBUL.MouseUp += (s, e) => ListButton(e, bullets: true);
-            toolStripButtonLiNum.MouseUp += (s, e) => ListButton(e, bullets: false);
-            // Format: found by their tags (ClipX 1's tool names)
-            foreach (ToolStripItem item in toolStrip5.Items)
-                if (item.Tag is string tag) item.MouseUp += (s, e) => FormatButton(tag, e);
 
-            // Edit: decoders (no options: a click or right-click decodes at once)
-            foreach (ToolStripItem item in toolStrip6.Items)
-                if (item.Tag is string tag) item.MouseUp += (s, e) => EditButton(tag, e);
-
-            // Remove: no options, so a click or right-click removes at once
-            toolStripButtonLiRMB.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(ListTools.RemoveBullets(richTextBox1, _isRtfMode, AppSettings.Current.BulletList)); };
-            toolStripButtonLiREM.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(ListTools.RemoveNumbers(richTextBox1, _isRtfMode, AppSettings.Current.NumList)); };
-
-            // Statistics: in the side panel (click or right-click); found by its tag
-            foreach (ToolStripItem item in toolStrip2.Items)
-                if (item.Tag as string == "chSTAT")
-                    item.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatistics(); };
-
-            // Line numbers: options in the side panel, right-click = last used; Remove acts at once
-            toolStripButtonLiRen.MouseUp += (s, e) => LineNumbersButton(e);
-            toolStripButtonLiRLN.MouseUp += (s, e) => { if (e.Button is MouseButtons.Left or MouseButtons.Right) ShowStatus(FormatTools.RemoveLineNumbers(richTextBox1)); };
-        }
-
-        /// <summary>Show statistics: the figures in the side panel, kept up to date while it is open.</summary>
-        private void ShowStatistics()
-        {
-            var panel = _panels.Show<ClipX2.UI.Panels.StatisticsPanel>();
-            if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode);
-        }
-
-        /// <summary>Line numbers: a click opens its options in the side panel; a right-click numbers at once with the last used.</summary>
-        private void LineNumbersButton(MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Right) ShowStatus(FormatTools.LineNumbers(richTextBox1, AppSettings.Current.NumLines));
-            else if (e.Button == MouseButtons.Left)
-            {
-                var panel = _panels.Show<ClipX2.UI.Panels.LineNumbersPanel>();
-                if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode, ShowStatus);
-            }
+            // Every tool button, found by its tag (ClipX 1's token), goes to the one tool handler, RunTool
+            WireToolButtons();
         }
 
         private readonly ToolStripLabel _statusHint;
         private readonly QuickSearch _quickSearch;
-
-        /*********** Lists ****************/
-
-        /// <summary>
-        /// Bullets / Numbers button: a click opens its options in the side panel (Apply there);
-        /// a right-click bullets or numbers the lines at once with the last-used options (ClipX 1).
-        /// </summary>
-        private void ListButton(MouseEventArgs e, bool bullets)
-        {
-            if (e.Button == MouseButtons.Right)
-            {
-                string done = bullets
-                    ? ListTools.Bullets(richTextBox1, _isRtfMode, AppSettings.Current.BulletList)
-                    : ListTools.Numbers(richTextBox1, _isRtfMode, AppSettings.Current.NumList);
-                ShowStatus(done);
-                return;
-            }
-            if (e.Button != MouseButtons.Left) return;
-            if (bullets)
-            {
-                var panel = _panels.Show<ClipX2.UI.Panels.BulletListPanel>();
-                if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode, ShowStatus);
-            }
-            else
-            {
-                var panel = _panels.Show<ClipX2.UI.Panels.NumberListPanel>();
-                if (!panel.IsAttached) panel.Attach(richTextBox1, () => _isRtfMode, ShowStatus);
-            }
-        }
-
-        /*********** Options panels ****************/
-
-        /// <summary>The side panel a tool opens on a click (null: it acts at once).</summary>
-        private static Type PanelFor(string tag) => tag switch
-        {
-            "liBUL" => typeof(ClipX2.UI.Panels.BulletListPanel),
-            "liNUM" => typeof(ClipX2.UI.Panels.NumberListPanel),
-            "liREN" => typeof(ClipX2.UI.Panels.LineNumbersPanel),
-            "foIND" => typeof(ClipX2.UI.Panels.IndentPanel),
-            "foWRP" => typeof(ClipX2.UI.Panels.WordWrapPanel),
-            "foREM" => typeof(ClipX2.UI.Panels.RemoveLinesPanel),
-            "chSPE" => typeof(ClipX2.UI.Panels.SpellingPanel),
-            "chSTAT" => typeof(ClipX2.UI.Panels.StatisticsPanel),
-            _ => null,
-        };
-
-        /// <summary>
-        /// A tool button was clicked: an open options panel closes, unless the click is on that
-        /// panel's own tool (again, or a right-click applying its last options), or opens another
-        /// panel, which replaces it. The spelling panel isn't an options panel: it stays.
-        /// </summary>
-        private void CloseOtherOptions(string tag, MouseEventArgs e)
-        {
-            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
-            ClipX2.UI.Panels.SidePanelView open = _panels.Current;
-            if (open == null || open is ClipX2.UI.Panels.SpellingPanel) return;
-            Type own = PanelFor(tag);
-            if (own == open.GetType()) return;                     // the same tool again
-            if (own != null && e.Button == MouseButtons.Left) return; // its panel replaces this one
-            _panels.Close();
-        }
-
-        /*********** Edit ****************/
-
-        /// <summary>An Edit button: acts at once on a click or right-click.</summary>
-        private void EditButton(string tag, MouseEventArgs e)
-        {
-            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
-            var box = richTextBox1;
-            switch (tag)
-            {
-                case "edUDC": ShowStatus(FormatTools.DecodeUrl(box)); break;
-                case "edHDC": ShowStatus(FormatTools.DecodeHtml(box)); break;
-                case "edUTF": ShowStatus(FormatTools.DecodeUtf8(box)); break;
-                case "edMIM": ShowStatus(FormatTools.DecodeMime(box)); break;
-                case "edPLA": ShowStatus(FormatTools.PlainCharacters(box)); break;
-                case "edCRL": ShowStatus(FormatTools.CurlyQuotes(box)); break;
-                case "edEOL": ShowStatus(FormatTools.RegulariseLineEnds(box)); break;
-            }
-        }
-
-        /*********** Format ****************/
-
-        /// <summary>
-        /// A Format button. Those with options (Indent, Unindent, Word wrap, Remove extra lines)
-        /// open them in the side panel on a click, and apply the last used on a right-click; the
-        /// rest act at once on either.
-        /// </summary>
-        private void FormatButton(string tag, MouseEventArgs e)
-        {
-            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
-            bool right = e.Button == MouseButtons.Right;
-            var box = richTextBox1;
-            AppSettings s = AppSettings.Current;
-            switch (tag)
-            {
-                case "foTRM": ShowStatus(FormatTools.TrimWhiteSpace(box)); break;
-                case "foTRA": ShowStatus(FormatTools.TrimTrailing(box)); break;
-                case "foSSP": ShowStatus(FormatTools.SingleSpace(box)); break;
-                case "foT2S": ShowStatus(FormatTools.TabsToSpaces(box)); break;
-                case "foS2T": ShowStatus(FormatTools.SpacesToTabs(box)); break;
-                case "foPAR": ShowStatus(FormatTools.Paragraph(box)); break;
-
-                case "foIND": // Indent / Unindent: a right-click repeats the last of the two, with the last settings
-                    if (right) ShowStatus(s.Indent.Unindent ? FormatTools.Unindent(box, s.Indent) : FormatTools.Indent(box, s.Indent));
-                    else
-                    {
-                        var panel = _panels.Show<ClipX2.UI.Panels.IndentPanel>();
-                        if (!panel.IsAttached) panel.Attach(box, ShowStatus);
-                    }
-                    break;
-                case "foWRP":
-                    if (right) ShowStatus(FormatTools.WordWrap(box, _isRtfMode, s.Wordwrap));
-                    else
-                    {
-                        var panel = _panels.Show<ClipX2.UI.Panels.WordWrapPanel>();
-                        if (!panel.IsAttached) panel.Attach(box, () => _isRtfMode, ShowStatus);
-                    }
-                    break;
-                case "foREM":
-                    if (right) ShowStatus(FormatTools.RemoveExtraLines(box, s.RemLines));
-                    else
-                    {
-                        var panel = _panels.Show<ClipX2.UI.Panels.RemoveLinesPanel>();
-                        if (!panel.IsAttached) panel.Attach(box, ShowStatus);
-                    }
-                    break;
-            }
-        }
 
         /// <summary>
         /// Widens the status label to fill the bottom bar between the left-hand items (search) and
@@ -326,9 +147,15 @@ namespace ClipX2
                 case Keys.Control | Keys.Shift | Keys.C:  // Done (ClipX 1's alternative)
                     Done();
                     return true;
+                // Tools by key go through the tool handler, like the buttons
                 case Keys.F7:                             // next spelling issue (as Word)
-                    _quickSearch.Deactivate();
-                    SpellNext();
+                    RunTool("chSPE", ToolTrigger.Key);
+                    return true;
+                case Keys.Control | Keys.R:               // Repeat last tool (RichEdit's own Ctrl+R, right-align, isn't used)
+                    RunTool("clipxRPT", ToolTrigger.Key);
+                    return true;
+                case Keys.Shift | Keys.F3 when !_quickSearch.IsActive && richTextBox1.Focused && richTextBox1.SelectionLength > 0:
+                    RunTool("ccCYC", ToolTrigger.Key);    // cycle case
                     return true;
                 case Keys.Control | Keys.F:               // Quick search
                     _quickSearch.Activate();
@@ -385,38 +212,6 @@ namespace ClipX2
             return htmlClipboardData.Substring(start, end - start).Trim();
         }
 
-        /*********** Toolbar clicks ****************/
-
-        private void toolStripButtonUpperCase_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.Upper);
-
-        }
-        private void toolStripButtonLowerCase_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.Lower);
-        }
-
-        private void toolStripButtonReverseCase_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.Reverse);
-        }
-        private void toolStripButtonInitCaps_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.InitCaps);
-        }
-        private void toolStripButtonTitleCase_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.Title);
-        }
-        private void toolStripButtonSentenceCase_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.Sentence);
-        }
-        private void toolStripButtonCapitaliseSentences_Click(object sender, EventArgs e)
-        {
-            ApplyCase(CaseMode.SentenceCaps);
-        }
         /// <summary>
         /// Check Punctuation (ClipX 1's doCheckPunc): the selected paragraphs, or the whole text.
         /// Corrections are applied in place (formatting kept, one Undo step); then any problems,

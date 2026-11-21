@@ -43,7 +43,7 @@ namespace ClipX2.UI.Panels
             OnActivated(); // the host activated the panel before it was attached
         }
 
-        internal bool IsAttached => _box != null;
+        internal override bool IsAttached => _box != null;
 
         /// <summary>Plain text / rich text switched: the note (and what Apply can do) depend on it.</summary>
         protected internal override void OnModeChanged() => OptionsChanged();

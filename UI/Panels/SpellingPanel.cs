@@ -151,7 +151,7 @@ namespace ClipX2.UI.Panels
             OnActivated(); // the host activated the panel before it was attached
         }
 
-        internal bool IsAttached => _box != null;
+        internal override bool IsAttached => _box != null;
 
         /// <summary>
         /// The editor's selection must stay visible while focus is in the panel. The language

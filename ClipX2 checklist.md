@@ -97,9 +97,17 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 ## Edit
 - [x] Decode URL (edUDC), HTML (edHDC), UTF-8 (edUTF), MIME (edMIM): selection exactly or whole text; bytes as UTF-8 where valid, else Windows-1252; all named HTML entities; MIME soft line breaks and encoded words (=?utf-8?Q?...?=)
 - [x] Plain characters (edPLA: – → --, — → ---, so it reverses Curly quotes), Curly quotes etc. (edCRL: quotes by context, apostrophes, feet/inches left straight, -- – , --- —, ... …), Regularise line ends (edEOL: soft line breaks, U+2028/2029, NEL, form feeds)
+- [x] Strip email quote marks (edSTR): > and | at line starts, any depth, spaces before them; only the one space after each mark goes, so indentation inside a quote is kept; whole lines; engine: LineFormatter.StripQuoteMarks
 
 ## Statistics (chSTAT)
 - [x] Side panel, kept up to date while open: Selection (only when there is one) above Whole text. Words, characters, without spaces, sentences, paragraphs, words per sentence, size (UTF-8 for plain text, RTF for rich text); lines left out (same as paragraphs)
 - [x] Readability (English only, from the spelling language): Flesch Reading Ease with Flesch's level, Flesch–Kincaid grade, Gunning Fog. Syllables estimated by English rules; "rough under 100 words"
 - [x] Readability for other languages: German (Amstad), French (Kandel–Moles), Spanish (Fernández Huerta), Italian (Flesch–Vacca), Dutch (Douma), Portuguese (Martins), Russian (Oborneva); syllables from LibreOffice's hyphenation patterns (`Hyphenator`, Liang), downloaded with the dictionary as name.hyph.dic (licence name.hyph.licence.txt); Options offers "Update" for an installed dictionary lacking them. Tested: German 38/40, Spanish 28/30, Italian 28/30, Dutch 30/30 words right. English keeps its own rules (89% against the patterns' 59%)
 - [ ] Hyphenation for word wrap (patterns are there: `Hyphenator.Breaks(word, forPrint: true)`)
+
+## Tool handling (ClipX 1's MainToolHandler)
+- [x] Engine: `Tools/ToolCatalogue` (every tag, ClipX 1's names and descriptions, group, kind, options class), `Tools/TextTools.Run(tag, text, from, to, options)` (31 text tools: edits out), `Tools/ToolUsage` (counts in memory, `ToolUsed` event, `Report()`; never sends anything)
+- [x] ClipX: one handler, `Form1.RunTool(tag, how, options)` (UI/Form1.Tools.cs): every tagged button wired once by tag (click = options panel, right-click = last settings), keys (F7, Shift+F3 = ccCYC, Ctrl+R = Repeat last tool), PowerButtons later (`ToolTrigger.PowerButton` with their own options). Counts in usage.json (Usage/Total, PowerButton counts apart), remembers the last tool, closes other options panels, ends Quick search, clears the status bar
+- [ ] Usage upload (ask first, like grammar); a view of the statistics
+- [ ] PowerButtons: a list of tags + options run through RunTool
+- [ ] Not yet written: soALP soNUM soREV soNUP soNUD soKEY (Sorting), edSRC/edREP (Search and Replace), pb* extras

@@ -58,8 +58,8 @@
             toolStripButtonFoT2S = new System.Windows.Forms.ToolStripButton();
             toolStripButtonFoS2T = new System.Windows.Forms.ToolStripButton();
             toolStripButtonFoWRP = new System.Windows.Forms.ToolStripButton();
-            toolStripButtonFoREM = new System.Windows.Forms.ToolStripButton();
             toolStripButtonFoPAR = new System.Windows.Forms.ToolStripButton();
+            toolStripButtonFoREM = new System.Windows.Forms.ToolStripButton();
             tabLists = new System.Windows.Forms.TabPage();
             toolStrip4 = new System.Windows.Forms.ToolStrip();
             toolStripButtonLiBUL = new System.Windows.Forms.ToolStripButton();
@@ -103,6 +103,7 @@
             toolStrip1 = new System.Windows.Forms.ToolStrip();
             toolStripButtonOptions = new System.Windows.Forms.ToolStripButton();
             richTextBox1 = new ClipXRichTextBox();
+            toolStripButtonEdSTR = new System.Windows.Forms.ToolStripButton();
             tabControl1.SuspendLayout();
             tabCase.SuspendLayout();
             toolStripCase.SuspendLayout();
@@ -146,7 +147,7 @@
             tabControl1.Margin = new System.Windows.Forms.Padding(4);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new System.Drawing.Size(691, 88);
+            tabControl1.Size = new System.Drawing.Size(526, 88);
             tabControl1.TabIndex = 2;
             // 
             // tabStyles
@@ -154,7 +155,7 @@
             tabStyles.Location = new System.Drawing.Point(4, 26);
             tabStyles.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
             tabStyles.Name = "tabStyles";
-            tabStyles.Size = new System.Drawing.Size(683, 58);
+            tabStyles.Size = new System.Drawing.Size(518, 58);
             tabStyles.TabIndex = 6;
             tabStyles.Text = "Styles";
             tabStyles.UseVisualStyleBackColor = true;
@@ -166,7 +167,7 @@
             tabCase.Margin = new System.Windows.Forms.Padding(4);
             tabCase.Name = "tabCase";
             tabCase.Padding = new System.Windows.Forms.Padding(4);
-            tabCase.Size = new System.Drawing.Size(683, 58);
+            tabCase.Size = new System.Drawing.Size(518, 58);
             tabCase.TabIndex = 0;
             tabCase.Text = "Case";
             tabCase.UseVisualStyleBackColor = true;
@@ -180,7 +181,7 @@
             toolStripCase.Location = new System.Drawing.Point(4, 4);
             toolStripCase.Name = "toolStripCase";
             toolStripCase.Padding = new System.Windows.Forms.Padding(0);
-            toolStripCase.Size = new System.Drawing.Size(675, 55);
+            toolStripCase.Size = new System.Drawing.Size(510, 55);
             toolStripCase.Stretch = true;
             toolStripCase.TabIndex = 0;
             toolStripCase.Text = "Case";
@@ -197,7 +198,6 @@
             toolStripButtonUpperCase.Tag = "ccUPP";
             toolStripButtonUpperCase.Text = "Upper case";
             toolStripButtonUpperCase.ToolTipText = "Upper Case - all letters to capitals";
-            toolStripButtonUpperCase.Click += toolStripButtonUpperCase_Click;
             // 
             // toolStripButtonLowerCase
             // 
@@ -211,7 +211,6 @@
             toolStripButtonLowerCase.Tag = "ccLOW";
             toolStripButtonLowerCase.Text = "Lower case";
             toolStripButtonLowerCase.ToolTipText = "To lower case";
-            toolStripButtonLowerCase.Click += toolStripButtonLowerCase_Click;
             // 
             // toolStripButtonReverseCase
             // 
@@ -225,7 +224,6 @@
             toolStripButtonReverseCase.Tag = "ccREV";
             toolStripButtonReverseCase.Text = "Reverse case";
             toolStripButtonReverseCase.ToolTipText = "Swop the letter case";
-            toolStripButtonReverseCase.Click += toolStripButtonReverseCase_Click;
             // 
             // toolStripButtonInitCaps
             // 
@@ -239,7 +237,6 @@
             toolStripButtonInitCaps.Tag = "ccINC";
             toolStripButtonInitCaps.Text = "Initial Caps";
             toolStripButtonInitCaps.ToolTipText = "Initial letter of each word to capitals";
-            toolStripButtonInitCaps.Click += toolStripButtonInitCaps_Click;
             // 
             // toolStripButtonTitleCase
             // 
@@ -253,7 +250,6 @@
             toolStripButtonTitleCase.Tag = "ccTIT";
             toolStripButtonTitleCase.Text = "Title case";
             toolStripButtonTitleCase.ToolTipText = "Capitalise initial letter of words according to title rules";
-            toolStripButtonTitleCase.Click += toolStripButtonTitleCase_Click;
             // 
             // toolStripButtonSentenceCase
             // 
@@ -267,7 +263,6 @@
             toolStripButtonSentenceCase.Tag = "ccSEN";
             toolStripButtonSentenceCase.Text = "Sentence case";
             toolStripButtonSentenceCase.ToolTipText = "Initial letter of each sentence to capitals, all others lower case";
-            toolStripButtonSentenceCase.Click += toolStripButtonSentenceCase_Click;
             // 
             // toolStripButtonCapitaliseSentences
             // 
@@ -281,7 +276,6 @@
             toolStripButtonCapitaliseSentences.Tag = "ccCAP";
             toolStripButtonCapitaliseSentences.Text = "Capitalise sentences";
             toolStripButtonCapitaliseSentences.ToolTipText = "Initial letter of each sentence to capitals, all others left alone";
-            toolStripButtonCapitaliseSentences.Click += toolStripButtonCapitaliseSentences_Click;
             // 
             // tabEdit
             // 
@@ -290,7 +284,7 @@
             tabEdit.Margin = new System.Windows.Forms.Padding(4);
             tabEdit.Name = "tabEdit";
             tabEdit.Padding = new System.Windows.Forms.Padding(4);
-            tabEdit.Size = new System.Drawing.Size(683, 58);
+            tabEdit.Size = new System.Drawing.Size(518, 58);
             tabEdit.TabIndex = 1;
             tabEdit.Text = "Edit";
             tabEdit.UseVisualStyleBackColor = true;
@@ -300,11 +294,11 @@
             toolStrip6.AccessibleName = "Lower";
             toolStrip6.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip6.ImageScalingSize = new System.Drawing.Size(36, 36);
-            toolStrip6.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonEdPLA, toolStripButtonEdCRL, toolStripButtonEdUDC, toolStripButtonEdHDC, toolStripButtonEdUTF, toolStripButtonEdMIM, toolStripButton22 });
+            toolStrip6.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonEdPLA, toolStripButtonEdCRL, toolStripButtonEdUDC, toolStripButtonEdHDC, toolStripButtonEdUTF, toolStripButtonEdMIM, toolStripButton22, toolStripButtonEdSTR });
             toolStrip6.Location = new System.Drawing.Point(4, 4);
             toolStrip6.Name = "toolStrip6";
             toolStrip6.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip6.Size = new System.Drawing.Size(675, 55);
+            toolStrip6.Size = new System.Drawing.Size(510, 55);
             toolStrip6.Stretch = true;
             toolStrip6.TabIndex = 1;
             toolStrip6.Tag = "";
@@ -406,7 +400,7 @@
             tabFormat.Location = new System.Drawing.Point(4, 26);
             tabFormat.Margin = new System.Windows.Forms.Padding(4);
             tabFormat.Name = "tabFormat";
-            tabFormat.Size = new System.Drawing.Size(683, 58);
+            tabFormat.Size = new System.Drawing.Size(518, 58);
             tabFormat.TabIndex = 2;
             tabFormat.Text = "Format";
             tabFormat.UseVisualStyleBackColor = true;
@@ -416,11 +410,11 @@
             toolStrip5.AccessibleName = "Lower";
             toolStrip5.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip5.ImageScalingSize = new System.Drawing.Size(36, 36);
-            toolStrip5.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonFoTRM, toolStripButtonFoTRA, toolStripButtonFoSSP, toolStripButtonFoIND, toolStripButtonFoT2S, toolStripButtonFoS2T, toolStripButtonFoWRP, toolStripButtonFoREM, toolStripButtonFoPAR });
+            toolStrip5.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonFoTRM, toolStripButtonFoTRA, toolStripButtonFoSSP, toolStripButtonFoIND, toolStripButtonFoT2S, toolStripButtonFoS2T, toolStripButtonFoWRP, toolStripButtonFoPAR, toolStripButtonFoREM });
             toolStrip5.Location = new System.Drawing.Point(0, 0);
             toolStrip5.Name = "toolStrip5";
             toolStrip5.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip5.Size = new System.Drawing.Size(683, 55);
+            toolStrip5.Size = new System.Drawing.Size(518, 55);
             toolStrip5.Stretch = true;
             toolStrip5.TabIndex = 1;
             toolStrip5.Text = "Case";
@@ -516,19 +510,6 @@
             toolStripButtonFoWRP.Text = "Word Wrap";
             toolStripButtonFoWRP.ToolTipText = "Split paragraphs into lines, with optional hanging indent and justification; plain text only (right-click: last settings)";
             // 
-            // toolStripButtonFoREM
-            // 
-            toolStripButtonFoREM.AccessibleName = "Remove extra lines";
-            toolStripButtonFoREM.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            toolStripButtonFoREM.Image = Properties.Resources.Cap1;
-            toolStripButtonFoREM.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            toolStripButtonFoREM.ImageTransparentColor = System.Drawing.Color.Black;
-            toolStripButtonFoREM.Name = "toolStripButtonFoREM";
-            toolStripButtonFoREM.Size = new System.Drawing.Size(52, 52);
-            toolStripButtonFoREM.Tag = "foREM";
-            toolStripButtonFoREM.Text = "Remove Extra Lines";
-            toolStripButtonFoREM.ToolTipText = "Remove blank lines, or make multiple blank lines single (right-click: last settings)";
-            // 
             // toolStripButtonFoPAR
             // 
             toolStripButtonFoPAR.AccessibleName = "Paragraph";
@@ -542,13 +523,26 @@
             toolStripButtonFoPAR.Text = "Paragraph Tool";
             toolStripButtonFoPAR.ToolTipText = "Un-wordwrap: join lines into paragraphs; make multiple blank lines single";
             // 
+            // toolStripButtonFoREM
+            // 
+            toolStripButtonFoREM.AccessibleName = "Remove extra lines";
+            toolStripButtonFoREM.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            toolStripButtonFoREM.Image = Properties.Resources.Cap1;
+            toolStripButtonFoREM.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+            toolStripButtonFoREM.ImageTransparentColor = System.Drawing.Color.Black;
+            toolStripButtonFoREM.Name = "toolStripButtonFoREM";
+            toolStripButtonFoREM.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonFoREM.Tag = "foREM";
+            toolStripButtonFoREM.Text = "Remove Extra Lines";
+            toolStripButtonFoREM.ToolTipText = "Remove blank lines, or make multiple blank lines single (right-click: last settings)";
+            // 
             // tabLists
             // 
             tabLists.Controls.Add(toolStrip4);
             tabLists.Location = new System.Drawing.Point(4, 26);
             tabLists.Margin = new System.Windows.Forms.Padding(4);
             tabLists.Name = "tabLists";
-            tabLists.Size = new System.Drawing.Size(683, 58);
+            tabLists.Size = new System.Drawing.Size(518, 58);
             tabLists.TabIndex = 3;
             tabLists.Text = "Lists";
             tabLists.UseVisualStyleBackColor = true;
@@ -562,7 +556,7 @@
             toolStrip4.Location = new System.Drawing.Point(0, 0);
             toolStrip4.Name = "toolStrip4";
             toolStrip4.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip4.Size = new System.Drawing.Size(683, 55);
+            toolStrip4.Size = new System.Drawing.Size(518, 55);
             toolStrip4.Stretch = true;
             toolStrip4.TabIndex = 1;
             toolStrip4.Text = "Case";
@@ -650,7 +644,7 @@
             tabSorting.Location = new System.Drawing.Point(4, 26);
             tabSorting.Margin = new System.Windows.Forms.Padding(4);
             tabSorting.Name = "tabSorting";
-            tabSorting.Size = new System.Drawing.Size(683, 58);
+            tabSorting.Size = new System.Drawing.Size(518, 58);
             tabSorting.TabIndex = 4;
             tabSorting.Text = "Sorting";
             tabSorting.UseVisualStyleBackColor = true;
@@ -661,7 +655,7 @@
             tabLangTools.Location = new System.Drawing.Point(4, 26);
             tabLangTools.Margin = new System.Windows.Forms.Padding(4);
             tabLangTools.Name = "tabLangTools";
-            tabLangTools.Size = new System.Drawing.Size(683, 58);
+            tabLangTools.Size = new System.Drawing.Size(518, 58);
             tabLangTools.TabIndex = 5;
             tabLangTools.Text = "Language Tools";
             tabLangTools.UseVisualStyleBackColor = true;
@@ -674,7 +668,7 @@
             toolStrip2.Location = new System.Drawing.Point(0, 0);
             toolStrip2.Name = "toolStrip2";
             toolStrip2.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip2.Size = new System.Drawing.Size(683, 55);
+            toolStrip2.Size = new System.Drawing.Size(518, 55);
             toolStrip2.Stretch = true;
             toolStrip2.TabIndex = 1;
             toolStrip2.Text = "Case";
@@ -953,11 +947,11 @@
             tabControl3.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             tabControl3.Controls.Add(tabPage1);
             tabControl3.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            tabControl3.Location = new System.Drawing.Point(937, 0);
+            tabControl3.Location = new System.Drawing.Point(771, 0);
             tabControl3.Margin = new System.Windows.Forms.Padding(4);
             tabControl3.Name = "tabControl3";
             tabControl3.SelectedIndex = 0;
-            tabControl3.Size = new System.Drawing.Size(160, 88);
+            tabControl3.Size = new System.Drawing.Size(326, 88);
             tabControl3.TabIndex = 6;
             // 
             // tabPage1
@@ -968,7 +962,7 @@
             tabPage1.Margin = new System.Windows.Forms.Padding(4);
             tabPage1.Name = "tabPage1";
             tabPage1.Padding = new System.Windows.Forms.Padding(4);
-            tabPage1.Size = new System.Drawing.Size(152, 58);
+            tabPage1.Size = new System.Drawing.Size(318, 58);
             tabPage1.TabIndex = 0;
             tabPage1.UseVisualStyleBackColor = true;
             // 
@@ -980,7 +974,7 @@
             toolStrip1.Location = new System.Drawing.Point(4, 4);
             toolStrip1.Name = "toolStrip1";
             toolStrip1.Padding = new System.Windows.Forms.Padding(0, 0, 2, 0);
-            toolStrip1.Size = new System.Drawing.Size(144, 55);
+            toolStrip1.Size = new System.Drawing.Size(310, 55);
             toolStrip1.TabIndex = 0;
             toolStrip1.Text = "toolStrip2";
             // 
@@ -1008,6 +1002,19 @@
             richTextBox1.Size = new System.Drawing.Size(769, 468);
             richTextBox1.TabIndex = 0;
             richTextBox1.Text = "";
+            // 
+            // toolStripButtonEdSTR
+            // 
+            toolStripButtonEdSTR.AccessibleName = "Strip email 'quote' characters";
+            toolStripButtonEdSTR.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            toolStripButtonEdSTR.Image = Properties.Resources.edPLA;
+            toolStripButtonEdSTR.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+            toolStripButtonEdSTR.ImageTransparentColor = System.Drawing.Color.Black;
+            toolStripButtonEdSTR.Name = "toolStripButtonEdSTR";
+            toolStripButtonEdSTR.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonEdSTR.Tag = "edSTR";
+            toolStripButtonEdSTR.Text = "Strip Email Indents";
+            toolStripButtonEdSTR.ToolTipText = "Removes characters used to distinguish previous messages from the current reply at the start of lines";
             // 
             // Form1
             // 
@@ -1141,6 +1148,7 @@
         private System.Windows.Forms.ToolStripButton toolStripButtonFindNext;
         private System.Windows.Forms.ToolStripLabel toolStripLabelStatus;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+        private System.Windows.Forms.ToolStripButton toolStripButtonEdSTR;
     }
 }
 

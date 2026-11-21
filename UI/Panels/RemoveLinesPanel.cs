@@ -31,7 +31,7 @@ namespace ClipX2.UI.Panels
             OnActivated(); // the host activated the panel before it was attached
         }
 
-        internal bool IsAttached => _box != null;
+        internal override bool IsAttached => _box != null;
 
         protected internal override void OnActivated()
         {

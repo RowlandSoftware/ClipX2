@@ -39,6 +39,13 @@ namespace ClipX2.UI
         public static string Paragraph(ClipXRichTextBox box) =>
             Removed(Run(box, LineFormatter.Paragraph));
 
+        /// <summary>Strip email quote marks (edSTR): whole lines; "n characters removed", as ClipX 1.</summary>
+        public static string StripEmail(ClipXRichTextBox box)
+        {
+            var result = Run(box, LineFormatter.StripQuoteMarks);
+            return result.Edits == 0 ? "No quoted lines (starting with > or |)" : Removed(result);
+        }
+
         /// <summary>Plain text only (as ClipX 1): rich text wraps to the window.</summary>
         public static string WordWrap(ClipXRichTextBox box, bool richText, WordWrapOptions o)
         {

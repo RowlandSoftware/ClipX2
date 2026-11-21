@@ -54,6 +54,9 @@ namespace ClipX2.UI.Panels
         /// <summary>Called by the host when the view is hidden (closed, or another view shown).</summary>
         protected internal virtual void OnDeactivated() { }
 
+        /// <summary>Connected to the editor (each view's Attach): false until then.</summary>
+        internal virtual bool IsAttached => true;
+
         /// <summary>Called on the shown view when the editor switches between plain and rich text.</summary>
         protected internal virtual void OnModeChanged() { }
 

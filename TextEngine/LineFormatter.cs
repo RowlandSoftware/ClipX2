@@ -110,6 +110,30 @@ namespace ClipX2.TextEngine
         }
 
         /// <summary>
+        /// Strip email quote marks (edSTR): the "&gt;" (or "|") marks a reply puts before each quoted
+        /// line, however many levels ("&gt; &gt; text"), and any spaces before them. As ClipX 1, but
+        /// only the one space after each mark goes (the usual "&gt; " quoting), so indentation
+        /// inside the quotation is kept.
+        /// </summary>
+        public static List<TextEdit> StripQuoteMarks(string text, int from, int to)
+        {
+            var edits = new List<TextEdit>();
+            foreach (Line line in ListFormatter.LinesIn(text, from, to))
+            {
+                int i = line.Start;
+                while (i < line.End && (text[i] == ' ' || text[i] == '\t')) i++;
+                if (i == line.End || (text[i] != '>' && text[i] != '|')) continue; // not quoted
+                while (i < line.End && (text[i] == '>' || text[i] == '|'))
+                {
+                    i++;
+                    if (i < line.End && text[i] == ' ') i++; // the space after the mark
+                }
+                edits.Add(new TextEdit(line.Start, i - line.Start, ""));
+            }
+            return edits;
+        }
+
+        /// <summary>
         /// Single space (foSSP): after each line's indentation, a run of spaces becomes one space,
         /// and spaces next to a tab go (the tab stays: it lines up columns). Hard spaces in a run
         /// count as spaces. Indentation is kept.
