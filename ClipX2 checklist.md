@@ -63,7 +63,11 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] ClipX shows its own Heading N look, not the source's: show the source style's look when a level is set?
 - [ ] Separator's outline level: Sample.odt gives it outline level 2, but Writer's RTF doesn't say so (no \outlinelevel), so ClipX shows "Normal"
 - [ ] Style box shows only heading levels (the Separator shows "Normal"): show the source's style names instead?
-- [ ] Word: same test with Word's RTF and Word's Paste
+- [x] Word (22 Nov 2026, The Picnic.docx, tested with hidden Word: copy, then paste into a copy of the document): all styles, Separator's I (outline level 2), Emphasis / Strong Emphasis / French read. Word writes complete style definitions (left out = off, not inherited): recognised by \styrsid / \spriority, no inheritance then (Body Text First Para no indent, Scene no space after). Word's last paragraph ends with \par, so Finish does too (without it Word merged the last paragraph into the one pasted into: Normal). Pasted back, ClipX's RTF had less direct formatting than Word's own: only real edits (underline, strike, bold over Emphasis)
+- [x] User's tests (22 Nov 2026): Word → ClipX → Writer: styles used; in a new document Writer creates the missing ones ("Strong Emphasis (WW)", Body Text First Para under "Text Body (WW)"); in Sample.odt as good as from Writer. Writer → ClipX → Word, and Word → ClipX → Word: styles used only when the document already has them; in a new document everything is Normal + direct formatting (Word doesn't create styles from pasted RTF). Lists fine. Accepted as the limit: Word's behaviour, not ClipX's
+- [ ] Help / tips for Word users: keep Word open until ClipX has read the text (closing Word drops its RTF from the clipboard); paste with Paste Special → RTF for the best result; styles come through only when the target document has them
+- [ ] Word: character shading (\chcbpat, e.g. "Kate") comes back as a highlight
+- [ ] Heading level with no style at that level in the source (Word's RTF has only the styles used): Heading 4 became Text body + Strong Emphasis + outline level. Name Word's / Writer's built-in "heading N" anyway?
 - [ ] Word RTF with tables or pictures: ClipX's reader turns tables into tabs and leaves pictures out (RichEdit kept them). Use RichEdit's reader when there are tables/pictures?
 - [ ] Comments (Writer's annotations) and bookmarks: lost; carry them?
 

@@ -110,7 +110,7 @@ namespace ClipX2.TextEngine.Export
                     AppendText(body, r.Text);
                     body.Append('}');
                 }
-                if (pi < doc.Paragraphs.Count - 1) body.Append("\\par").Append("\r\n");
+                if (pi < doc.Paragraphs.Count - 1 || sheet.EndsWithParagraphMark) body.Append("\\par").Append("\r\n");
             }
 
             var rtf = new StringBuilder("{\\rtf1\\ansi\\ansicpg1252");

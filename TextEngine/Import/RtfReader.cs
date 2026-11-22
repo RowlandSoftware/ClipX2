@@ -47,6 +47,9 @@ namespace ClipX2.TextEngine.Import
                 var normal = new RtfStyle { Number = 0, Name = "Normal", Definition = "{\\s0 Normal;}" };
                 sheet.Add(normal);
             }
+            foreach (RtfStyle st in sheet.Styles)
+                if (st.Definition != null && (st.Definition.Contains("\\styrsid") || st.Definition.Contains("\\spriority")))
+                    sheet.CompleteDefinitions = true;
             sheet.Resolve();
             ReadLists(rtf, lists);
 
@@ -412,7 +415,11 @@ namespace ClipX2.TextEngine.Import
 
             private void Finish(bool final)
             {
-                if (final && _runs.Count == 0 && _sawParagraph) return; // no text after the last \par
+                if (final && _runs.Count == 0 && _sawParagraph)
+                {
+                    _sheet.EndsWithParagraphMark = true; // no text after the last \par (Word's way)
+                    return;
+                }
                 _sawParagraph = true;
 
                 GroupState s = _state;

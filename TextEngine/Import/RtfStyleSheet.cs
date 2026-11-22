@@ -169,6 +169,20 @@ namespace ClipX2.TextEngine.Import
         public int DefaultLanguage { get; internal set; }
 
         /// <summary>The source's tables as they came, to write back (fonts and colours with any new ones added).</summary>
+        /// <summary>
+        /// True when each style's definition gives all its formatting, its parent's included (Word's:
+        /// recognised by the words only Word writes, \styrsid and \spriority). False: a definition
+        /// gives only what the style itself sets (Writer's), the rest coming from its parents.
+        /// </summary>
+        public bool CompleteDefinitions { get; internal set; }
+
+        /// <summary>
+        /// True if the source's last paragraph ended with a paragraph mark (Word's whole paragraphs).
+        /// Done does the same: without it, Word merges the last paragraph into the one pasted into,
+        /// which keeps its own style.
+        /// </summary>
+        public bool EndsWithParagraphMark { get; internal set; }
+
         public string FontTableRtf { get; internal set; }
         public string ColourTableRtf { get; internal set; }
 
@@ -232,8 +246,11 @@ namespace ClipX2.TextEngine.Import
         {
             foreach (RtfStyle s in Styles)
             {
+                // Word writes each style's whole formatting (what it leaves out is off); Writer only
+                // what the style itself sets, the rest coming from its parent
                 var chain = new List<RtfStyle>();
-                for (RtfStyle at = s; at != null && !chain.Contains(at) && chain.Count < 20;
+                if (CompleteDefinitions) chain.Add(s);
+                else for (RtfStyle at = s; at != null && !chain.Contains(at) && chain.Count < 20;
                      at = at.BasedOn.HasValue ? (s.IsCharacter ? Character(at.BasedOn.Value) : Paragraph(at.BasedOn.Value)) : null)
                     chain.Add(at);
                 chain.Reverse(); // root first
