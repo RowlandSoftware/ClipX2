@@ -40,23 +40,27 @@ namespace ClipX2
         /// (plain text copied to format it or make lists; rich text copied to strip it).
         /// Rich: RTF as it is; else HTML (<paramref name="html"/>: the clipboard's, or plain text
         /// that is HTML code), keeping its formatting; else plain text with its lists and indents
-        /// made live. Plain: HTML converted (lists typed: browsers leave list numbers out of their
-        /// own plain text); else the clipboard's own text; else RTF converted.
+        /// made live. Plain: the clipboard's own text, except from a web page, whose HTML is
+        /// converted (lists typed: browsers leave list numbers out of their own plain text); else
+        /// HTML converted; else RTF converted.
         /// </summary>
         private static void LoadClipboard(ClipXRichTextBox target, bool rich, string html)
         {
             bool hasRtf = Clipboard.ContainsData(DataFormats.Rtf);
             bool hasText = Clipboard.ContainsText(TextDataFormat.UnicodeText);
             AppSettings s = AppSettings.Current;
+            target.SourceStyles = null;
             if (rich)
             {
-                if (hasRtf) target.Rtf = Clipboard.GetText(TextDataFormat.Rtf);
+                if (hasRtf) LoadRtf(target, Clipboard.GetText(TextDataFormat.Rtf));
                 else if (html != null) RichEditWriter.Write(target, HtmlReader.Read(html, s.BulletList, s.NumList), RichBaseFont());
                 else if (hasText) RichEditWriter.Write(target, PlainTextReader.Read(Clipboard.GetText(TextDataFormat.UnicodeText), s.BulletList, s.NumList), RichBaseFont());
             }
             else
             {
-                if (html != null) SetPlainText(target, DocumentExport.ToPlainText(HtmlReader.Read(html, s.BulletList, s.NumList), "\n"));
+                // The clipboard's own text (Windows makes Unicode text from 8-bit text, so either is
+                // there); HTML only from a web page, whose plain text leaves list numbers out
+                if (html != null && (!hasText || HtmlFromWebPage())) SetPlainText(target, DocumentExport.ToPlainText(HtmlReader.Read(html, s.BulletList, s.NumList), "\n"));
                 else if (hasText) SetPlainText(target, Clipboard.GetText(TextDataFormat.UnicodeText));
                 else if (hasRtf)
                 {
@@ -64,6 +68,42 @@ namespace ClipX2
                     SetPlainText(target, DocumentExport.ToPlainText(RichEditReader.Read(target), "\n"));
                 }
             }
+        }
+
+        /// <summary>
+        /// True if the clipboard's HTML came from a web page (a browser gives its address as
+        /// SourceURL in the header; word processors such as Writer don't).
+        /// </summary>
+        private static bool HtmlFromWebPage()
+        {
+            if (!Clipboard.ContainsData(DataFormats.Html)) return false;
+            string data = Clipboard.GetText(TextDataFormat.Html);
+            int body = data.IndexOf('<');
+            string header = body > 0 ? data.Substring(0, body) : data;
+            return System.Text.RegularExpressions.Regex.IsMatch(header, @"^SourceURL:\s*https?:", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>
+        /// RTF into the editor. A word processor's (with named styles: LibreOffice, Word) is read by
+        /// ClipX itself, which follows the style sheet (the editor's own reader loses inherited fonts
+        /// and turns style numbering into typed text) and keeps the styles for Done; any other RTF,
+        /// or one that can't be read, goes in as the editor reads it.
+        /// </summary>
+        private static void LoadRtf(ClipXRichTextBox target, string rtf)
+        {
+            target.SourceStyles = null;
+            if (RtfReader.HasNamedStyles(rtf))
+            {
+                try
+                {
+                    FormattedDocument doc = RtfReader.Read(rtf);
+                    RichEditWriter.Write(target, doc, RichBaseFont());
+                    target.SourceStyles = doc.Styles;
+                    return;
+                }
+                catch (Exception) { /* the editor's own reader instead */ }
+            }
+            target.Rtf = rtf;
         }
 
         /// <summary>
@@ -112,6 +152,7 @@ namespace ClipX2
                     return;
                 }
                 rtf = temp.Rtf;
+                richTextBox1.SourceStyles = temp.SourceStyles;
             }
 
             using (richTextBox1.BeginBulkEdit())
@@ -154,6 +195,7 @@ namespace ClipX2
                 if (richTextBox1.TextLength > 0 && !s.HideFormattingLossWarning && !ConfirmFormattingLoss()) return false;
                 string plain = DocumentExport.ToPlainText(RichEditReader.Read(richTextBox1), "\n");
                 _isRtfMode = false;
+                richTextBox1.SourceStyles = null; // formatting gone: nothing to match styles by
                 SetPlainText(plain);
             }
             else

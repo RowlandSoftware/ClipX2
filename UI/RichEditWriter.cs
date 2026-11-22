@@ -132,6 +132,19 @@ namespace ClipX2.UI
                 }
                 else if (p.LeftIndent != 0 || p.FirstLineIndent != 0)
                     d.SetIndents(p.FirstLineIndent, Math.Max(0, p.LeftIndent), 0f);
+                if (p.StyleName != null)
+                {
+                    // A word processor's spacing exactly (not the editor's heading spacing)
+                    d.SpaceBefore = p.SpaceBefore;
+                    d.SpaceAfter = p.SpaceAfter;
+                    LineSpacing ls = LineSpacing.Normalise(p.LineSpacing);
+                    d.SetLineSpacing((int)ls.Rule, ls.Value);
+                }
+                else
+                {
+                    if (p.SpaceBefore > 0) d.SpaceBefore = p.SpaceBefore;
+                    if (p.SpaceAfter > 0) d.SpaceAfter = p.SpaceAfter;
+                }
                 range.Para = para;
             }
             catch (Exception) { /* a paragraph format the editor can't take: the text is still there */ }
@@ -140,7 +153,7 @@ namespace ClipX2.UI
 
         private static bool HasFormatting(FormattedRun r) =>
             r.Bold || r.Italic || r.Underline || r.Strikethrough || r.Superscript || r.Subscript
-            || !string.IsNullOrEmpty(r.FontName) || r.FontSize > 0 || r.Colour.HasValue || r.Highlight.HasValue;
+            || !string.IsNullOrEmpty(r.FontName) || r.FontSize > 0 || r.Colour.HasValue || r.Highlight.HasValue || r.Language > 0;
 
         private static void WriteRun(ITextRange range, FormattedRun r)
         {
@@ -158,6 +171,7 @@ namespace ClipX2.UI
                 if (r.FontSize > 0) f.Size = r.FontSize;
                 if (r.Colour.HasValue) f.ForeColor = ToColorRef(r.Colour.Value);
                 if (r.Highlight.HasValue) f.BackColor = ToColorRef(r.Highlight.Value);
+                if (r.Language > 0) f.LanguageID = r.Language;
                 range.Font = font;
             }
             catch (Exception) { /* keep the text, without this formatting */ }

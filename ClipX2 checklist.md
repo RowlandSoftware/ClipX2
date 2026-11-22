@@ -47,6 +47,26 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Engine: Import/PlainTextReader, Import/HtmlReader, Import/TypedListRecognition (Word's typed "1." and "·" too); UI: RichEditWriter (document into the editor)
 - [ ] Rich text's font for converted plain text: the proportional display font (Options, Display); a separate setting?
 
+### Word-processor round trip (styles)
+
+- [x] Writer test (22 Nov 2026): RTF naming styles only (\s, \cs, no fonts) pasted into Sample.odt with Ctrl+V → Writer's own paragraph and character styles applied (French's language too), no duplicates, survives Ctrl+M
+- [x] Import: RTF with named styles (LibreOffice, Word) read by ClipX (Import/RtfReader, RtfStyleSheet), not RichEdit: styles resolved through \sbasedon (inherited fonts: title in Malgun Gothic, not Garamond), style-generated numbers on empty paragraphs (Separator) left out, real lists live, spacing and language kept; comments, bookmarks, field codes, pictures, headers/footers left out. Other RTF as before
+- [x] Style sheet kept with the text (ClipXRichTextBox.SourceStyles); cleared on switching to plain text and on loading other text
+- [x] Done: each paragraph and run given the style it now looks like (Export/StyleMatcher: italics added in ClipX → Emphasis; italic + French → French); RTF (Export/RtfExport) with the source's style sheet, font and colour tables, \s / \cs, direct formatting only where the text differs from its style; HTML with &lt;em&gt; / &lt;strong&gt; for Emphasis / Strong
+- [x] Andrew's first test: styles came back, but most text was overridden by direct formatting (Garamond 12, 0 spacing, 100% line spacing) until Ctrl+M; bold-italic became Emphasis + direct bold; Body Text First Para a child of Default in a new document; Clear formatting in ClipX gave Segoe UI
+- [x] Fixed: Writer takes anything an RTF paragraph doesn't repeat from its style as direct formatting, and dedupes only against the style's own definition. Now each style's definition is flattened (its parents' settings written in, parent still named, parents first) and each paragraph / run repeats it after \s / \cs, as Writer's own RTF does. Checked with headless LibreOffice (pasting into a copy of the document, and opening as a new one): direct formatting left only for real edits (underline, strike, bold over Emphasis) and line spacing (Writer always makes that direct, even from its own clipboard; the value is the style's, so Ctrl+M changes nothing visible)
+- [x] Line spacing read, shown in ClipX (125%) and written back
+- [x] Style-generated numbering (Separator's I, II, III on an empty paragraph): shown in ClipX as a live number (the number it had), and on Finish left to the style again (no \ls), so the word processor numbers it and carries on the document's numbering. Checked pasting into a copy of Sample.odt: numbered by RomanOnly, outline level 2, no direct list. In a new document the number is lost: Writer's RTF doesn't say that a style is numbered
+- [x] Clear formatting (button and Ctrl+M) on text from a word processor: back to each paragraph's style (Garamond 12), not the editor's font
+- [x] Andrew's second test (Sample.odt): styles kept, a bold-italic character style used for bold + italic and survived Ctrl+M; only underline and strike (direct) went. Separator showed no number in ClipX (fixed since)
+- [x] Heading level set in ClipX → on Finish, a style with that outline level (the level first, then the look; "Heading N" wins unless another style at that level looks nearer by 2+). Was the nearest look: Heading 4 became Subhead, or Body Text + Strong. Checked: a Body Text paragraph set to Heading 4 → Heading 4 in Sample.odt's copy; other paragraphs' styles unchanged
+- [ ] ClipX shows its own Heading N look, not the source's: show the source style's look when a level is set?
+- [ ] Separator's outline level: Sample.odt gives it outline level 2, but Writer's RTF doesn't say so (no \outlinelevel), so ClipX shows "Normal"
+- [ ] Style box shows only heading levels (the Separator shows "Normal"): show the source's style names instead?
+- [ ] Word: same test with Word's RTF and Word's Paste
+- [ ] Word RTF with tables or pictures: ClipX's reader turns tables into tabs and leaves pictures out (RichEdit kept them). Use RichEdit's reader when there are tables/pictures?
+- [ ] Comments (Writer's annotations) and bookmarks: lost; carry them?
+
 ## Grammar (LanguageTool)
 
 - [x] Engine client `TextEngine/Grammar/LanguageToolChecker`: free service, Premium (email + API key) or own server, same request; a paragraph at a time from the caret, results kept per paragraph (re-check sends only changed ones), paced to the free limits; errors as messages (no connection, busy, key refused, language not supported). Settings: `GrammarSettings` in settings.json
@@ -148,3 +168,10 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] About...
 - [ ] Style tool
 - [ ] Upload usage
+- [ ] SVG icons
+- [ ] Resize toolbars and switch from single to 2-tier mode and vv.
+- [ ] Control Icons
+- [ ] Favourites
+- [ ] Install Segoe Fluent Icons font
+- [ ] Code signing
+

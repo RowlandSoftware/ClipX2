@@ -10,6 +10,12 @@ namespace ClipX2.TextEngine.Export
     public sealed class FormattedDocument
     {
         public List<FormattedParagraph> Paragraphs { get; } = new List<FormattedParagraph>();
+
+        /// <summary>
+        /// The named styles the text came with (from a word processor's RTF), or null. Kept so
+        /// that Done can name them again: the word processor then applies its own styles.
+        /// </summary>
+        public ClipX2.TextEngine.Import.RtfStyleSheet Styles { get; set; }
     }
 
     /// <summary>One paragraph (ClipX's "line"), without its paragraph mark.</summary>
@@ -39,6 +45,16 @@ namespace ClipX2.TextEngine.Export
 
         /// <summary>First-line indent in points, relative to <see cref="LeftIndent"/> (negative for a hanging indent).</summary>
         public float FirstLineIndent { get; set; }
+
+        /// <summary>Space above and below the paragraph, in points.</summary>
+        public float SpaceBefore { get; set; }
+        public float SpaceAfter { get; set; }
+
+        /// <summary>Line spacing (default single).</summary>
+        public LineSpacing LineSpacing { get; set; } = LineSpacing.Single;
+
+        /// <summary>The named paragraph style (a word processor's, e.g. "Body Text"), or null.</summary>
+        public string StyleName { get; set; }
     }
 
     /// <summary>Characters sharing the same formatting. A soft line break inside a paragraph is '\v'.</summary>
@@ -63,6 +79,12 @@ namespace ClipX2.TextEngine.Export
 
         /// <summary>Highlight (background) colour as 0xRRGGBB, or null for none.</summary>
         public int? Highlight { get; set; }
+
+        /// <summary>Language as a Windows LCID (2057 = en-GB, 1036 = fr-FR), or 0 if not known.</summary>
+        public int Language { get; set; }
+
+        /// <summary>The named character style (e.g. "Emphasis"), or null.</summary>
+        public string CharacterStyle { get; set; }
     }
 
     public enum ListKind { None, Bullet, Arabic, LowerLetter, UpperLetter, LowerRoman, UpperRoman }
@@ -71,4 +93,52 @@ namespace ClipX2.TextEngine.Export
     public enum ListNumberStyle { RightParenthesis, Parentheses, Period, Plain, NoNumber }
 
     public enum ParagraphAlignment { Left, Centre, Right, Justify }
+
+    /// <summary>How line spacing is given (the editor's TOM values).</summary>
+    public enum LineSpacingRule { Single = 0, AtLeast = 3, Exactly = 4, Multiple = 5 }
+
+    /// <summary>
+    /// A paragraph's line spacing: single, a multiple of single (Value in lines, e.g. 1.25), or at
+    /// least / exactly Value points.
+    /// </summary>
+    public struct LineSpacing
+    {
+        public LineSpacingRule Rule;
+        public float Value;
+
+        public LineSpacing(LineSpacingRule rule, float value) { Rule = rule; Value = value; }
+
+        public static LineSpacing Single => new LineSpacing(LineSpacingRule.Single, 1f);
+
+        /// <summary>From RTF's \sl (twips; 0 = single; negative = exactly) and \slmult.</summary>
+        public static LineSpacing FromRtf(int sl, bool multiple)
+        {
+            if (sl == 0) return Single;
+            if (multiple) return Normalise(new LineSpacing(LineSpacingRule.Multiple, sl / 240f));
+            return sl < 0 ? new LineSpacing(LineSpacingRule.Exactly, -sl / 20f) : new LineSpacing(LineSpacingRule.AtLeast, sl / 20f);
+        }
+
+        /// <summary>The RTF control words for it.</summary>
+        public string ToRtf()
+        {
+            switch (Normalise(this).Rule)
+            {
+                case LineSpacingRule.Multiple: return @"\sl" + (int)System.Math.Round(Value * 240) + @"\slmult1";
+                case LineSpacingRule.AtLeast: return @"\sl" + (int)System.Math.Round(Value * 20) + @"\slmult0";
+                case LineSpacingRule.Exactly: return @"\sl-" + (int)System.Math.Round(Value * 20) + @"\slmult0";
+                default: return @"\sl240\slmult1";
+            }
+        }
+
+        /// <summary>A multiple of 1 is single spacing.</summary>
+        public static LineSpacing Normalise(LineSpacing s) =>
+            s.Rule == LineSpacingRule.Multiple && System.Math.Abs(s.Value - 1f) < 0.01f ? Single
+            : s.Rule == LineSpacingRule.Single ? Single : s;
+
+        public bool SameAs(LineSpacing other)
+        {
+            LineSpacing a = Normalise(this), b = Normalise(other);
+            return a.Rule == b.Rule && System.Math.Abs(a.Value - b.Value) < (a.Rule == LineSpacingRule.Multiple ? 0.02f : 0.6f);
+        }
+    }
 }

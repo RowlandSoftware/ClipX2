@@ -174,8 +174,11 @@ namespace ClipX2.TextEngine.Export
                 void Open(bool on, string tag) { if (on) { sb.Append('<').Append(tag).Append('>'); closing.Push(tag); } }
 
                 if (style.Length > 0) { sb.Append("<span style=\"").Append(style).Append("\">"); closing.Push("span"); }
-                Open(run.Bold, "b");
-                Open(run.Italic, "i");
+                // A word processor's Strong / Emphasis character styles as their HTML equivalents (which it maps back)
+                bool strong = run.CharacterStyle == "Strong" || run.CharacterStyle == "Strong Emphasis";
+                bool emphasis = run.CharacterStyle == "Emphasis";
+                Open(run.Bold, strong ? "strong" : "b");
+                Open(run.Italic, emphasis ? "em" : "i");
                 Open(run.Underline, "u");
                 Open(run.Strikethrough, "s");
                 Open(run.Superscript, "sup");

@@ -78,6 +78,7 @@ namespace ClipX2.TextEngine.Import
             int skipping = 0; string skipTag = null;
             float blockIndent = 0;              // blockquote / margin-left on the containing block
             var indentStack = new List<(string Tag, float Indent)>();
+            var itemStarts = new Stack<int>();  // per open <li>: the paragraph count when it began
             ParagraphAlignment align = ParagraphAlignment.Left;
 
             html = html ?? "";
@@ -133,6 +134,7 @@ namespace ClipX2.TextEngine.Import
                 if (Blocks.Contains(tag))
                 {
                     EndParagraph();
+                    if (tag == "li") itemStarts.Push(doc.Paragraphs.Count);
                     if (tag == "tr") cellStarted = false;
                     if (tag == "ul" || tag == "ol")
                     {
@@ -191,6 +193,12 @@ namespace ClipX2.TextEngine.Import
 
             void Close(string tag)
             {
+                // A list item with no text (Writer's Separator: a number on its own) is still an item
+                if (tag == "li" && itemStarts.Count > 0)
+                {
+                    if (doc.Paragraphs.Count == itemStarts.Pop() && current == null && styles.Exists(x => x.Tag == "li")) Current();
+                }
+
                 // The innermost open element of this name, and everything opened inside it
                 int at = styles.FindLastIndex(x => x.Tag == tag);
                 if (at > 0) styles.RemoveRange(at, styles.Count - at);

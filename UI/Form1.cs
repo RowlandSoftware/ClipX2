@@ -210,11 +210,31 @@ namespace ClipX2
             int start = htmlClipboardData.IndexOf(startTag);
             int end = htmlClipboardData.IndexOf(endTag);
 
-            if (start < 0 || end < 0)
-                return string.Empty;
+            if (start >= 0 && end > start)
+            {
+                start += startTag.Length;
+                return htmlClipboardData.Substring(start, end - start).Trim();
+            }
 
-            start += startTag.Length;
-            return htmlClipboardData.Substring(start, end - start).Trim();
+            // No markers (LibreOffice): the header's byte offsets (UTF-8) of the fragment, or of the whole document
+            return ByOffsets(htmlClipboardData, "StartFragment:", "EndFragment:")
+                ?? ByOffsets(htmlClipboardData, "StartHTML:", "EndHTML:")
+                ?? string.Empty;
+        }
+
+        /// <summary>The part of CF_HTML between the byte offsets its header gives, or null.</summary>
+        private static string ByOffsets(string data, string startKey, string endKey)
+        {
+            int Offset(string key)
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(data, "^" + key + @"\s*(-?\d+)", System.Text.RegularExpressions.RegexOptions.Multiline);
+                return m.Success && int.TryParse(m.Groups[1].Value, out int n) ? n : -1;
+            }
+            int start = Offset(startKey), end = Offset(endKey);
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(data.TrimStart('﻿'));
+            if (start < 0 || end <= start || end > bytes.Length) return null;
+            string part = System.Text.Encoding.UTF8.GetString(bytes, start, end - start).Trim();
+            return part.Length > 0 ? part : null;
         }
 
         /// <summary>

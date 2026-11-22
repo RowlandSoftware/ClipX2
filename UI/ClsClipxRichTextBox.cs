@@ -26,6 +26,14 @@ public enum FontStyleFlags
 }
 public class ClipXRichTextBox : RichTextBox
 {
+    /// <summary>
+    /// The named styles the text came with (a word processor's RTF), or null. The editor can't
+    /// keep style names itself; Done names them again from how each paragraph looks.
+    /// </summary>
+    [System.ComponentModel.Browsable(false)]
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public ClipX2.TextEngine.Import.RtfStyleSheet SourceStyles { get; set; }
+
     private static readonly CaseCycleState[] SentenceCycle = [
     CaseCycleState.SentenceCase,
     CaseCycleState.InitCaps,
@@ -924,6 +932,85 @@ public class ClipXRichTextBox : RichTextBox
             });
             Select(start, length);
         }
+    }
+
+    /// <summary>
+    /// Clear formatting for text from a word processor (<see cref="SourceStyles"/> set): the
+    /// characters go back to their paragraph's style (its font, size, language and so on), not to
+    /// the editor's font. The selection, or with none the whole text; or with
+    /// <paramref name="typingOnly"/>, what is typed next at the caret. False if there are no styles.
+    /// </summary>
+    public bool ClearToSourceStyles(bool typingOnly = false)
+    {
+        var sheet = SourceStyles;
+        if (sheet == null) return false;
+        var doc = RichEditReader.Read(this);
+        ClipX2.TextEngine.Export.StyleMatcher.Apply(doc, sheet);
+        int start = SelectionStart, length = SelectionLength;
+
+        ClipX2.TextEngine.Import.RtfCharFormat StyleAt(int paragraph) =>
+            (sheet.ParagraphNamed(doc.Paragraphs[paragraph].StyleName) ?? sheet.Paragraph(0))?.ResolvedChar;
+
+        void Plain(dynamic f, ClipX2.TextEngine.Import.RtfCharFormat ch)
+        {
+            f.Bold = ch?.Bold == true ? tomTrue : tomFalse;
+            f.Italic = ch?.Italic == true ? tomTrue : tomFalse;
+            f.Underline = ch?.Underline == true ? 1 : 0;
+            f.StrikeThrough = ch?.Strikethrough == true ? tomTrue : tomFalse;
+            f.Superscript = tomFalse; f.Subscript = tomFalse;
+            int? rgb = sheet.Rgb(ch?.Colour);
+            f.ForeColor = rgb.HasValue && rgb.Value != 0 ? ToColorRef(rgb.Value) : tomAutoColor;
+            f.BackColor = tomAutoColor;
+            string name = sheet.FontName(ch?.Font);
+            if (name != null) f.Name = name;
+            f.Size = ch?.Size ?? 12f;
+            if (ch?.Language is int lang && lang > 0) f.LanguageID = lang;
+        }
+
+        // Which paragraph each position is in: the paragraphs' lengths, each ended by one mark
+        var starts = new List<int>();
+        int pos = 0;
+        foreach (var p in doc.Paragraphs)
+        {
+            starts.Add(pos);
+            pos += p.Runs.Sum(r => r.Text.Length) + 1;
+        }
+        if (starts.Count == 0) return false;
+
+        if (typingOnly)
+        {
+            int at = Math.Max(0, starts.FindLastIndex(s => s <= start));
+            ChangeCharacterFormat(f => Plain(f, StyleAt(at)));
+            return true;
+        }
+
+        int from = length > 0 ? start : 0, to = length > 0 ? start + length : TextLength;
+        using (BeginBulkEdit())
+        {
+            EditWithTom(tom =>
+            {
+                for (int i = 0; i < starts.Count; i++)
+                {
+                    int end = i + 1 < starts.Count ? starts[i + 1] - 1 : TextLength;
+                    int a = Math.Max(from, starts[i]), b = Math.Min(to, end);
+                    if (b <= a) continue;
+                    ITextRange range = tom.Range(a, b);
+                    object font = range.Font;
+                    try
+                    {
+                        Plain(font, StyleAt(i));
+                        range.Font = font;
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(font);
+                        Marshal.ReleaseComObject(range);
+                    }
+                }
+            });
+            Select(start, length);
+        }
+        return true;
     }
 
     /// <summary>The alignment of the paragraphs touching the selection (the caret's paragraph if none). One Undo step.</summary>

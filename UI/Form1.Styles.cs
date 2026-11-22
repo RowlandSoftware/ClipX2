@@ -338,11 +338,12 @@ namespace ClipX2
                     if (box.SelectionLength == 0 && how == ToolTrigger.Key)
                     {
                         // Ctrl+M at the caret (keys act where you are): plain for what is typed next
-                        box.ClearTypingFormat(RichBaseFont());
+                        if (!box.ClearToSourceStyles(typingOnly: true)) box.ClearTypingFormat(RichBaseFont());
                         ShowStatus("Formatting cleared for what you type next");
                         break;
                     }
-                    box.ClearCharacterFormatting(RichBaseFont()); // the button: the selection, or the whole text
+                    // The button: the selection, or the whole text; text from a word processor goes back to its styles
+                    if (!box.ClearToSourceStyles()) box.ClearCharacterFormatting(RichBaseFont());
                     ShowStatus(box.SelectionLength > 0 ? "Formatting cleared from the selection" : "Formatting cleared from the whole text");
                     break;
                 case "stALL": box.SetParagraphAlignment(HorizontalAlignment.Left); break;

@@ -38,7 +38,18 @@ namespace ClipX2.UI
             }
 
             FormattedDocument doc = RichEditReader.Read(rtb);
-            data.SetData(DataFormats.Rtf, rtb.Rtf);
+            string rtf = rtb.Rtf;
+            if (rtb is ClipXRichTextBox box && box.SourceStyles != null)
+            {
+                // Text from a word processor: name its styles again, so its own styles apply on pasting back
+                try
+                {
+                    StyleMatcher.Apply(doc, box.SourceStyles);
+                    rtf = RtfExport.ToRtf(doc, box.SourceStyles);
+                }
+                catch (Exception) { /* the editor's own RTF, as before */ }
+            }
+            data.SetData(DataFormats.Rtf, rtf);
             data.SetData(DataFormats.Html, ToClipboardHtml(DocumentExport.ToHtml(doc)));
             data.SetData(DataFormats.UnicodeText, DocumentExport.ToPlainText(doc));
             return data;
@@ -164,6 +175,15 @@ namespace ClipX2.UI
                 float left = d.LeftIndent, first = d.FirstLineIndent;
                 if (left > tomUndefined) p.LeftIndent = left;
                 if (first > tomUndefined) p.FirstLineIndent = first;
+                float before = d.SpaceBefore, after = d.SpaceAfter;
+                if (before > 0) p.SpaceBefore = before;
+                if (after > 0) p.SpaceAfter = after;
+                int rule = d.LineSpacingRule;
+                float spacing = d.LineSpacing;
+                if (rule == (int)LineSpacingRule.Multiple || rule == (int)LineSpacingRule.AtLeast || rule == (int)LineSpacingRule.Exactly)
+                    p.LineSpacing = LineSpacing.Normalise(new LineSpacing((LineSpacingRule)rule, spacing));
+                else if (rule == 1) p.LineSpacing = new LineSpacing(LineSpacingRule.Multiple, 1.5f); // tomLineSpace1pt5
+                else if (rule == 2) p.LineSpacing = new LineSpacing(LineSpacingRule.Multiple, 2f);   // tomLineSpaceDouble
                 // A built-in heading style (tomStyleHeading1 = -2 … Heading 9 = -10): its level
                 int style = d.Style;
                 if (style <= -2 && style >= -10) p.HeadingLevel = Math.Min(6, -style - 1);
@@ -200,6 +220,8 @@ namespace ClipX2.UI
                 if (size > 0) r.FontSize = size;
                 r.Colour = ToRgb(f.ForeColor);
                 r.Highlight = ToRgb(f.BackColor);
+                int language = f.LanguageID;
+                if (language > 0) r.Language = language;
             }
             catch (Exception) { /* keep whatever was read */ }
             finally
