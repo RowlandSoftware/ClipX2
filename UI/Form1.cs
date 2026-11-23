@@ -52,6 +52,67 @@ namespace ClipX2
             WireToolButtons();
             InitStyles();
             InitFind();   // "What do you want to do?"
+            InitAppButtons();
+            InitPowerButtons(); // the column on the right (Form1.PowerButtons.cs)
+        }
+
+        /// <summary>
+        /// The buttons right of "What do you want to do?": Settings and About small, one above the
+        /// other (as the Style tab's small buttons), Help full height beside them; the box takes
+        /// the width left. Their icons are shown at 16 pixels, whatever size they come in.
+        /// </summary>
+        private void InitAppButtons()
+        {
+            ToolStrip strip = toolStrip1;
+            strip.SuspendLayout();
+            strip.LayoutStyle = ToolStripLayoutStyle.Table;
+            if (strip.LayoutSettings is TableLayoutSettings grid)
+            {
+                grid.ColumnCount = 2;
+                grid.RowCount = 2;
+                grid.SetCellPosition(toolStripButtonOptions, new TableLayoutPanelCellPosition(0, 0));
+                grid.SetCellPosition(toolStripButton2, new TableLayoutPanelCellPosition(0, 1));
+                grid.SetCellPosition(toolStripButton1, new TableLayoutPanelCellPosition(1, 0));
+                grid.SetRowSpan(toolStripButton1, 2);
+            }
+            foreach (ToolStripItem small in new ToolStripItem[] { toolStripButtonOptions, toolStripButton2 })
+            {
+                if (small.Image != null && (small.Image.Width != 16 || small.Image.Height != 16)) SetIcon(small, Shrunk(small.Image, 16));
+                else small.ImageScaling = ToolStripItemImageScaling.None;
+                small.AutoSize = false;
+                small.Size = new Size(22, 22);
+                small.Margin = new Padding(1);
+            }
+            toolStripButton1.Margin = new Padding(2, 1, 0, 1);
+            toolStripButton1.AutoSize = false;
+            toolStripButton1.Size = new Size(Math.Max(29, toolStripButton1.Width), 46); // Help: the full height of both rows
+            strip.AutoSize = true;
+            // Two rows of 22 + 2 need 48: the tab page's full height (only the toolbar is docked)
+            tabPage1.Padding = new Padding(tabPage1.Padding.Left, 0, tabPage1.Padding.Right, 0);
+            textBoxWhatToDo.BringToFront(); // the label's background was hiding its top border
+            strip.ResumeLayout(true);
+
+            void Fit()
+            {
+                int right = strip.Left - 6;
+                if (right > textBoxWhatToDo.Left + 60) textBoxWhatToDo.Width = right - textBoxWhatToDo.Left;
+            }
+            strip.SizeChanged += (s, e) => Fit();
+            strip.LocationChanged += (s, e) => Fit();
+            Fit();
+        }
+
+        /// <summary>A copy of <paramref name="image"/> at <paramref name="size"/> pixels square, smoothly scaled.</summary>
+        private static Bitmap Shrunk(Image image, int size)
+        {
+            var bmp = new Bitmap(size, size);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.DrawImage(image, new Rectangle(0, 0, size, size));
+            }
+            return bmp;
         }
 
         private readonly ToolStripLabel _statusHint;
@@ -80,6 +141,12 @@ namespace ClipX2
         private readonly ClipX2.UI.Panels.SidePanelHost _panels;
         private void On_FormLoad(object sender, EventArgs e)
         {
+            try { LoadAtStart(); }
+            finally { MarkClean(); } // the text as it came: closing asks only if it has changed
+        }
+
+        private void LoadAtStart()
+        {
             bool empty = !Clipboard.ContainsText(TextDataFormat.UnicodeText) && !Clipboard.ContainsData(DataFormats.Rtf) && !Clipboard.ContainsData(DataFormats.Html);
             if (empty)
             {
@@ -106,16 +173,76 @@ namespace ClipX2
         /// </summary>
         private void Done()
         {
+            CopyForDone();
+            _copiedAndClosing = true; // no "Confirm close": the text has gone to the clipboard
+            Close();
+        }
+
+        private void CopyForDone()
+        {
             var data = ClipX2.UI.ClipboardExport.Create(richTextBox1, _isRtfMode);
             // copy: true so the data stays on the clipboard after ClipX closes; retry if another
             // program has the clipboard open
             Clipboard.SetDataObject(data, true, 10, 100);
-            Close();
+        }
+
+        /************ Unsaved changes (ClipX 1's gIsDirty) ************/
+
+        private string _cleanText, _cleanRtf;
+        private bool _cleanRich;
+        private bool _copiedAndClosing;
+
+        /// <summary>The text as it is now counts as unchanged (loaded from the clipboard, or Refresh).</summary>
+        private void MarkClean()
+        {
+            _cleanText = richTextBox1.Text;
+            _cleanRich = _isRtfMode;
+            _cleanRtf = _isRtfMode ? richTextBox1.Rtf : null;
+        }
+
+        /// <summary>
+        /// The text has changed since it came from the clipboard: its characters, its formatting
+        /// (rich text), or plain/rich. Compared rather than flagged, so undoing back to the start
+        /// counts as unchanged; Find All's and spelling's highlights are painted, not formatting.
+        /// </summary>
+        internal bool IsDirty
+        {
+            get
+            {
+                if (_cleanText == null) return richTextBox1.TextLength > 0;
+                if (_isRtfMode != _cleanRich) return true;
+                if (richTextBox1.Text != _cleanText) return true;
+                return _isRtfMode && richTextBox1.Rtf != _cleanRtf;
+            }
+        }
+
+        /// <summary>
+        /// Closing ClipX (the close icon, Alt+F4) with the text changed and not copied: ClipX 1's
+        /// "Confirm close": Discard changes, Copy &amp; Close (the text to the clipboard, as Done),
+        /// or Cancel (back to the text).
+        /// </summary>
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            if (e.Cancel || _copiedAndClosing || e.CloseReason != CloseReason.UserClosing || !IsDirty) return;
+            switch (ConfirmCloseDialog.Ask(this, "Confirm close", "Changes have been made to the text.",
+                keep: "Copy && Close", discard: "Discard changes", discardFirst: true))
+            {
+                case CloseChoice.Keep:
+                    CopyForDone();
+                    break;
+                case CloseChoice.Discard:
+                    break;
+                default:
+                    e.Cancel = true;
+                    break;
+            }
         }
 
         /// <summary>Form-wide shortcuts, handled before the text box sees them.</summary>
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (PowerButtonKey(keyData)) return true; // Alt+1…9 run PowerButtons, Shift+Alt+1…9 change them
             switch (keyData)
             {
                 case Keys.Alt | Keys.D:                   // Done (as ClipX 1)
@@ -155,7 +282,7 @@ namespace ClipX2
                 case Keys.Control | Keys.R:               // Repeat last tool (RichEdit's own Ctrl+R, right-align, isn't used)
                     RunTool("clipxRPT", ToolTrigger.Key);
                     return true;
-                case Keys.Shift | Keys.F3 when !_quickSearch.IsActive && richTextBox1.Focused && richTextBox1.SelectionLength > 0:
+                case Keys.Shift | Keys.F3 when !_quickSearch.IsActive && !FindReplaceOpen && richTextBox1.Focused && richTextBox1.SelectionLength > 0:
                     RunTool("ccCYC", ToolTrigger.Key);    // cycle case
                     return true;
                 case Keys.Alt | Keys.Q:                   // "What do you want to do?" (as Office's Tell me)
@@ -165,17 +292,30 @@ namespace ClipX2
                 case Keys.Control | Keys.F:               // Quick search
                     _quickSearch.Activate();
                     return true;
-                // Next / previous match while Quick search is active (Search and Replace will do the
-                // same when it is active); otherwise Shift+F3 goes on to the text box: cycle case
+                case Keys.Control | Keys.H:               // Find and Replace (its side panel)
+                case Keys.Alt | Keys.F:                   // the same (inside the panel, From start: the panel takes it first)
+                    RunTool("edREP", ToolTrigger.Key);
+                    return true;
+                // Next / previous match while Quick search is active, else while Find and Replace is
+                // open; otherwise Shift+F3 goes on to the text box: cycle case
                 case Keys.F3 when _quickSearch.IsActive:
                     _quickSearch.FindNext(forward: true);
                     return true;
                 case Keys.Shift | Keys.F3 when _quickSearch.IsActive:
                     _quickSearch.FindNext(forward: false);
                     return true;
+                case Keys.F3 when FindReplaceOpen:
+                    ((ClipX2.UI.Panels.FindReplacePanel)_panels.Current).FindNext(forward: true);
+                    return true;
+                case Keys.Shift | Keys.F3 when FindReplaceOpen:
+                    ((ClipX2.UI.Panels.FindReplacePanel)_panels.Current).FindNext(forward: false);
+                    return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }
+
+        /// <summary>The Find and Replace panel is the one showing (F3 / Shift+F3 are its).</summary>
+        private bool FindReplaceOpen => _panels.Current is ClipX2.UI.Panels.FindReplacePanel;
 
         private int _totalWords; // kept so a selection change needn't recount the whole text
 
@@ -426,7 +566,8 @@ namespace ClipX2
             if (richTextBox1.WordWrap != d.WordWrap) richTextBox1.WordWrap = d.WordWrap;
             if (!_isRtfMode || richTextBox1.TextLength == 0)
             {
-                Font font = d.CurrentFont.ToFont();
+                // Plain text: the plain-text font; an empty rich text (a blank start): the default rich-text font
+                Font font = (_isRtfMode ? d.RichTextFont : d.CurrentFont).ToFont();
                 if (!font.Equals(richTextBox1.Font)) richTextBox1.Font = font;
                 else font.Dispose();
             }

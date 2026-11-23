@@ -38,13 +38,27 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
-            RemoveLinesOptions o = AppSettings.Current.RemLines;
+            Load(AppSettings.Current.RemLines);
+            checkBoxMultiple.Focus();
+        }
+
+        internal override System.Windows.Forms.Button GoButton(string tag) => buttonApply;
+
+        internal override void EditOptions(object options)
+        {
+            EnterEditMode(buttonApply);
+            Load(options as RemoveLinesOptions ?? new RemoveLinesOptions());
+        }
+
+        internal override object EditedOptions => Options();
+
+        private void Load(RemoveLinesOptions o)
+        {
             _loading = true;
             checkBoxMultiple.Checked = o.Multiple;
             checkBoxSingle.Checked = o.Single;
             _loading = false;
             OptionsChanged();
-            checkBoxMultiple.Focus();
         }
 
         protected internal override void OnDeactivated()
@@ -76,6 +90,7 @@ namespace ClipX2.UI.Panels
             AppSettings.Current.RemLines = o; // the last used: a right-click on the button applies them
             AppSettings.Current.Save();
             _status?.Invoke(FormatTools.RemoveExtraLines(_box, o));
+            RaiseApplied();
         }
     }
 }

@@ -36,6 +36,15 @@ namespace ClipX2.UI
         /// <summary>Quick search's recent searches, latest first (kept short).</summary>
         public System.Collections.Generic.List<string> QuickSearchHistory { get; set; } = new System.Collections.Generic.List<string>();
 
+        /// <summary>Find and Replace: mode, Match case, Whole words, Smart replace, Special characters (ClipX 1's Search section).</summary>
+        public ClipX2.TextEngine.SearchOptions Search { get; set; } = new ClipX2.TextEngine.SearchOptions();
+
+        /// <summary>Find and Replace's recent find texts, latest first (apart from Quick search's).</summary>
+        public System.Collections.Generic.List<string> FindHistory { get; set; } = new System.Collections.Generic.List<string>();
+
+        /// <summary>Find and Replace's recent replacements, latest first.</summary>
+        public System.Collections.Generic.List<string> ReplaceHistory { get; set; } = new System.Collections.Generic.List<string>();
+
         // List tools: the same section and key names as ClipX 1's settings (BulletList, NumList), so its
         // settings can be brought across directly; Style and FollowChar keep ClipX 1's numbering
 
@@ -58,6 +67,12 @@ namespace ClipX2.UI
 
         /// <summary>Remove extra lines: Single, Multiple.</summary>
         public ClipX2.TextEngine.RemoveLinesOptions RemLines { get; set; } = new ClipX2.TextEngine.RemoveLinesOptions();
+
+        /// <summary>The PowerButtons, in the order shown (Alt+1… run the first nine).</summary>
+        public System.Collections.Generic.List<PowerButton> PowerButtons { get; set; } = new System.Collections.Generic.List<PowerButton>();
+
+        /// <summary>How many columns of PowerButtons the panel on the right shows (widened by dragging its left edge).</summary>
+        public int PowerButtonColumns { get; set; } = 1;
 
         /************ Loading and saving ************/
 
@@ -99,11 +114,25 @@ namespace ClipX2.UI
                 s.NumList ??= new ClipX2.TextEngine.NumberOptions();
                 s.NumLines ??= new ClipX2.TextEngine.LineNumberOptions();
                 s.QuickSearchHistory ??= new System.Collections.Generic.List<string>();
+                s.Search ??= new ClipX2.TextEngine.SearchOptions();
+                s.FindHistory ??= new System.Collections.Generic.List<string>();
+                s.ReplaceHistory ??= new System.Collections.Generic.List<string>();
                 s.Indent ??= new ClipX2.TextEngine.IndentOptions();
                 s.Wordwrap ??= new ClipX2.TextEngine.WordWrapOptions();
                 s.RemLines ??= new ClipX2.TextEngine.RemoveLinesOptions();
+                s.PowerButtons ??= new System.Collections.Generic.List<PowerButton>();
+                s.PowerButtons.RemoveAll(b => b == null);
+                foreach (PowerButton b in s.PowerButtons)
+                {
+                    b.Name ??= "";
+                    b.Icon ??= new ButtonIcon();
+                    b.Tasks ??= new System.Collections.Generic.List<PowerTask>();
+                    b.Tasks.RemoveAll(t => t == null);
+                }
+                s.PowerButtonColumns = Math.Max(1, Math.Min(6, s.PowerButtonColumns));
                 s.Display.ProportionalFont ??= FontSpec.DefaultProportional;
                 s.Display.FixedFont ??= FontSpec.DefaultFixed;
+                s.Display.RichTextFont ??= FontSpec.DefaultRichText;
                 return s;
             }
             catch (Exception ex) when (ex is JsonException || ex is IOException || ex is UnauthorizedAccessException)
@@ -132,20 +161,49 @@ namespace ClipX2.UI
             }
         }
 
-        /// <summary>Copies the settings (as saved now) to a file of the user's choosing.</summary>
-        public static void Export(string path)
+        /// <summary>
+        /// Copies the settings (as saved now) to a file of the user's choosing: JSON, or with
+        /// <paramref name="asPref"/> XML in ClipX 1's .pref format (<see cref="SettingsPref"/>).
+        /// </summary>
+        public static void Export(string path, bool asPref = false)
         {
             Current.Save();
-            File.Copy(FilePath, path, overwrite: true);
+            if (asPref) SettingsPref.Export(Current, path);
+            else File.Copy(FilePath, path, overwrite: true);
+        }
+
+        /// <summary>The file holds XML (a .pref), whatever it is called; else it is taken as JSON.</summary>
+        public static bool IsPrefFile(string path)
+        {
+            using var reader = new StreamReader(path, detectEncodingFromByteOrderMarks: true);
+            int c;
+            while ((c = reader.Read()) >= 0 && char.IsWhiteSpace((char)c)) { }
+            return c == '<';
         }
 
         /// <summary>
         /// Reads settings from a file exported earlier and makes them the current ones (and
         /// saves them). Throws if the file isn't a settings file, leaving the current ones as they were.
         /// </summary>
-        public static void Import(string path)
+        public static void Import(string path) => Import(path, out _);
+
+        /// <summary>
+        /// <see cref="Import(string)"/>, for JSON or a .pref (XML, ClipX 1's format: one exported
+        /// by ClipX2 holds all the settings; one from ClipX 1 changes the settings it has, and
+        /// <paramref name="fromClipX1"/> is true). A .pref that can't be read throws FormatException.
+        /// </summary>
+        public static void Import(string path, out bool fromClipX1)
         {
-            AppSettings s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOptions)
+            fromClipX1 = false;
+            if (IsPrefFile(path))
+            {
+                AppSettings s = SettingsPref.Import(path, Current, out fromClipX1);
+                _current = s;
+                s.Save();
+                _current = Load(); // fills in anything the file lacks
+                return;
+            }
+            _ = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOptions)
                 ?? throw new JsonException("The file is empty.");
             Directory.CreateDirectory(Folder);
             File.Copy(path, FilePath, overwrite: true);
@@ -163,6 +221,7 @@ namespace ClipX2.UI
 
         public static FontSpec DefaultProportional => new FontSpec { Name = "Segoe UI", Size = 10.875F };
         public static FontSpec DefaultFixed => new FontSpec { Name = "Consolas", Size = 10.5F };
+        public static FontSpec DefaultRichText => new FontSpec { Name = "Segoe UI", Size = 10.875F };
 
         public System.Drawing.Font ToFont()
         {
@@ -188,6 +247,8 @@ namespace ClipX2.UI
         public FontSpec ProportionalFont { get; set; } = FontSpec.DefaultProportional;
         /// <summary>The fixed-width font, for plain text laid out in columns.</summary>
         public FontSpec FixedFont { get; set; } = FontSpec.DefaultFixed;
+        /// <summary>The font a new, empty rich text starts in (rich text brought in keeps its own fonts).</summary>
+        public FontSpec RichTextFont { get; set; } = FontSpec.DefaultRichText;
         /// <summary>Show plain text in the fixed-width font (right-click on Options toggles it, as in ClipX 1).</summary>
         public bool UseFixedFont { get; set; }
         /// <summary>Wrap long lines in the window (display only: the text itself is unchanged).</summary>

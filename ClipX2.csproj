@@ -38,6 +38,8 @@
   <Compile Update="UI\Form1.Styles.cs"><SubType>Code</SubType></Compile>
   <Compile Update="UI\Form1.Tools.cs"><SubType>Code</SubType></Compile>
   <Compile Update="UI\Form1.Find.cs"><SubType>Code</SubType></Compile>
+  <Compile Update="UI\Form1.PowerButtons.cs"><SubType>Code</SubType></Compile>
+  <Compile Update="UI\PowerButtonBar.cs"><SubType>Code</SubType></Compile>
 </ItemGroup>
 <ItemGroup>
   <EmbeddedResource Update="Properties\Resources.resx">

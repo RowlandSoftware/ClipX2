@@ -24,7 +24,7 @@ namespace ClipX2.UI
     /// </summary>
     internal partial class OptionsDialog : Form
     {
-        private FontSpec _proportional, _fixed;
+        private FontSpec _proportional, _fixed, _rich;
         private readonly List<string> _ignoredRules = new List<string>();
         private CancellationTokenSource _work;
         private bool _grammarWasOn;  // grammar checking was on when the dialog opened (or at the last Apply)
@@ -52,6 +52,7 @@ namespace ClipX2.UI
             // Display
             buttonProportional.Click += (s, e) => ChooseFont(fixedPitch: false);
             buttonFixed.Click += (s, e) => ChooseFont(fixedPitch: true);
+            buttonRichFont.Click += (s, e) => ChooseRichFont();
 
             // General
             linkSettingsFolder.Text = AppSettings.Folder;
@@ -98,6 +99,8 @@ namespace ClipX2.UI
             _fixed = Copy(d.FixedFont);
             textBoxProportional.Text = _proportional.ToString();
             textBoxFixed.Text = _fixed.ToString();
+            _rich = Copy(d.RichTextFont);
+            textBoxRichFont.Text = _rich.ToString();
             radioFixed.Checked = d.UseFixedFont;
             radioProportional.Checked = !d.UseFixedFont;
             checkBoxWordWrap.Checked = d.WordWrap;
@@ -153,6 +156,7 @@ namespace ClipX2.UI
             DisplaySettings d = all.Display;
             d.ProportionalFont = Copy(_proportional);
             d.FixedFont = Copy(_fixed);
+            d.RichTextFont = Copy(_rich);
             d.UseFixedFont = radioFixed.Checked;
             d.WordWrap = checkBoxWordWrap.Checked;
             all.HideFormattingLossWarning = checkBoxHideFormattingWarning.Checked;
@@ -204,19 +208,38 @@ namespace ClipX2.UI
             else { _proportional = chosen; textBoxProportional.Text = chosen.ToString(); radioProportional.Checked = true; }
         }
 
+        /// <summary>The font a new, empty rich text starts in.</summary>
+        private void ChooseRichFont()
+        {
+            using (System.Drawing.Font current = _rich.ToFont())
+            {
+                fontDialog.Font = current;
+                fontDialog.FixedPitchOnly = false;
+                if (fontDialog.ShowDialog(this) != DialogResult.OK) return;
+            }
+            _rich = FontSpec.From(fontDialog.Font);
+            textBoxRichFont.Text = _rich.ToString();
+        }
+
         /************ General ************/
 
         private void ExportSettings()
         {
             saveFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if (saveFileDialog.ShowDialog(this) != DialogResult.OK) return;
+            // The file type chosen says which: JSON, or XML in ClipX 1's .pref format
+            bool asPref = saveFileDialog.FilterIndex == 2;
+            string path = saveFileDialog.FileName;
+            string wanted = asPref ? ".pref" : ".json";
+            if (!string.Equals(Path.GetExtension(path), wanted, StringComparison.OrdinalIgnoreCase))
+                path = Path.ChangeExtension(path, wanted);
             try
             {
                 if (!Apply()) return; // export what is on screen
-                AppSettings.Export(saveFileDialog.FileName);
-                MessageBox.Show(this, "Settings exported to\n" + saveFileDialog.FileName, "Export settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                AppSettings.Export(path, asPref);
+                MessageBox.Show(this, "Settings exported to\n" + path, "Export settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
             {
                 MessageBox.Show(this, "The settings could not be exported: " + ex.Message, "Export settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -229,11 +252,12 @@ namespace ClipX2.UI
             if (MessageBox.Show(this, "Replace your settings with those in\n" + openFileDialog.FileName + "?",
                     "Import settings", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 return;
+            bool fromClipX1;
             try
             {
-                AppSettings.Import(openFileDialog.FileName);
+                AppSettings.Import(openFileDialog.FileName, out fromClipX1);
             }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Text.Json.JsonException)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Text.Json.JsonException || ex is FormatException)
             {
                 MessageBox.Show(this, "That file could not be imported (it may not be a ClipX settings file): " + ex.Message,
                     "Import settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -243,7 +267,9 @@ namespace ClipX2.UI
             Applied?.Invoke(this, EventArgs.Empty);
             string keyNote = AppSettings.Current.Grammar.ApiKeyProtected.Length > 0 && AppSettings.Current.Grammar.ApiKey.Length == 0
                 ? "\n\nThe LanguageTool API key in it can't be read on this account: enter it again on the Grammar page." : "";
-            MessageBox.Show(this, "Settings imported." + keyNote, "Import settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            string clipX1Note = fromClipX1
+                ? "\n\nFrom ClipX 1: its tool settings, find options, fonts and PowerButtons; your other settings are as they were." : "";
+            MessageBox.Show(this, "Settings imported." + clipX1Note + keyNote, "Import settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         /************ Spelling: dictionaries ************/

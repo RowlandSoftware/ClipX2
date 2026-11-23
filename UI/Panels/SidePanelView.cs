@@ -62,6 +62,81 @@ namespace ClipX2.UI.Panels
 
         protected void RequestClose() => CloseRequested?.Invoke(this, EventArgs.Empty);
 
+        /// <summary>
+        /// Raised after the view has done its work on the text (its Apply; Find and Replace says
+        /// which button): a PowerButton waiting on this view (an "Ask" task) then carries on.
+        /// </summary>
+        public event EventHandler<string> Applied;
+
+        /// <summary>Call after applying to the text; <paramref name="action"/> names the button (for views with several).</summary>
+        protected void RaiseApplied(string action = "Apply") => Applied?.Invoke(this, action);
+
+        /************ A PowerButton waiting on this view (an "Ask" task) ************/
+
+        /// <summary>The button that carries on a PowerButton's <paramref name="tag"/> task (its Apply); null if none.</summary>
+        internal virtual Button GoButton(string tag) => null;
+
+        /// <summary>The orange of the Go button while a PowerButton waits on the view.</summary>
+        internal static readonly Color GoColour = Color.FromArgb(255, 160, 40);
+
+        private Button _go;
+        private string _goText;
+        private Color _goBack;
+        private bool _goVisualStyle;
+
+        /// <summary>
+        /// While a PowerButton waits on the view, its Apply button for <paramref name="tag"/> reads
+        /// "Go", in orange, and has the focus (Enter presses it). False if the view has none.
+        /// </summary>
+        internal bool ShowGo(string tag)
+        {
+            HideGo();
+            Button b = GoButton(tag);
+            if (b == null) return false;
+            _go = b;
+            _goText = b.Text;
+            _goBack = b.BackColor;
+            _goVisualStyle = b.UseVisualStyleBackColor;
+            b.Text = "Go";
+            b.UseVisualStyleBackColor = false;
+            b.BackColor = GoColour;
+            if (b.CanFocus) b.Focus();
+            return true;
+        }
+
+        /// <summary>The Go button back to its own text and colour.</summary>
+        internal void HideGo()
+        {
+            if (_go == null) return;
+            _go.Text = _goText;
+            _go.BackColor = _goBack;
+            _go.UseVisualStyleBackColor = _goVisualStyle;
+            _go = null;
+        }
+
+        /************ The PowerButton editor: options to change, not to apply ************/
+
+        /// <summary>
+        /// The PowerButton editor shows a tool's view to set a task's own options: the view shows
+        /// <paramref name="options"/> (its options class; null for the defaults) and hides the
+        /// buttons that act on the text, and its close cross. Views that can't do this do nothing.
+        /// </summary>
+        internal virtual void EditOptions(object options) { }
+
+        /// <summary>The options as set in the view (in <see cref="EditOptions"/> mode); null if the view has none.</summary>
+        internal virtual object EditedOptions => null;
+
+        /// <summary>The view is in the PowerButton editor (<see cref="EditOptions"/>).</summary>
+        internal bool IsEditingOptions { get; private set; }
+
+        /// <summary>For <see cref="EditOptions"/>: hides the buttons that act on the text, and the close cross.</summary>
+        protected void EnterEditMode(params Control[] actions)
+        {
+            IsEditingOptions = true;
+            foreach (Control c in actions) c.Visible = false;
+            _closeButton.Visible = false;
+        }
+
         /// <summary>Puts the focus on the close button (when the view's work is done: Enter or Space then closes it).</summary>
         protected void FocusCloseButton() => _closeButton.Focus();
 
@@ -99,7 +174,7 @@ namespace ClipX2.UI.Panels
         /// <summary>Esc closes the view while focus is in it.</summary>
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == Keys.Escape)
+            if (keyData == Keys.Escape && !IsEditingOptions) // in the PowerButton editor, Esc is the editor's
             {
                 RequestClose();
                 return true;

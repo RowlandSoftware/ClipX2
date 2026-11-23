@@ -111,6 +111,46 @@ public class ClipXRichTextBox : RichTextBox
         if (selection) { _selectionTimer.Stop(); SelectionSettled?.Invoke(this, EventArgs.Empty); }
     }
 
+    /// <summary>
+    /// Makes everything done until the returned object is disposed one Undo step (a PowerButton's
+    /// tools). Tools that group their own edits join this group instead. Nests; does nothing if
+    /// TOM or edit collections aren't available.
+    /// </summary>
+    public IDisposable BeginUndoGroup()
+    {
+        if (_undoGroupDepth++ == 0)
+        {
+            try
+            {
+                _undoGroupDoc = RichEditTom.GetDocument(this);
+                if (_undoGroupDoc != null && !TryBeginUndoGroup(_undoGroupDoc)) { Marshal.ReleaseComObject(_undoGroupDoc); _undoGroupDoc = null; }
+            }
+            catch (Exception) { _undoGroupDoc = null; }
+        }
+        return new UndoGroup(this);
+    }
+
+    private int _undoGroupDepth;
+    private ITextDocument _undoGroupDoc;
+
+    private void EndUndoGroup()
+    {
+        if (--_undoGroupDepth > 0 || _undoGroupDoc == null) return;
+        try { _undoGroupDoc.EndEditCollection(); } catch (Exception) { /* nothing more to do */ }
+        Marshal.ReleaseComObject(_undoGroupDoc);
+        _undoGroupDoc = null;
+    }
+
+    private sealed class UndoGroup : IDisposable
+    {
+        private ClipXRichTextBox _owner;
+        public UndoGroup(ClipXRichTextBox owner) => _owner = owner;
+        public void Dispose() { _owner?.EndUndoGroup(); _owner = null; }
+    }
+
+    /// <summary>Paste as Ctrl+V does: rich text in rich-text mode, else plain (PowerButtons' Paste from clipboard).</summary>
+    public void PasteForMode() => HandlePaste(forcePlain: false);
+
     private sealed class BulkEdit : IDisposable
     {
         private ClipXRichTextBox _owner;
@@ -393,6 +433,10 @@ public class ClipXRichTextBox : RichTextBox
                 case Keys.T:
                     if (e.Shift || e.Alt) break;
                     Transpose();
+                    goto Handle; // jump to shared
+                case Keys.W:
+                    if (e.Shift || e.Alt) break;
+                    SelectWord();
                     goto Handle; // jump to shared
             }
         }
@@ -721,6 +765,21 @@ public class ClipXRichTextBox : RichTextBox
         Select(pos + rightLen, 0);
     }
 
+    /// <summary>
+    /// Ctrl+W: selects the word at the caret, or extends the selection over the next word
+    /// (<see cref="WordSelection"/> has the rules). Reads only the text near the selection.
+    /// </summary>
+    public void SelectWord()
+    {
+        const int Reach = 2000; // characters either side: more than any word
+        int start = SelectionStart, length = SelectionLength;
+        int from = Math.Max(0, start - Reach), to = Math.Min(TextLength, start + length + Reach);
+        string near = GetTextRange(from, to);
+        if (near == null) return;
+        var (s, l) = WordSelection.Next(near, start - from, length);
+        if (s + from != start || l != length) Select(s + from, l);
+    }
+
     private static bool IsParagraphBreak(char c) => c == '\n' || c == '\r' || c == '\v' || c == '\f';
 
     /// <summary>The text from <paramref name="start"/> to <paramref name="end"/>, without fetching the whole text.</summary>
@@ -756,7 +815,7 @@ public class ClipXRichTextBox : RichTextBox
 
         int oldMask = SendMessage(Handle, EM_SETEVENTMASK, IntPtr.Zero, IntPtr.Zero); // stop change/selection notifications
         doc.Freeze(); // no repainting until we've finished
-        bool grouped = TryBeginUndoGroup(doc);
+        bool grouped = _undoGroupDoc == null && TryBeginUndoGroup(doc); // inside a PowerButton's group: part of it
         try
         {
             edit(doc);

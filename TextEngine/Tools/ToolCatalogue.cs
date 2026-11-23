@@ -98,7 +98,7 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("edMIM", "Decode MIME", Edit, ToolKind.Text, null, "Decode quotable printed MIME 1.0 encoded characters, e.g. =30=20"),
             new ToolInfo("edEOL", "Regularise line ends", Edit, ToolKind.Text, null, "Replace LF and CR with standard line ending"),
             new ToolInfo("edSRC", "Search", Edit, ToolKind.Interactive, null, "Search"),
-            new ToolInfo("edREP", "Replace", Edit, ToolKind.Interactive, null, "Search and replace"),
+            new ToolInfo("edREP", "Find and Replace", Edit, ToolKind.Interactive, null, "Find text and replace it: simple, wildcard or regular expression search (Ctrl+H or Alt+F)"),
 
             new ToolInfo("foTRM", "Trim white space", Format, ToolKind.Text, null, "Remove white space from start and end of lines"),
             new ToolInfo("foTRA", "Trim trailing space", Format, ToolKind.Text, null, "Remove white space from end of lines only"),

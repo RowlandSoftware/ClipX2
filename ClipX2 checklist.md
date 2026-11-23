@@ -20,7 +20,7 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] Tools with options show them in the side panel; **right-click on a tool skips the options and
   runs it with the last-used settings** (as ClipX 1)
 - [ ] Each tool's last-used options are kept in its own section of `AppSettings`
-- [ ] PowerButtons (customisable buttons combining several tools, by tag)
+- [x] PowerButtons (customisable buttons combining several tools, by tag): see PowerButtons below
 
 ## Settings
 
@@ -127,13 +127,40 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Find all (a button): every match highlighted (the spelling marker, several at once), count in the status label, cursor unmoved. Esc otherwise back to the text with the match selected
 - [x] Search history in the drop-down, latest first, 15 kept, saved in settings.json (`QuickSearchHistory`)
 - [x] At the end/start: message and beep, selection unchanged; the next search that way goes round from the other end
-- [x] F3 / Shift+F3 = next / previous match while Quick search is active (from Ctrl+F, the box or a search, until Esc, a click in the text or another tool); otherwise Shift+F3 cycles case. Search and Replace to do the same when active
+- [x] F3 / Shift+F3 = next / previous match while Quick search is active (from Ctrl+F, the box or a search, until Esc, a click in the text or another tool); otherwise Shift+F3 cycles case. Find & Replace does the same while its panel is open
 - [x] Find all's highlights go on Esc, another tool, a new search, Next/Previous match (arrows, F3), a click in the text
+
+## Find & Replace (edREP, Ctrl+H or Alt+F; side panel)
+- [x] One panel for Find and Replace (UI/Panels/FindReplacePanel). Ctrl+H or Alt+F opens it (inside the panel Alt+F stays From start's key); Ctrl+F stays Quick search, with its own history. In "What do you want to do?" (edREP). Stays open when other tools run, as the spelling panel does
+- [x] Modes as option buttons: Simple, Wildcard, Regex (ClipX 1's three tabs). Engine: `TextFinder` (TextEngine/TextFinder.cs): one finder per mode behind Find (next/previous, within a range), FindAll, IsMatchAt, ReplacementFor, ReplaceAll (edits); so the buttons are written once for all modes
+- [x] Simple mode (through TextSearch, as Quick search): Match case, Whole words, Smart replace (each replacement in the case of the match, the spelling panel's MatchCase), Special chars (\t \n \xHH \uHHHH \\; a bad code says why); engine tested (23 cases)
+- [x] Previous / Next (Shift+F3 / F3, Shift+Enter / Enter in Find); at the end: message and beep, the next search goes round. From start: the next search starts at the start (Previous: the end), then unticks itself
+- [x] Find All: every match highlighted and counted, the selection unmoved. Replace: replaces the selected match and goes to the next (the first press only finds); Enter in the Replace box. Replace All: one Undo step, formatting kept (ApplyEdits), count in the panel
+- [x] In selection: Find All and Replace All keep to the selection; ticked when the panel opens on more than one line (a selection within a line fills Find instead); finding a match unticks it
+- [x] Find and replace histories (15 each) and the options kept in settings.json (`FindHistory`, `ReplaceHistory`, `Search`); the swap button swaps the two texts
+- [x] Help button: the help floats just right of the side panel, as the spelling panel's definitions (UI/Panels/HelpPopup: headings, term / meaning columns), and follows the mode (Simple and Wildcard written; Regex says what is to come)
+- [x] The panel's messages (counts, Not found, Reached end, a bad regular expression) also go in the window's status bar (the user, 24 Nov 2026), so a small window can't hide them
+- [x] Special chars ticked, Simple mode: a group of buttons, Tab \t, New line \n, \\, Hex \x.., Unicode \u.... (two rows, so all show), put the code in the Find or Replace box (the last one typed in), at the cursor. Not in Wildcard mode (the user, 24 Nov 2026: no room; the codes still work and its help lists them)
+- [ ] User to try it in ClipX (layout, the help beside the panel, all three modes: not yet seen on screen)
+- [x] Wildcard mode (24 Nov 2026): `TextFinder.WildcardToRegex` (ClipX 1's translateWildcardsToRegExp and its help sheet WildCardHelp2) to a .NET Regex, through a RegexFinder shared with Regex mode later (multiline, case as Match case, 3 s time limit, empty matches skipped). ? or . * + & ! % ~ # @ [..] [^..], with * or + after each; \ before a wildcard character finds it. Every wildcard (with its * or +) is a group: $1, $2… and $& in the replacement, $$ a $. All matching is not greedy (lazy). Nothing runs on over a paragraph break (~ is white space within a line). Options: Find at (anywhere, start/end of line, start/end of word), # decimal point and thousands separator ("," "." space ' none; the culture's by default; space = any space, no-break too). Engine tested (78 cases with Simple's)
+- [x] ClipX 1's wildcard bugs fixed: &+ and !+ gave one character; &* %* %+ ~* ~+ were greedy while * + were lazy; start/end of line only worked at the start/end of the whole text (no multiline); Whole words with \b failed at a pattern beginning or ending with a space or punctuation (now only where the match begins or ends with a word character, as Simple); ~ (\s) ran on over paragraph breaks; # took 12,34 as one number (now groups of three) and missed .5; @ didn't take ’ (isn’t)
+- [x] Not greedy, except the last wildcard of all when it has * or + (the user, 24 Nov 2026): that one is greedy, so c%+ finds c123, ~+ a whole run of spaces, * alone a whole paragraph; <*> still finds each tag. A pattern ending in plain text keeps every * and + lazy
+- [ ] Wildcard: a selection within a line fills Find with its wildcard characters escaped (\? \*), so it is found as it is; check in use
+- [x] Regex mode (24 Nov 2026): the user's .NET regular expression through the same RegexFinder as wildcards: multiline always (^ $ at every paragraph), Match case (off = IgnoreCase), Whole words round it as for wildcards, Smart replace, 3 s time limit (catastrophic backtracking stopped with a message). Replacement: $1 ${name} $& $$, and \t \n \xHH \uHHHH \\ always (Special chars is off in Regex mode: a regex has its own). Find All / Next skip empty matches; Replace All keeps them, so ^ → "> " quotes every line and $ adds to every line end (in a selection, not the line after it). The status line says while typing what is wrong ("Not enough )'s (at character 2)"). A selection fills Find escaped (Regex.Escape). Help: characters, quantifiers, anchors, look-arounds, groups, replacement, options, and what is new compared with ClipX 1's VBA RegExp. Engine tested (102 cases, all modes)
+- [x] Case changes in the replacement, Wildcard and Regex modes (24 Nov 2026, TextEngine RegexReplacement): \U capitals from here, \L small letters, \E as found (\U$1\E $2; \U$1\L$2 title case), in the current culture's case rules; \\U a backslash and a U. With them in it, Smart replace leaves the case alone. \U is no longer a Unicode code (\u is)
+- [x] Bug (the user): Wildcard without Special chars, \t found every t. Now a backslash before anything but a wildcard character is found as itself (\t = a backslash and a t), and the replacement's \t stays as typed. Engine tested (115 cases, all modes)
+- [x] Wildcard options made compact (the user, 24 Nov 2026): Find at (Anywhere, Start/End of line, Start/End of word) and "# numbers like" (1,234.5 · 1.234,5 · 1 234,5 · 1 234.5 · 1'234.5 · 1234.5 · 1234,5: decimal point and thousands separator together) as two drop-downs, in place of five option buttons and two separator lists
+- [x] \1 … \9 (and \0, the whole match) in the replacement, Regex mode only, as $1 … $9 (as Notepad++ and sed); \\1 a backslash and a 1. Not in Wildcard mode, which keeps to $1 (the user, 24 Nov 2026: no more confusion there)
+- [x] Ctrl+Alt+Shift+R in Wildcard mode (hidden, as ClipX 1; in the Wildcard help): Regex mode, with ClipX's regular expression in Find (Whole words and Find at included, so Whole words is unticked) and the replacement as Regex mode reads it in Replace (backslashes doubled when Special chars was off, \U \L \E kept). TextFinder.WildcardAsRegex; tested that the regex gives the same result as the wildcards (13 new engine tests, all passing)
+- [ ] Perhaps: a list of Find All's results (ClipX 1's Search Results); a toolbar button for edREP
+- [x] Find and Replace in PowerButtons with its own texts and options (Replace all, Replace the next one, Find the next one, Find all; From start, Backwards, In selection): `FindReplaceTask`, run by `FindReplaceRunner` without the panel
 
 ## Edit
 - [x] Decode URL (edUDC), HTML (edHDC), UTF-8 (edUTF), MIME (edMIM): selection exactly or whole text; bytes as UTF-8 where valid, else Windows-1252; all named HTML entities; MIME soft line breaks and encoded words (=?utf-8?Q?...?=)
 - [x] Plain characters (edPLA: – → --, — → ---, so it reverses Curly quotes), Curly quotes etc. (edCRL: quotes by context, apostrophes, feet/inches left straight, -- – , --- —, ... …), Regularise line ends (edEOL: soft line breaks, U+2028/2029, NEL, form feeds)
 - [x] Strip email quote marks (edSTR): > and | at line starts, any depth, spaces before them; only the one space after each mark goes, so indentation inside a quote is kept; whole lines; engine: LineFormatter.StripQuoteMarks
+- [x] Select word, Ctrl+W in the editor (engine: WordSelection; 21 cases tested). Word = letters and digits (combining accents included); other = not word, not white space. No selection: the word at the caret, or just before it at a word's end (Esme has| → has), else the run of other characters (-|-> → -->), never white space; between spaces: the next word on the line. Selection: extends right over white space + the next word or run, or over a run of other characters, or the rest of a word. Never crosses a paragraph or line break. ’ is "other", so wasn’t is wasn + ’ + t
+- [ ] User to try Ctrl+W in ClipX
 
 ## Statistics (chSTAT)
 - [x] Side panel, kept up to date while open: Selection (only when there is one) above Whole text. Words, characters, without spaces, sentences, paragraphs, words per sentence, size (UTF-8 for plain text, RTF for rich text); lines left out (same as paragraphs)
@@ -145,8 +172,8 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Engine: `Tools/ToolCatalogue` (every tag, ClipX 1's names and descriptions, group, kind, options class), `Tools/TextTools.Run(tag, text, from, to, options)` (31 text tools: edits out), `Tools/ToolUsage` (counts in memory, `ToolUsed` event, `Report()`; never sends anything)
 - [x] ClipX: one handler, `Form1.RunTool(tag, how, options)` (UI/Form1.Tools.cs): every tagged button wired once by tag (click = options panel, right-click = last settings), keys (F7, Shift+F3 = ccCYC, Ctrl+R = Repeat last tool), PowerButtons later (`ToolTrigger.PowerButton` with their own options). Counts in usage.json (Usage/Total, PowerButton counts apart), remembers the last tool, closes other options panels, ends Quick search, clears the status bar
 - [ ] Usage upload (ask first, like grammar); a view of the statistics
-- [ ] PowerButtons: a list of tags + options run through RunTool
-- [ ] Not yet written: edSRC/edREP (Search and Replace), pb* extras
+- [x] PowerButtons: a list of tags + options run through RunTool (see PowerButtons below)
+- [x] pb* extras (23 Nov 2026): Clear selection, Select all, Copy, Cut (rich text in rich-text mode, else plain), Paste (as Ctrl+V), Insert text, Delete selected text, include a PowerButton
 
 ## Sorting
 - [x] Alphabetic (soALP), Numeric (soNUM), Smart (soSMA, new), Reverse (soREV), Nudge up/down (soNUP/soNUD; Alt+Up/Alt+Down in the text), List sort (soKEY: comma separated items on a line). Lines move whole with their own formatting (TOM FormattedText), one Undo step; the selected lines, or the whole text; blank lines removed when sorting (as ClipX 1). Engine: `LineSorter`; sorts ignore case and indentation, use the language's alphabet (é with e), keep equal lines in order
@@ -168,6 +195,7 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 
 ## What do you want to do?
 - [x] Right-hand tab: label and box on the left (Alt+Q goes to it), icons (Settings; later Help, About) docked right. Suggestions under the box as you type: name and description, best first; Up/Down, Enter (or click) runs it through RunTool as its button would, Esc closes
+- [x] Settings and About small (16-pixel icons, whatever size they come in), one above the other, Help (?) full height beside them, as the Style tab's small buttons (the user, 24 Nov 2026; toolStrip1 as a table, Form1.InitAppButtons); the box takes the width left. Checked in an off-screen render. Icons pending (the user)
 - [x] Engine: `Tools/ToolFinder` (names, button captions and tooltips, synonyms, descriptions, groups; prefixes, plurals, typos; filler words ignored; "get rid of"/"delete"/"strip" = remove; Remove… tools lower unless removing) and `Tools/ToolKeywords` (synonyms per tool, US spellings, examples such as %20, â€™)
 - [x] App actions searchable: Settings, Done, Plain or rich text, Quick search, Refresh, Repeat, Cycle case (tags clipxOPT clipxFIN clipxMOD clipxQSR)
 - [ ] Synonyms in other languages, with the translations
@@ -186,4 +214,44 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] Favourites
 - [ ] Install Segoe Fluent Icons font
 - [ ] Code signing
+
+## PowerButtons (23 Nov 2026)
+- [x] Model (UI/PowerButtons.cs): `PowerButton` (Id, Name, Icon, Tasks), `PowerTask` (Tag, Use = Own / LastUsed / Ask, Options as the tool's own options class, JSON by tag), `ButtonIcon` (64-pixel PNG, base64, plus an uncommitted text layer `IconText`), `FindReplaceTask`. In settings.json (`PowerButtons`, `PowerButtonColumns`), so Export/Import settings carries them. Included buttons (pbPBT) by Id, so moving buttons doesn't break them; loops refused (editor) and stopped (run)
+- [x] Panel on the right (panel2, UI/PowerButtonBar.cs): 32-pixel square buttons in a column; drag the panel's left edge (or right-click beside the buttons: More/Fewer columns) for up to 6 columns, the text box gives the room. Click runs, right-click changes, drag moves; "+" makes a new one. Hover help in the side panel: name, Alt+n, the tasks
+- [x] Keys: Alt+1…Alt+9 run the first nine, Shift+Alt+1…9 change them (the user, 23 Nov 2026; ClipX 1 had Alt+F1…F8)
+- [x] Running (Form1.PowerButtons.cs): each task through `RunTool(tag, ToolTrigger.PowerButton, options)`; one Undo step for the whole run (`ClipXRichTextBox.BeginUndoGroup`: tools' own groups join it); stops at a tool ClipX2 hasn't got or a rich-text tool in plain text, and says which; Ctrl+R repeats the whole button (as ClipX 1); spelling pauses the run until its panel closes
+- [x] Ask tasks (ClipX 1's "Prompt for settings"): the run stops, the tool's side panel opens (no note since the fixes below); its own Apply (Indent, Replace All…) carries the run on, no Continue button (the user, 23 Nov 2026); closing the panel stops the run. Views raise `SidePanelView.Applied`; the host's `ViewHidden`, `ShowBanner`
+- [x] Editor (UI/PowerButtonEditor.cs, TaskTimeline.cs; code-only forms): name, icon, Delete PowerButton (whole button, confirmed); tools by group with their toolbar icons, dragged onto the timeline (or double-clicked); cards dragged to re-order, Delete or drag off to remove, Ctrl+Left/Right to move; the selected task's options below: the tool's own side panel in edit mode (`SidePanelView.EditOptions` / `EditedOptions`, its Apply buttons hidden), plus Find and Replace's "When the PowerButton runs", and simple controls for Insert text, include a PowerButton, font, size, heading, colours. These options / Last-used options / Ask when run. A new task starts with the tool's last-used options. Try on the text (Ask tasks use the last-used options)
+- [x] Icon editor (UI/IconEditor.cs): 64-pixel icon on an 8× canvas with grid; pencil, eraser, fill; line, rectangle, ellipse and text stay a layer to move (drag, arrows) and resize (+ −) and centre until committed (Enter) or dropped (Esc); text: 1–4 characters, a font (symbol fonts listed, character grid, font dialog), bold, italic; 20 colours and more; background (rounded square behind everything); clear; import image (PNG, ICO, BMP, GIF, JPEG, TIFF) or paste; undo/redo (Ctrl+Z / Ctrl+Y); previews at 32 and 48. An uncommitted text layer is kept with the icon, adjustable next time
+- [x] ClipX 1's PowerButtons imported (UI/PowerButtonImport.cs) from its registry entries or an exported .pref (right-click beside the buttons): Details parsed where ", Key=" follows (values may hold commas), DlgOption 0/1/2 → Ask/Own/Last used, Mode 1/2/3, Anchor, separators, Indent's RadioButton, liREN's reversed IgnoreBlanks; icons as ClipX 1's green (#016331) with the characters as a text layer (twips ÷ 15, 2×), symbol-font characters from Windows-1252 to U+F0xx. Tested on ClipX1.pref and the registry: all 8 buttons, icons look as in ClipX 1
+- [x] Tested off-screen (scratch program): runs, one Undo, nesting, Repeat, Ask (Apply carries on, closing stops), rich-only stop, editor keeps options between tasks, icon editor shapes, layouts rendered (panel 1 and 3 columns, editor, icon editor, Ask note)
+- [ ] User to try it on screen: dragging (palette → timeline, re-order, off), the panel's left edge, the icon editor's mouse drawing, Alt+1…9
+- [ ] Check Punctuation's options (PunctuationOptions) in PowerButtons once they are shown anywhere
+- [x] Ask for Find (edSRC) carries on after Next (its Go) only
+- [ ] Translation: the editor's and icon editor's texts to the string resources with the rest
+
+### First fixes after trying it (23 Nov 2026)
+- [x] Ask: the yellow note under the panel is gone (it could cover Apply); the Apply that carries on reads "Go", in orange, with the focus, and closes the panel (Find and Replace too). `SidePanelView.GoButton(tag)` / `ShowGo` / `HideGo`; Indent's Go is Unindent for foUNI, Find's is Next, Replace's is Replace All
+- [x] Ask: the panel's close cross (or Esc) asks "Stop PowerButton n (name) running?" Yes/No; Yes stops the run. `SidePanelHost.ConfirmClose`
+- [x] ClipX 1's "Confirm close" (dlgConfirmClose) as UI/ConfirmCloseDialog.cs: the question and three wide buttons one above the other
+- [x] PowerButton editor: the close icon or Esc with unsaved changes asks Save changes / Discard changes / Cancel; Save checks the button as OK does. Dirty: name, tasks added, moved or removed, Own/Last/Ask, icon, any option changed (compared as JSON, so only looking at tasks isn't a change). Cancel still discards without asking
+- [x] Icon editor: the same question on the close icon or Esc (Esc drops a layer first). Dirty: something done and the icon not as it came (so undoing back isn't a change)
+- [x] Icon editor: while a text or shape layer waits for Commit or Drop, the other tools, Background, Clear all, Import and Paste image are greyed out; Commit and Drop show in orange; the text box is off while a shape waits, line width and Filled while text waits; an Undo that brings a layer back selects its tool
+- [x] ClipX's window: the close icon (or Alt+F4) with the text changed asks as ClipX 1: Discard changes (the default) / Copy & Close / Cancel. Changed = the text, or in rich text its RTF, or plain/rich, differs from how it came from the clipboard (startup or Refresh), so undoing back counts as unchanged; Find All's and spelling's highlights don't count. Done doesn't ask
+- [x] Tested off-screen: Go and its colour, the cross Yes/No, no question when nothing changed, Cancel keeps the window open, Discard and Save, the tool locks, Undo bringing a layer back; dialogs rendered
+- [ ] User to try on screen: the Go button, the close questions, the icon editor's greyed tools
+- [ ] Changing tool (another toolbar button) while an Ask waits still stops the run without asking
+
+### More requests (23 Nov 2026)
+- [x] Icon editor: each tool button has a small picture beside its name (pencil, eraser, bucket, line, rectangle, ellipse, A), drawn in code (`IconEditor.ToolImage`), greyed with the button
+- [x] Icon editor: Centre centres both ways. It centres the ink, the characters as drawn (`IconPainter.InkBounds`), not the text's box, which has the font's room above and below; new characters are centred the same way
+- [x] Options, General: Export and Import in XML too, ClipX 1's .pref format (UI/SettingsPref.cs): the file type chosen (JSON | XML (.pref)) says which; Import tells them apart by the content. Export writes every setting as Key/Value (strings in CDATA, lists as entries 1, 2, 3…, UTF-16 with tabs, as ClipX 1), plus ClipX 1's Preferences section (fonts). Import reads that back exactly, or a ClipX 1 .pref: its tool settings (BulletList, NumList, NumLines, Indent, Wordwrap, RemLines), find options (Search: AllowSpecial, Anchor, separators), fonts (Preferences) and PowerButtons; ClipX2's other settings stay. Tested: round trip identical (with ]]>, <&>, quotes, empty strings), JSON still, ClipX1.pref
+- [ ] ClipX 1 can read the tool settings and fonts of a .pref from ClipX2, but not its PowerButtons (ClipX2 keeps them in its own form)
+- [x] Options, Display: "Fonts for plain text" at the top; below, "Default font for rich text" with its font and Choose… (`DisplaySettings.RichTextFont`, default Segoe UI 10.9 pt as before): used when ClipX starts with an empty rich text (`ApplyDisplaySettings`)
+
+### To do next (noted 23 Nov 2026)
+- [ ] Icon editor: the Text tool's picture (the "A") a little larger and higher (`IconEditor.ToolImage`); the other pictures are fine
+- [ ] Closing ClipX ("Confirm close"): Copy & Close first, Discard changes second, as in the PowerButton editor and icon editor (Form1.OnFormClosing: drop `discardFirst`)
+- [ ] PowerButton editor: a trash-can icon on "Delete PowerButton"
+- [ ] Icon editor: the previews (32 and 48) vanish against the dialog when the background is cleared: a border round them, or a panel behind them that turns a subtly contrasting colour when the icon's edge matches it
 

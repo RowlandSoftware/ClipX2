@@ -167,6 +167,7 @@ namespace ClipX2
             ApplyDisplaySettings();
             _panels.Current?.OnModeChanged();
             ShowStyles();
+            MarkClean(); // as at startup: closing asks only if it changes from here
             ShowStatus("Text retrieved from clipboard");
         }
 

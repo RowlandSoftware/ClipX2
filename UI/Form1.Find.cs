@@ -28,7 +28,7 @@ namespace ClipX2
         private Dictionary<string, ToolStripItem> _buttons; // tag → its button, for what the user sees
 
         /// <summary>The app's own actions, searchable though not on a tool tab.</summary>
-        private static readonly string[] AppActions = { "clipxOPT", "clipxFIN", "clipxMOD", "clipxQSR", "clipxREF", "clipxRPT", "ccCYC" };
+        private static readonly string[] AppActions = { "clipxOPT", "clipxFIN", "clipxMOD", "clipxQSR", "edREP", "clipxREF", "clipxRPT", "ccCYC" };
 
         private void InitFind()
         {

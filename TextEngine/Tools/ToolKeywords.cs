@@ -27,6 +27,7 @@ namespace ClipX2.TextEngine.Tools
             ["edPLA"] = new[] { "plain characters", "straight quotes", "dumb quotes", "remove smart quotes", "ascii", "simple characters", "plain quotes", "hyphens" },
             ["edCRL"] = new[] { "smart quotes", "curly quotes", "typographic", "dashes", "em dash", "en dash", "ellipsis", "proper quotes", "typography", "speech marks", "66 and 99", "66 & 99" },
             ["edUDC"] = new[] { "url", "link", "web address", "%20", "percent", "decode link", "encoded url" },
+            ["edREP"] = new[] { "replace", "find and replace", "search and replace", "ctrl h", "substitute", "change every", "replace all", "wildcard", "regex", "regular expression" },
             ["edHDC"] = new[] { "html entities", "&amp;", "&nbsp;", "entities", "decode html", "html codes" },
             ["edUTF"] = new[] { "utf-8", "utf8", "mojibake", "garbled", "â€™", "encoding", "weird characters", "strange characters", "corrupt characters" },
             ["edMIM"] = new[] { "mime", "quoted printable", "=20", "email encoding", "=3d" },

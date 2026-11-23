@@ -50,6 +50,16 @@ namespace ClipX2.UI.Panels
             if (_box != null) _box.HideSelection = _oldHideSelection;
         }
 
+        internal override System.Windows.Forms.Button GoButton(string tag) => tag == "foUNI" ? buttonUnindent : buttonIndent;
+
+        internal override void EditOptions(object options)
+        {
+            EnterEditMode(buttonIndent, buttonUnindent);
+            Load(options as IndentOptions ?? new IndentOptions());
+        }
+
+        internal override object EditedOptions => Options();
+
         private void Load(IndentOptions o)
         {
             _loading = true;
@@ -88,6 +98,7 @@ namespace ClipX2.UI.Panels
             AppSettings.Current.Indent = o; // with these settings
             AppSettings.Current.Save();
             _status?.Invoke(indent ? FormatTools.Indent(_box, o) : FormatTools.Unindent(_box, o));
+            RaiseApplied();
         }
     }
 }

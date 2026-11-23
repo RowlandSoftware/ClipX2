@@ -58,6 +58,16 @@ namespace ClipX2.UI.Panels
             if (_box != null) _box.HideSelection = _oldHideSelection;
         }
 
+        internal override System.Windows.Forms.Button GoButton(string tag) => buttonApply;
+
+        internal override void EditOptions(object options)
+        {
+            EnterEditMode(buttonApply);
+            Load(options as NumberOptions ?? new NumberOptions());
+        }
+
+        internal override object EditedOptions => Options();
+
         private void Load(NumberOptions o)
         {
             _loading = true;
@@ -127,6 +137,7 @@ namespace ClipX2.UI.Panels
             AppSettings.Current.NumList = o; // the last used: a right-click on the button applies them
             AppSettings.Current.Save();
             _status?.Invoke(ListTools.Numbers(_box, _isRichText(), o));
+            RaiseApplied();
         }
     }
 }

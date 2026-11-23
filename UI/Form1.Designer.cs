@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             panel1 = new System.Windows.Forms.Panel();
             tabControl1 = new System.Windows.Forms.TabControl();
             tabStyles = new System.Windows.Forms.TabPage();
@@ -105,9 +106,6 @@
             toolStripButtonCheckPunctuation = new System.Windows.Forms.ToolStripButton();
             toolStripButton3 = new System.Windows.Forms.ToolStripButton();
             toolStripButton4 = new System.Windows.Forms.ToolStripButton();
-            toolStripButton5 = new System.Windows.Forms.ToolStripButton();
-            toolStripButton6 = new System.Windows.Forms.ToolStripButton();
-            toolStripButton7 = new System.Windows.Forms.ToolStripButton();
             tabControl2 = new System.Windows.Forms.TabControl();
             tabPage0 = new System.Windows.Forms.TabPage();
             toolStripFavourites = new System.Windows.Forms.ToolStrip();
@@ -134,6 +132,8 @@
             labelWhatToDo = new System.Windows.Forms.Label();
             toolStrip1 = new System.Windows.Forms.ToolStrip();
             toolStripButtonOptions = new System.Windows.Forms.ToolStripButton();
+            toolStripButton2 = new System.Windows.Forms.ToolStripButton();
+            toolStripButton1 = new System.Windows.Forms.ToolStripButton();
             richTextBox1 = new ClipXRichTextBox();
             tabControl1.SuspendLayout();
             tabStyles.SuspendLayout();
@@ -1084,7 +1084,7 @@
             // 
             toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip2.ImageScalingSize = new System.Drawing.Size(36, 36);
-            toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonSpellcheck, toolStripButtonCheckPunctuation, toolStripButton3, toolStripButton4, toolStripButton5, toolStripButton6, toolStripButton7 });
+            toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonSpellcheck, toolStripButtonCheckPunctuation, toolStripButton3, toolStripButton4 });
             toolStrip2.Location = new System.Drawing.Point(0, 0);
             toolStrip2.Name = "toolStrip2";
             toolStrip2.Padding = new System.Windows.Forms.Padding(0);
@@ -1104,7 +1104,7 @@
             toolStripButtonSpellcheck.Size = new System.Drawing.Size(52, 52);
             toolStripButtonSpellcheck.Tag = "chSPE";
             toolStripButtonSpellcheck.Text = "Check Spelling";
-            toolStripButtonSpellcheck.ToolTipText = "Check for spelling errors and repeated words";
+            toolStripButtonSpellcheck.ToolTipText = "Check for spelling errors and repeated words (Ctrl-H)";
             // 
             // toolStripButtonCheckPunctuation
             // 
@@ -1134,51 +1134,16 @@
             // 
             // toolStripButton4
             // 
-            toolStripButton4.AccessibleName = "Initial Caps";
+            toolStripButton4.AccessibleName = "Style advice";
             toolStripButton4.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
             toolStripButton4.Image = Properties.Resources.InitCaps1;
             toolStripButton4.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             toolStripButton4.ImageTransparentColor = System.Drawing.Color.Magenta;
             toolStripButton4.Name = "toolStripButton4";
             toolStripButton4.Size = new System.Drawing.Size(52, 52);
-            toolStripButton4.Text = "toolStripButtonFoTRM";
-            toolStripButton4.ToolTipText = "Initial Caps";
-            // 
-            // toolStripButton5
-            // 
-            toolStripButton5.AccessibleName = "Title case";
-            toolStripButton5.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            toolStripButton5.Image = Properties.Resources.Title1;
-            toolStripButton5.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            toolStripButton5.ImageTransparentColor = System.Drawing.Color.Magenta;
-            toolStripButton5.Name = "toolStripButton5";
-            toolStripButton5.Size = new System.Drawing.Size(52, 52);
-            toolStripButton5.Text = "toolStripButtonFoTRM";
-            toolStripButton5.ToolTipText = "Title case";
-            // 
-            // toolStripButton6
-            // 
-            toolStripButton6.AccessibleName = "Sentence case";
-            toolStripButton6.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            toolStripButton6.Image = Properties.Resources.Sentence1;
-            toolStripButton6.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            toolStripButton6.ImageTransparentColor = System.Drawing.Color.Magenta;
-            toolStripButton6.Name = "toolStripButton6";
-            toolStripButton6.Size = new System.Drawing.Size(52, 52);
-            toolStripButton6.Text = "toolStripButtonFoTRM";
-            toolStripButton6.ToolTipText = "Sentence case";
-            // 
-            // toolStripButton7
-            // 
-            toolStripButton7.AccessibleName = "Capitalise sentences";
-            toolStripButton7.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            toolStripButton7.Image = Properties.Resources.Sentence2;
-            toolStripButton7.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            toolStripButton7.ImageTransparentColor = System.Drawing.Color.Magenta;
-            toolStripButton7.Name = "toolStripButton7";
-            toolStripButton7.Size = new System.Drawing.Size(52, 52);
-            toolStripButton7.Text = "toolStripButtonFoTRM";
-            toolStripButton7.ToolTipText = "Capitalise sentences";
+            toolStripButton4.Tag = "chStyle";
+            toolStripButton4.Text = "Style Advice";
+            toolStripButton4.ToolTipText = "Improve your writing style (English)";
             // 
             // tabControl2
             // 
@@ -1420,12 +1385,12 @@
             toolStrip1.Dock = System.Windows.Forms.DockStyle.Right;
             toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
-            toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonOptions });
+            toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonOptions, toolStripButton2, toolStripButton1 });
             toolStrip1.LayoutStyle = System.Windows.Forms.ToolStripLayoutStyle.HorizontalStackWithOverflow;
-            toolStrip1.Location = new System.Drawing.Point(294, 4);
+            toolStrip1.Location = new System.Drawing.Point(198, 4);
             toolStrip1.Name = "toolStrip1";
             toolStrip1.Padding = new System.Windows.Forms.Padding(0, 0, 2, 0);
-            toolStrip1.Size = new System.Drawing.Size(56, 50);
+            toolStrip1.Size = new System.Drawing.Size(152, 50);
             toolStrip1.TabIndex = 0;
             toolStrip1.Text = "toolStrip2";
             // 
@@ -1437,8 +1402,32 @@
             toolStripButtonOptions.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             toolStripButtonOptions.Name = "toolStripButtonOptions";
             toolStripButtonOptions.Size = new System.Drawing.Size(52, 47);
+            toolStripButtonOptions.Tag = "clpSettings";
             toolStripButtonOptions.Text = "Settings";
             toolStripButtonOptions.ToolTipText = "Set options (right-click: switch between proportional and fixed-width font)";
+            // 
+            // toolStripButton2
+            // 
+            toolStripButton2.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            toolStripButton2.Image = (System.Drawing.Image)resources.GetObject("toolStripButton2.Image");
+            toolStripButton2.ImageTransparentColor = System.Drawing.Color.Magenta;
+            toolStripButton2.Name = "toolStripButton2";
+            toolStripButton2.Size = new System.Drawing.Size(36, 47);
+            toolStripButton2.Tag = "clpAbout";
+            toolStripButton2.Text = "About ClipX";
+            // 
+            // toolStripButton1
+            // 
+            toolStripButton1.AccessibleName = "Help";
+            toolStripButton1.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            toolStripButton1.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            toolStripButton1.Image = (System.Drawing.Image)resources.GetObject("toolStripButton1.Image");
+            toolStripButton1.ImageTransparentColor = System.Drawing.Color.Magenta;
+            toolStripButton1.Name = "toolStripButton1";
+            toolStripButton1.Size = new System.Drawing.Size(29, 47);
+            toolStripButton1.Tag = "clpHelp";
+            toolStripButton1.Text = "?";
+            toolStripButton1.ToolTipText = "Help and Documentation";
             // 
             // richTextBox1
             // 
@@ -1560,9 +1549,6 @@
         private System.Windows.Forms.ToolStripButton toolStripButtonCheckPunctuation;
         private System.Windows.Forms.ToolStripButton toolStripButton3;
         private System.Windows.Forms.ToolStripButton toolStripButton4;
-        private System.Windows.Forms.ToolStripButton toolStripButton5;
-        private System.Windows.Forms.ToolStripButton toolStripButton6;
-        private System.Windows.Forms.ToolStripButton toolStripButton7;
         private System.Windows.Forms.ToolStripButton toolStripButtonOptions;
         private System.Windows.Forms.ToolStrip toolStrip4;
         private System.Windows.Forms.ToolStripButton toolStripButtonLiBUL;
@@ -1628,6 +1614,8 @@
         private System.Windows.Forms.ToolStripButton toolStripButtonSoKEY;
         private System.Windows.Forms.ToolStripButton toolStripButtonSoSMA;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
+        private System.Windows.Forms.ToolStripButton toolStripButton1;
+        private System.Windows.Forms.ToolStripButton toolStripButton2;
     }
 }
 

@@ -52,6 +52,7 @@ namespace ClipX2
         {
             if (string.IsNullOrEmpty(tag)) return;
             if (tag == "clipxRPT") { RepeatLastTool(); return; }
+            if (tag.StartsWith(PowerButtonTagPrefix, StringComparison.Ordinal)) { RunPowerButton(tag.Substring(PowerButtonTagPrefix.Length)); return; } // Repeat of a PowerButton
             switch (tag) // the app's own actions (from "What do you want to do?" or a PowerButton)
             {
                 case "clipxOPT": UsageStatistics.Record(tag); ShowOptions(OptionsPage.Display); return;
@@ -163,12 +164,46 @@ namespace ClipX2
                 case "chGRA": SpellNext(); break;
                 case "chSTAT": ShowPanel<ClipX2.UI.Panels.StatisticsPanel>(p => p.Attach(box, () => _isRtfMode)); break;
 
+                // In a PowerButton, Find and Replace runs at once with the task's texts and options
+                case "edSRC" when how == ToolTrigger.PowerButton:
+                case "edREP" when how == ToolTrigger.PowerButton:
+                    var findTask = options as FindReplaceTask ?? FindReplaceRunner.LastUsed(search: tag == "edSRC");
+                    ShowStatus(FindReplaceRunner.Run(box, findTask).Message); // a bad pattern throws: the PowerButton stops and says why
+                    break;
+
+                // Find and Replace (Ctrl+H): its panel, however started; a selection fills the Find box
+                case "edSRC":
+                case "edREP":
+                    ShowPanel<ClipX2.UI.Panels.FindReplacePanel>(p => p.Attach(box, ShowStatus));
+                    ((ClipX2.UI.Panels.FindReplacePanel)_panels.Current).Begin();
+                    break;
+
+                // PowerButton extras (ClipX 1's PowerButton-only tools): they act on the editor
+                case "pbCLR": box.Select(box.SelectionStart, 0); break;
+                case "pbALL": box.SelectAll(); break;
+                case "pbCPY": CopySelection(cut: false); break;
+                case "pbCUT": CopySelection(cut: true); break;
+                case "pbPST": box.PasteForMode(); break;
+                case "pbINS": box.SelectedText = options as string ?? ""; break;
+                case "pbDEL": if (box.SelectionLength > 0) box.SelectedText = ""; break;
+                case "pbPBT": if (options is Guid inner) RunPowerButton(inner.ToString()); break;
+
                 default:
                     if (RunStyleTool(tag, options, how)) break; // the Styles tab (Form1.Styles.cs)
                     _lastTool = null;
                     ShowStatus($"'{ClipX2.TextEngine.Tools.ToolCatalogue.Find(tag)?.Name ?? tag}' isn't available yet");
                     break;
             }
+        }
+
+        /// <summary>PowerButtons' Copy / Cut: the selection, as rich text in rich-text mode, else plain.</summary>
+        private void CopySelection(bool cut)
+        {
+            ClipXRichTextBox box = richTextBox1;
+            if (box.SelectionLength == 0) { ShowStatus("Nothing selected to copy"); return; }
+            if (_isRtfMode) box.Copy();
+            else Clipboard.SetText(box.SelectedText.Replace("\r\n", "\n").Replace("\n", "\r\n")); // Windows line ends
+            if (cut) box.SelectedText = "";
         }
 
         /// <summary>Ctrl+R: the last tool again, at once, with its last-used options.</summary>
@@ -197,18 +232,19 @@ namespace ClipX2
             "foREM" => typeof(ClipX2.UI.Panels.RemoveLinesPanel),
             "chSPE" => typeof(ClipX2.UI.Panels.SpellingPanel),
             "chSTAT" => typeof(ClipX2.UI.Panels.StatisticsPanel),
+            "edSRC" or "edREP" => typeof(ClipX2.UI.Panels.FindReplacePanel),
             _ => null,
         };
 
         /// <summary>
         /// A tool is starting: an open options panel closes, unless it is this tool's own (clicked
         /// again, or run at once with its last options), or this tool opens its own panel, which
-        /// replaces it. The spelling panel isn't an options panel: it stays.
+        /// replaces it. The spelling and Find and Replace panels aren't options panels: they stay.
         /// </summary>
         private void CloseOtherOptions(string tag, ToolTrigger how)
         {
             ClipX2.UI.Panels.SidePanelView open = _panels.Current;
-            if (open == null || open is ClipX2.UI.Panels.SpellingPanel) return;
+            if (open == null || open is ClipX2.UI.Panels.SpellingPanel || open is ClipX2.UI.Panels.FindReplacePanel) return;
             Type own = PanelFor(tag);
             if (own == open.GetType()) return;                       // the same tool again
             if (own != null && how == ToolTrigger.Click) return;     // its panel replaces this one

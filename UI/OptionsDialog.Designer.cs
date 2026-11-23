@@ -25,6 +25,10 @@ namespace ClipX2.UI
             textBoxFixed = new System.Windows.Forms.TextBox();
             buttonFixed = new System.Windows.Forms.Button();
             labelFontTip = new System.Windows.Forms.Label();
+            labelRichFont = new System.Windows.Forms.Label();
+            labelRichText = new System.Windows.Forms.Label();
+            textBoxRichFont = new System.Windows.Forms.TextBox();
+            buttonRichFont = new System.Windows.Forms.Button();
             checkBoxWordWrap = new System.Windows.Forms.CheckBox();
             tabGeneral = new System.Windows.Forms.TabPage();
             labelSettingsIntro = new System.Windows.Forms.Label();
@@ -116,6 +120,10 @@ namespace ClipX2.UI
             tabDisplay.Controls.Add(textBoxFixed);
             tabDisplay.Controls.Add(buttonFixed);
             tabDisplay.Controls.Add(labelFontTip);
+            tabDisplay.Controls.Add(labelRichFont);
+            tabDisplay.Controls.Add(labelRichText);
+            tabDisplay.Controls.Add(textBoxRichFont);
+            tabDisplay.Controls.Add(buttonRichFont);
             tabDisplay.Controls.Add(checkBoxWordWrap);
             tabDisplay.Location = new System.Drawing.Point(4, 26);
             tabDisplay.Name = "tabDisplay";
@@ -132,7 +140,7 @@ namespace ClipX2.UI
             labelFontIntro.Name = "labelFontIntro";
             labelFontIntro.Size = new System.Drawing.Size(330, 19);
             labelFontIntro.TabIndex = 0;
-            labelFontIntro.Text = "Font for plain text (rich text keeps its own fonts):";
+            labelFontIntro.Text = "Fonts for plain text";
             //
             // radioProportional
             //
@@ -200,13 +208,49 @@ namespace ClipX2.UI
             labelFontTip.TabIndex = 7;
             labelFontTip.Text = "Right-click the Options button to switch between them.";
             //
+            // labelRichFont
+            //
+            labelRichFont.AutoSize = true;
+            labelRichFont.Location = new System.Drawing.Point(12, 164);
+            labelRichFont.Name = "labelRichFont";
+            labelRichFont.Size = new System.Drawing.Size(180, 19);
+            labelRichFont.TabIndex = 8;
+            labelRichFont.Text = "Default font for rich text";
+            //
+            // labelRichText
+            //
+            labelRichText.AutoSize = true;
+            labelRichText.Location = new System.Drawing.Point(33, 199);
+            labelRichText.Name = "labelRichText";
+            labelRichText.Size = new System.Drawing.Size(70, 19);
+            labelRichText.TabIndex = 9;
+            labelRichText.Text = "&Rich text:";
+            //
+            // textBoxRichFont
+            //
+            textBoxRichFont.Location = new System.Drawing.Point(150, 196);
+            textBoxRichFont.Name = "textBoxRichFont";
+            textBoxRichFont.ReadOnly = true;
+            textBoxRichFont.Size = new System.Drawing.Size(330, 25);
+            textBoxRichFont.TabIndex = 10;
+            textBoxRichFont.TabStop = false;
+            //
+            // buttonRichFont
+            //
+            buttonRichFont.Location = new System.Drawing.Point(490, 194);
+            buttonRichFont.Name = "buttonRichFont";
+            buttonRichFont.Size = new System.Drawing.Size(100, 30);
+            buttonRichFont.TabIndex = 11;
+            buttonRichFont.Text = "Choose…";
+            buttonRichFont.UseVisualStyleBackColor = true;
+            //
             // checkBoxWordWrap
             //
             checkBoxWordWrap.AutoSize = true;
-            checkBoxWordWrap.Location = new System.Drawing.Point(16, 166);
+            checkBoxWordWrap.Location = new System.Drawing.Point(16, 250);
             checkBoxWordWrap.Name = "checkBoxWordWrap";
             checkBoxWordWrap.Size = new System.Drawing.Size(200, 23);
-            checkBoxWordWrap.TabIndex = 8;
+            checkBoxWordWrap.TabIndex = 12;
             checkBoxWordWrap.Text = "&Word wrap (display only)";
             checkBoxWordWrap.UseVisualStyleBackColor = true;
             //
@@ -270,7 +314,7 @@ namespace ClipX2.UI
             labelExportNote.Name = "labelExportNote";
             labelExportNote.Size = new System.Drawing.Size(580, 80);
             labelExportNote.TabIndex = 4;
-            labelExportNote.Text = "Export copies your settings to a file, to keep or to take to another computer. Import replaces your settings with those in such a file. A LanguageTool API key is stored so that only your Windows account can read it: after importing on another computer or account, enter it again.";
+            labelExportNote.Text = "Export copies your settings to a file, to keep or to take to another computer: JSON, or XML in ClipX 1's .pref format (choose the file type). Import replaces your settings with those in such a file; a .pref from ClipX 1 brings in its tool settings, find options, fonts and PowerButtons. A LanguageTool API key is stored so that only your Windows account can read it: after importing on another computer or account, enter it again.";
             // 
             // checkBoxHideFormattingWarning
             // 
@@ -764,13 +808,13 @@ namespace ClipX2.UI
             //
             saveFileDialog.DefaultExt = "json";
             saveFileDialog.FileName = "ClipX2 settings.json";
-            saveFileDialog.Filter = "Settings files (*.json)|*.json|All files (*.*)|*.*";
+            saveFileDialog.Filter = "JSON|*.json|XML (ClipX 1's .pref format)|*.pref";
             saveFileDialog.Title = "Export settings";
             //
             // openFileDialog
             //
             openFileDialog.DefaultExt = "json";
-            openFileDialog.Filter = "Settings files (*.json)|*.json|All files (*.*)|*.*";
+            openFileDialog.Filter = "JSON|*.json|XML (ClipX 1's .pref format)|*.pref|All files (*.*)|*.*";
             openFileDialog.Title = "Import settings";
             //
             // OptionsDialog
@@ -820,6 +864,10 @@ namespace ClipX2.UI
         private System.Windows.Forms.TextBox textBoxFixed;
         private System.Windows.Forms.Button buttonFixed;
         private System.Windows.Forms.Label labelFontTip;
+        private System.Windows.Forms.Label labelRichFont;
+        private System.Windows.Forms.Label labelRichText;
+        private System.Windows.Forms.TextBox textBoxRichFont;
+        private System.Windows.Forms.Button buttonRichFont;
         private System.Windows.Forms.CheckBox checkBoxWordWrap;
         private System.Windows.Forms.TabPage tabGeneral;
         private System.Windows.Forms.Label labelSettingsIntro;

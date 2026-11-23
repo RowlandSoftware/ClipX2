@@ -62,6 +62,16 @@ namespace ClipX2.UI.Panels
             if (_box != null) _box.HideSelection = _oldHideSelection;
         }
 
+        internal override System.Windows.Forms.Button GoButton(string tag) => buttonApply;
+
+        internal override void EditOptions(object options)
+        {
+            EnterEditMode(buttonApply);
+            Load(options as LineNumberOptions ?? new LineNumberOptions());
+        }
+
+        internal override object EditedOptions => Options();
+
         private void Load(LineNumberOptions o)
         {
             _loading = true;
@@ -111,6 +121,7 @@ namespace ClipX2.UI.Panels
             AppSettings.Current.NumLines = o; // the last used: a right-click on the button applies them
             AppSettings.Current.Save();
             _status?.Invoke(FormatTools.LineNumbers(_box, o));
+            RaiseApplied();
         }
     }
 }

@@ -30,6 +30,9 @@ namespace ClipX2.UI.Panels
             container.Controls.Add(_help);
         }
 
+        /// <summary>A view has been hidden: closed, or replaced by another (a PowerButton waiting on it stops).</summary>
+        public event EventHandler<SidePanelView> ViewHidden;
+
         /// <summary>The open tool view, or null if the help view is showing.</summary>
         public SidePanelView Current => _current;
 
@@ -39,18 +42,20 @@ namespace ClipX2.UI.Panels
             if (!_views.TryGetValue(typeof(T), out SidePanelView view))
             {
                 view = new T { Dock = DockStyle.Fill, Visible = false };
-                view.CloseRequested += (s, e) => { if (_current == s) Close(); };
+                view.CloseRequested += (s, e) => { if (_current == s && (ConfirmClose?.Invoke(view) ?? true)) Close(); };
                 _views[typeof(T)] = view;
                 _container.Controls.Add(view);
             }
 
             if (_current != view)
             {
+                SidePanelView hidden = _current;
                 if (_current != null) { _current.Visible = false; _current.OnDeactivated(); }
                 _current = view;
                 _help.Visible = false;
                 view.Visible = true;
                 view.OnActivated();
+                if (hidden != null) ViewHidden?.Invoke(this, hidden);
             }
             return (T)view;
         }
@@ -65,6 +70,20 @@ namespace ClipX2.UI.Panels
             closing.OnDeactivated();
             _help.Visible = true;
             if (_statusHint != null) _statusHint.Text = "";
+            ViewHidden?.Invoke(this, closing);
+        }
+
+        /// <summary>
+        /// Asked when the user closes a view (its close cross, Esc): false keeps it open (a
+        /// PowerButton waiting on it asks whether to stop). Not asked when a tool closes it.
+        /// </summary>
+        public Func<SidePanelView, bool> ConfirmClose { get; set; }
+
+        /// <summary>Describes something under the mouse that isn't a toolstrip button (a PowerButton); null to clear.</summary>
+        public void Describe(string title, string text)
+        {
+            if (_current == null) _help.ShowDescription(title, text);
+            else if (_statusHint != null) _statusHint.Text = text ?? "";
         }
 
         /// <summary>
