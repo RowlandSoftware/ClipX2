@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using ClipX2.TextEngine.Import;
 
 namespace ClipX2.TextEngine.Export
 {
     /// <summary>Turns a <see cref="FormattedDocument"/> into HTML or plain text for the clipboard.</summary>
-    public static class DocumentExport
+    public static partial class DocumentExport
     {
         /// <summary>One level of indentation in rich text (points): a tab in plain text.</summary>
         private const float IndentStep = 36f;
@@ -42,28 +43,42 @@ namespace ClipX2.TextEngine.Export
         /// so they renumber when edited after pasting) and inline formatting. Spacing is preserved
         /// (white-space: pre-wrap), since ClipX text often lines things up with spaces.
         /// </summary>
-        public static string ToHtml(FormattedDocument doc)
+        public static string ToHtml(FormattedDocument doc, RtfStyleSheet sheet = null)
         {
             var labels = GetListLabels(doc);
+            bool styled = IsStyled(doc, sheet); // from a word processor: its styles named (see DocumentExport.Styles)
             var sb = new StringBuilder();
             var open = new Stack<(int Level, string Tag)>(); // open lists, innermost on top
 
-            // The document's main font goes on a wrapper once; runs only state a font that differs
+            // The document's main font goes on a wrapper once; runs only state a font that differs.
+            // (Styled: no wrapper, the styles give the fonts.)
             var (mainFont, mainSize) = MainFont(doc);
-            sb.Append("<div style=\"");
-            if (mainFont != null) sb.Append("font-family:").Append(CssFontName(mainFont)).Append(';');
-            if (mainSize > 0) sb.Append("font-size:").Append(Pt(mainSize)).Append(';');
-            sb.Append("\">");
+            if (!styled)
+            {
+                sb.Append("<div style=\"");
+                if (mainFont != null) sb.Append("font-family:").Append(CssFontName(mainFont)).Append(';');
+                if (mainSize > 0) sb.Append("font-size:").Append(Pt(mainSize)).Append(';');
+                sb.Append("\">");
+            }
 
             for (int i = 0; i < doc.Paragraphs.Count; i++)
             {
                 FormattedParagraph p = doc.Paragraphs[i];
+                RtfStyle style = styled && p.StyleName != null ? sheet.ParagraphNamed(p.StyleName) : null;
+                // A Separator's I (numbered by its style, no text): a paragraph of that style, as in the RTF
+                bool styleNumbered = style != null && sheet.IsStyleNumbered(p.StyleName) && p.Runs.TrueForAll(r => r.Text.Trim().Length == 0);
 
-                if (p.ListKind == ListKind.None)
+                if (p.ListKind == ListKind.None || styleNumbered)
                 {
                     while (open.Count > 0) sb.Append("</li></").Append(open.Pop().Tag).Append('>');
-                    string tag = p.HeadingLevel >= 1 && p.HeadingLevel <= 6 ? "h" + p.HeadingLevel : "p"; // a heading: h1–h6
-                    sb.Append('<').Append(tag).Append(" style=\"").Append(ParagraphStyle(p, true)).Append("\">");
+                    // Styled: never h1–h6. With an h tag anywhere, Word's Keep Source Formatting drops
+                    // every paragraph's style; a heading is a p of its style (p class=heading1 gives
+                    // Heading 1). A level the source has no style for: Word's / Writer's own "heading N".
+                    string tag = !styled && p.HeadingLevel >= 1 && p.HeadingLevel <= 6 ? "h" + p.HeadingLevel : "p"; // a heading: h1–h6
+                    bool builtInHeading = style != null && IsBuiltInHeading(p, style);
+                    sb.Append('<').Append(tag);
+                    if (style != null) sb.Append(" class=").Append(builtInHeading ? CssClass("heading " + p.HeadingLevel) : CssClass(style.Name));
+                    sb.Append(" style=\"").Append(builtInHeading ? "white-space:pre-wrap;" : style != null ? StyledParagraphStyle(p, style, !styleNumbered) : ParagraphStyle(p, true)).Append("\">");
                     WriteRuns(sb, p);
                     sb.Append("</").Append(tag).Append('>');
                     continue;
@@ -98,17 +113,26 @@ namespace ClipX2.TextEngine.Export
                     open.Push((p.ListLevel, tag));
                 }
 
-                sb.Append("<li style=\"").Append(ParagraphStyle(p, false));
+                sb.Append("<li");
+                if (style != null) sb.Append(" class=").Append(CssClass(style.Name));
+                sb.Append(" style=\"").Append(style != null ? StyledParagraphStyle(p, style, false) : ParagraphStyle(p, false));
                 if (p.ListNumberStyle == ListNumberStyle.NoNumber) sb.Append("list-style-type:none;");
                 sb.Append("\">");
                 WriteRuns(sb, p);
             }
             while (open.Count > 0) sb.Append("</li></").Append(open.Pop().Tag).Append('>');
 
-            sb.Append("</div>");
+            if (!styled) sb.Append("</div>");
             return sb.ToString();
 
-            void WriteRuns(StringBuilder s, FormattedParagraph para) => AppendRuns(s, para, mainFont, mainSize);
+            void WriteRuns(StringBuilder s, FormattedParagraph para)
+            {
+                RtfStyle ps = styled && para.StyleName != null ? sheet.ParagraphNamed(para.StyleName) : null;
+                if (ps == null) { AppendRuns(s, para, styled ? null : mainFont, styled ? 0 : mainSize); return; }
+                if (para.Runs.TrueForAll(r => r.Text.Length == 0)) { s.Append("<br>"); return; }
+                foreach (FormattedRun run in para.Runs)
+                    if (run.Text.Length > 0) AppendStyledRun(s, run, ps, sheet);
+            }
         }
 
         /// <summary>The font name and size covering the most characters.</summary>

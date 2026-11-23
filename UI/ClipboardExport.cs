@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using ClipX2.TextEngine.Export;
+using ClipX2.TextEngine.Import;
 
 namespace ClipX2.UI
 {
@@ -14,6 +15,9 @@ namespace ClipX2.UI
     /// </summary>
     public static class ClipboardExport
     {
+        /// <summary>The clipboard format LibreOffice copies its RTF as (alongside "Rich Text Format").</summary>
+        private const string WriterRtfFormat = "Richtext Format";
+
         public static DataObject Create(RichTextBox rtb, bool richText)
         {
             var data = new DataObject();
@@ -39,6 +43,7 @@ namespace ClipX2.UI
 
             FormattedDocument doc = RichEditReader.Read(rtb);
             string rtf = rtb.Rtf;
+            string writerRtf = null;
             if (rtb is ClipXRichTextBox box && box.SourceStyles != null)
             {
                 // Text from a word processor: name its styles again, so its own styles apply on pasting back
@@ -46,11 +51,17 @@ namespace ClipX2.UI
                 {
                     StyleMatcher.Apply(doc, box.SourceStyles);
                     rtf = RtfExport.ToRtf(doc, box.SourceStyles);
+                    writerRtf = RtfExport.ToRtf(doc, box.SourceStyles, forWriter: true);
                 }
                 catch (Exception) { /* the editor's own RTF, as before */ }
             }
             data.SetData(DataFormats.Rtf, rtf);
-            data.SetData(DataFormats.Html, ToClipboardHtml(DocumentExport.ToHtml(doc)));
+            // LibreOffice's own RTF format, which Writer takes before "Rich Text Format" and Word
+            // ignores: the styles named as Writer names them ("Text body" from Word is Writer's Body Text)
+            if (writerRtf != null)
+                data.SetData(WriterRtfFormat, new System.IO.MemoryStream(Encoding.Latin1.GetBytes(writerRtf + "\0")));
+            RtfStyleSheet styles = (rtb as ClipXRichTextBox)?.SourceStyles;
+            data.SetData(DataFormats.Html, ToClipboardHtml(DocumentExport.ToHtml(doc, styles), DocumentExport.HtmlStyleSheet(doc, styles)));
             data.SetData(DataFormats.UnicodeText, DocumentExport.ToPlainText(doc));
             return data;
         }
@@ -60,13 +71,14 @@ namespace ClipX2.UI
         /// <summary>
         /// Wraps an HTML fragment in the Windows "HTML Format" (CF_HTML) envelope: a header giving
         /// the byte offsets (in UTF-8) of the document and of the fragment between the
-        /// StartFragment/EndFragment comments.
+        /// StartFragment/EndFragment comments. <paramref name="head"/>: what goes in the HTML's head
+        /// (the source styles' style sheet, from which Word takes the style names).
         /// </summary>
-        public static string ToClipboardHtml(string fragment)
+        public static string ToClipboardHtml(string fragment, string head = "")
         {
             const string header =
                 "Version:0.9\r\nStartHTML:{0:D10}\r\nEndHTML:{1:D10}\r\nStartFragment:{2:D10}\r\nEndFragment:{3:D10}\r\n";
-            const string before = "<html><head><meta charset=\"utf-8\"></head><body>\r\n<!--StartFragment-->";
+            string before = "<html><head><meta charset=\"utf-8\">" + (head ?? "") + "</head><body>\r\n<!--StartFragment-->";
             const string after = "<!--EndFragment-->\r\n</body></html>";
 
             int headerLength = string.Format(header, 0, 0, 0, 0).Length; // the header is ASCII

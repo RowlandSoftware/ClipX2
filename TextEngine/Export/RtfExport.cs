@@ -15,7 +15,12 @@ namespace ClipX2.TextEngine.Export
     /// </summary>
     public static class RtfExport
     {
-        public static string ToRtf(FormattedDocument doc, RtfStyleSheet sheet)
+        /// <param name="forWriter">
+        /// The version for LibreOffice Writer: styles named as Writer's RTF names them
+        /// (<see cref="WriterStyleNames"/>), and no paragraph mark after the last paragraph, which
+        /// Writer would paste as an extra empty paragraph.
+        /// </param>
+        public static string ToRtf(FormattedDocument doc, RtfStyleSheet sheet, bool forWriter = false)
         {
             var fonts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var f in sheet.Fonts) if (!fonts.ContainsKey(f.Value)) fonts[f.Value] = f.Key;
@@ -110,7 +115,7 @@ namespace ClipX2.TextEngine.Export
                     AppendText(body, r.Text);
                     body.Append('}');
                 }
-                if (pi < doc.Paragraphs.Count - 1 || sheet.EndsWithParagraphMark) body.Append("\\par").Append("\r\n");
+                if (pi < doc.Paragraphs.Count - 1 || (sheet.EndsWithParagraphMark && !forWriter)) body.Append("\\par").Append("\r\n");
             }
 
             var rtf = new StringBuilder("{\\rtf1\\ansi\\ansicpg1252");
@@ -125,12 +130,27 @@ namespace ClipX2.TextEngine.Export
             rtf.Append(sheet.ColourTableRtf != null ? InsertBeforeClose(sheet.ColourTableRtf, extraColours) : "{\\colortbl;" + extraColours + "}").Append("\r\n");
 
             rtf.Append("{\\stylesheet");
-            foreach (RtfStyle s in ParentsFirst(sheet)) rtf.Append("\r\n").Append(sheet.FlatDefinition(s));
+            foreach (RtfStyle s in ParentsFirst(sheet))
+                rtf.Append("\r\n").Append(forWriter ? WriterNamed(sheet.FlatDefinition(s), s, sheet) : sheet.FlatDefinition(s));
             rtf.Append("}\r\n");
 
             AppendListTable(rtf, doc, lists);
             rtf.Append(body).Append("}");
             return rtf.ToString();
+        }
+
+        /// <summary>
+        /// A style definition with the style's name as Writer's RTF gives it ("Text body" → "Body Text"),
+        /// unless the source also has a style of that name.
+        /// </summary>
+        private static string WriterNamed(string definition, RtfStyle style, RtfStyleSheet sheet)
+        {
+            string rtfName = WriterStyleNames.RtfName(style.Name, style.IsCharacter);
+            string ending = style.Name + ";}";
+            if (rtfName == null || !definition.EndsWith(ending, StringComparison.Ordinal)) return definition;
+            if (sheet.Styles.Any(s => s != style && s.IsCharacter == style.IsCharacter && string.Equals(s.Name, rtfName, StringComparison.OrdinalIgnoreCase)))
+                return definition;
+            return definition.Substring(0, definition.Length - ending.Length) + rtfName + ";}";
         }
 
         /// <summary>The styles with each parent before its children (a reader may not look ahead for a parent).</summary>
