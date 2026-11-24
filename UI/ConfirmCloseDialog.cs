@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -10,54 +10,37 @@ namespace ClipX2.UI
     /// <summary>
     /// ClipX 1's "Confirm close" (dlgConfirmClose): a question and three wide buttons, one above
     /// the other: keep the changes (Copy &amp; Close, Save changes), discard them, or Cancel (go
-    /// back). The first button named is the default (Enter); Esc is Cancel.
+    /// back). The first button named is the default (Enter); Esc is Cancel. The layout is in
+    /// ConfirmCloseDialog.Designer.cs; the title, question and button names are set here.
     /// </summary>
-    internal sealed class ConfirmCloseDialog : Form
+    internal sealed partial class ConfirmCloseDialog : Form
     {
         private CloseChoice _choice = CloseChoice.Cancel;
 
-        private ConfirmCloseDialog(string title, string message, string keep, string discard)
+        /// <summary>For the designer.</summary>
+        public ConfirmCloseDialog()
+        {
+            InitializeComponent();
+        }
+
+        private ConfirmCloseDialog(string title, string message, string keep, string discard) : this()
         {
             Text = title;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = MinimizeBox = false;
-            ShowInTaskbar = false;
-            StartPosition = FormStartPosition.CenterParent;
-            AutoScaleMode = AutoScaleMode.Font;
-            Font = SystemFonts.MessageBoxFont;
-            ClientSize = new Size(400, 168);
+            _message.Text = message;
+            _keep.Text = keep;
+            _discard.Text = discard;
+            // Windows' question icon, at the screen's scaling
+            _icon.Image = SystemIcons.GetStockIcon(StockIconId.Help, _icon.Width).ToBitmap();
+        }
 
-            var icon = new PictureBox
-            {
-                Image = SystemIcons.Question.ToBitmap(),
-                SizeMode = PictureBoxSizeMode.AutoSize,
-                Location = new Point(16, 20),
-            };
-            var label = new Label
-            {
-                Text = message,
-                AutoSize = false,
-                Location = new Point(64, 20),
-                Size = new Size(170, 128),
-            };
-            Button Make(string text, CloseChoice choice, int top)
-            {
-                var b = new Button
-                {
-                    Text = text,
-                    Font = new Font(Font, FontStyle.Bold),
-                    Location = new Point(246, top),
-                    Size = new Size(138, 36),
-                };
-                b.Click += (s, e) => { _choice = choice; DialogResult = choice == CloseChoice.Cancel ? DialogResult.Cancel : DialogResult.OK; };
-                return b;
-            }
-            Button keepButton = Make(keep, CloseChoice.Keep, 16);
-            Button discardButton = Make(discard, CloseChoice.Discard, 64);
-            Button cancel = Make("Cancel", CloseChoice.Cancel, 116);
-            Controls.AddRange(new Control[] { icon, label, keepButton, discardButton, cancel });
-            AcceptButton = keepButton;
-            CancelButton = cancel;
+        private void Keep_Click(object sender, EventArgs e) => Choose(CloseChoice.Keep);
+        private void Discard_Click(object sender, EventArgs e) => Choose(CloseChoice.Discard);
+        private void Cancel_Click(object sender, EventArgs e) => Choose(CloseChoice.Cancel);
+
+        private void Choose(CloseChoice choice)
+        {
+            _choice = choice;
+            DialogResult = choice == CloseChoice.Cancel ? DialogResult.Cancel : DialogResult.OK;
         }
 
         /// <summary>
@@ -74,5 +57,15 @@ namespace ClipX2.UI
 
         /// <summary>For tests: the answer, given the message, without showing the dialog.</summary>
         internal static Func<string, CloseChoice> TestAnswer { get; set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                components?.Dispose();
+                _icon.Image?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

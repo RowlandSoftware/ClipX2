@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ClipX2 tool icon: pbALL, Select all. 48 x 48; export to pbALL.png at 48 x 48 (Inkscape: File > Export, or
+     inkscape pbALL.svg --export-type=png --export-width=48 --export-filename=pbALL.png). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <title>Select all</title>
+  <rect x="3" y="4" width="42" height="40" rx="2" fill="#9ec5ff"/>
+  <line x1="8" y1="11" x2="40" y2="11" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+  <line x1="8" y1="19" x2="40" y2="19" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+  <line x1="8" y1="27" x2="40" y2="27" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+  <line x1="8" y1="35" x2="40" y2="35" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+</svg>

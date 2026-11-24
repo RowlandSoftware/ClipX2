@@ -194,14 +194,27 @@ namespace ClipX2
             return b;
         }
 
-        /// <summary>A tool's icon, as on its toolbar button (null if it has no button).</summary>
+        /// <summary>
+        /// A tool's icon: as on its toolbar button, or, for a tool with no button (the PowerButton
+        /// Extras), the image resource named after its tag (icons\pbCLR.png, in Properties\Resources.resx);
+        /// null if neither.
+        /// </summary>
         private Image ToolIcon(string tag)
         {
             foreach (ToolStrip strip in ToolStrips)
                 foreach (ToolStripItem item in strip.Items)
                     if (item.Tag is string t && t == tag && item.Image != null) return item.Image;
-            return null;
+            if (string.IsNullOrEmpty(tag)) return null;
+            if (!_resourceIcons.TryGetValue(tag, out Image icon))
+            {
+                try { icon = Properties.Resources.ResourceManager.GetObject(tag) as Image; }
+                catch (Exception) { icon = null; }
+                _resourceIcons[tag] = icon; // kept: the editor asks for each icon every time it paints
+            }
+            return icon;
         }
+
+        private readonly Dictionary<string, Image> _resourceIcons = new Dictionary<string, Image>(StringComparer.Ordinal);
 
         /// <summary>The editor's "Try on the text": runs the button being edited at once (Ask tasks use the last-used options).</summary>
         private void TryPowerButton(PowerButton b) => StartRun(b, canAsk: false);

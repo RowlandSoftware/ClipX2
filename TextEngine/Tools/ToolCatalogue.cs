@@ -132,7 +132,7 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("chSTAT", "Statistics", Language, ToolKind.Interactive, null, "Document statistics: word count etc."),
 
             new ToolInfo("clipxOPT", "Settings", ClipX, ToolKind.Interactive, null, "Options: fonts, spelling, dictionaries, grammar, warnings"),
-            new ToolInfo("clipxFIN", "Done", ClipX, ToolKind.Interactive, null, "Put the text on the clipboard, ready to paste, and close ClipX (Alt+D)"),
+            new ToolInfo("clipxFIN", "Copy and close", ClipX, ToolKind.Interactive, null, "Put the text on the clipboard, ready to paste, and close ClipX (Alt+D)"),
             new ToolInfo("clipxMOD", "Plain or rich text", ClipX, ToolKind.Interactive, null, "Switch between plain text and rich (formatted) text"),
             new ToolInfo("clipxQSR", "Quick search", ClipX, ToolKind.Interactive, null, "Find words in the text (Ctrl+F)"),
             new ToolInfo("clipxREF", "Refresh", ClipX, ToolKind.Interactive, null, "Start again: the text from the clipboard again, as when ClipX started"),

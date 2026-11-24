@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ClipX2 tool icon: pbCUT, Cut to clipboard. 48 x 48; export to pbCUT.png at 48 x 48 (Inkscape: File > Export, or
+     inkscape pbCUT.svg --export-type=png --export-width=48 --export-filename=pbCUT.png). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <title>Cut to clipboard</title>
+  <line x1="14" y1="6" x2="31" y2="31" stroke="#1f2f8f" stroke-width="3.4" stroke-linecap="round"/>
+  <line x1="34" y1="6" x2="17" y2="31" stroke="#1f2f8f" stroke-width="3.4" stroke-linecap="round"/>
+  <circle cx="13" cy="37" r="6.5" fill="none" stroke="#e53935" stroke-width="3.2"/>
+  <circle cx="35" cy="37" r="6.5" fill="none" stroke="#e53935" stroke-width="3.2"/>
+</svg>

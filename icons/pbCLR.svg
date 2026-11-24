@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ClipX2 tool icon: pbCLR, Clear selection. 48 x 48; export to pbCLR.png at 48 x 48 (Inkscape: File > Export, or
+     inkscape pbCLR.svg --export-type=png --export-width=48 --export-filename=pbCLR.png). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <title>Clear selection</title>
+  <rect x="4" y="16" width="40" height="11" rx="1.5" fill="none" stroke="#1f2f8f" stroke-width="1.6" stroke-dasharray="3 2"/>
+  <line x1="8" y1="10" x2="40" y2="10" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+  <line x1="8" y1="21.5" x2="40" y2="21.5" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+  <line x1="8" y1="33" x2="40" y2="33" stroke="#1f2f8f" stroke-width="3.2" stroke-linecap="round"/>
+  <line x1="12" y1="38" x2="36" y2="10" stroke="#e53935" stroke-width="3.6" stroke-linecap="round"/>
+</svg>

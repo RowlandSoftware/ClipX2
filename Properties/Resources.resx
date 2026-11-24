@@ -205,4 +205,28 @@
   <data name="foIND" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\icons\foIND.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="pbCLR" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbCLR.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbALL" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbALL.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbCPY" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbCPY.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbCUT" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbCUT.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbPST" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbPST.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbINS" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbINS.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbDEL" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbDEL.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="pbPBT" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\icons\pbPBT.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

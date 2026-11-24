@@ -174,6 +174,7 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] Usage upload (ask first, like grammar); a view of the statistics
 - [x] PowerButtons: a list of tags + options run through RunTool (see PowerButtons below)
 - [x] pb* extras (23 Nov 2026): Clear selection, Select all, Copy, Cut (rich text in rich-text mode, else plain), Paste (as Ctrl+V), Insert text, Delete selected text, include a PowerButton
+- [x] Icons for the pb* extras (24 Nov 2026), which have no toolbar buttons: icons\pbCLR … pbPBT, an SVG (48 × 48 grid, Inkscape-editable) and its 48-pixel PNG each, in Properties\Resources.resx as the other icons. Form1.ToolIcon takes a toolbar button's image, else the resource named after the tag, so the PB editor's palette and timeline show them. To change one: edit the SVG and export the PNG (or replace the PNG) and rebuild
 
 ## Sorting
 - [x] Alphabetic (soALP), Numeric (soNUM), Smart (soSMA, new), Reverse (soREV), Nudge up/down (soNUP/soNUD; Alt+Up/Alt+Down in the text), List sort (soKEY: comma separated items on a line). Lines move whole with their own formatting (TOM FormattedText), one Undo step; the selected lines, or the whole text; blank lines removed when sorting (as ClipX 1). Engine: `LineSorter`; sorts ignore case and indentation, use the language's alphabet (é with e), keep equal lines in order
