@@ -202,19 +202,6 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] Perhaps: note searches that find nothing (locally, or with usage statistics if the user agrees) to improve the synonyms
 - [ ] Perhaps: suggest help topics as well as tools, once there is help
 
-## To Do
-- [ ] Help
-- [ ] Updates
-- [ ] About...
-- [ ] Style tool
-- [ ] Upload usage
-- [ ] SVG icons
-- [ ] Resize toolbars and switch from single to 2-tier mode and vv.
-- [ ] Control Icons
-- [ ] Favourites
-- [ ] Install Segoe Fluent Icons font
-- [ ] Code signing
-
 ## PowerButtons (23 Nov 2026)
 - [x] Model (UI/PowerButtons.cs): `PowerButton` (Id, Name, Icon, Tasks), `PowerTask` (Tag, Use = Own / LastUsed / Ask, Options as the tool's own options class, JSON by tag), `ButtonIcon` (64-pixel PNG, base64, plus an uncommitted text layer `IconText`), `FindReplaceTask`. In settings.json (`PowerButtons`, `PowerButtonColumns`), so Export/Import settings carries them. Included buttons (pbPBT) by Id, so moving buttons doesn't break them; loops refused (editor) and stopped (run)
 - [x] Panel on the right (panel2, UI/PowerButtonBar.cs): 32-pixel square buttons in a column; drag the panel's left edge (or right-click beside the buttons: More/Fewer columns) for up to 6 columns, the text box gives the room. Click runs, right-click changes, drag moves; "+" makes a new one. Hover help in the side panel: name, Alt+n, the tasks
@@ -249,9 +236,37 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [ ] ClipX 1 can read the tool settings and fonts of a .pref from ClipX2, but not its PowerButtons (ClipX2 keeps them in its own form)
 - [x] Options, Display: "Fonts for plain text" at the top; below, "Default font for rich text" with its font and Choose… (`DisplaySettings.RichTextFont`, default Segoe UI 10.9 pt as before): used when ClipX starts with an empty rich text (`ApplyDisplaySettings`)
 
-### To do next (noted 23 Nov 2026)
-- [ ] Icon editor: the Text tool's picture (the "A") a little larger and higher (`IconEditor.ToolImage`); the other pictures are fine
-- [ ] Closing ClipX ("Confirm close"): Copy & Close first, Discard changes second, as in the PowerButton editor and icon editor (Form1.OnFormClosing: drop `discardFirst`)
-- [ ] PowerButton editor: a trash-can icon on "Delete PowerButton"
-- [ ] Icon editor: the previews (32 and 48) vanish against the dialog when the background is cleared: a border round them, or a panel behind them that turns a subtly contrasting colour when the icon's edge matches it
+## To Do
+- [ ] Help
+- [ ] Updates
+- [ ] About...
+- [ ] Style tool
+- [ ] Upload usage
+- [ ] SVG icons
+- [ ] Resize toolbars and switch from single to 2-tier mode and vv.
+- [ ] Control Icons
+- [ ] Favourites
+- [ ] Install Segoe Fluent Icons font
+- [ ] Code signing
 
+### To do next (noted 23 Nov 2026, done 24 Nov 2026)
+- [x] Icon editor: the Text tool's picture (the "A") larger (19 px Georgia Bold) and higher (`IconEditor.ToolImage`)
+- [x] Closing ClipX ("Confirm close"): Copy & Close first (the default), Discard changes second, as in the PowerButton editor and icon editor; `ConfirmCloseDialog` no longer has a Discard-first layout
+- [x] PowerButton editor: a waste-bin icon on "Delete PowerButton" (drawn in code, `PowerButtonEditor.TrashImage`)
+- [x] Icon editor: the previews (32 and 48) each sit on a tile with a thin border; the tile turns a darker grey when most of the icon's outer edge would match the dialog's grey (background cleared, or near-grey/white) (`IconEditor.EdgeMatches`)
+
+### Icon editor layout (24 Nov 2026)
+- [x] The Text tool's A 4 px lower
+- [x] Things that go together are together: left, the drawing tools, then Import image and Paste image, then a "Lines and shapes" group (Line width, Filled), then the colours with Set Background (was Background) under them; Grid and the pointer's position under the canvas; right, the previews with Clear all beside them, the adjust box, the Text group; bottom row "< Undo" and "Redo >" set a little apart from OK and Cancel. The window is 50 px taller (980 × 690), no wider
+- [x] Text group greyed out unless the Text tool is chosen; Lines and shapes greyed out for Fill and Text (Filled only for Rectangle and Ellipse)
+- [x] Undo and Redo greyed out when there is nothing to undo or redo
+- [x] The layer's Commit and Drop are now Accept and Cancel ("Adjust the text, then accept")
+- [x] Tweaks: the adjust box's margins even (12 px all round); Lines and shapes moved to the right, between the adjust box and Text, on one row; the colours moved up and the window shortened to 980 × 616; under the canvas the real size ("64 × 64 px", its tooltip saying why: shown at 32 × 32, sharp at higher display scaling) at the left, Grid centred, the pointer's x, y at the right; messages ("Nothing to move…", "no picture on the clipboard") at the bottom left, beside Undo
+- [x] More tweaks: the Text group's bottom and the palette's bottom level with the canvas's; the adjust box, Lines and shapes and Text spaced evenly down the right; Set Background level with Grid
+- [x] Bug: importing a file that isn't a picture (a .txt) crashed: GDI+ throws ExternalException, which wasn't caught. `IconEditor.LoadImageFile` now catches every non-fatal error and says "It isn't a picture in a format Windows can read"; Paste image the same
+- [x] Icon fonts (UI/IconFonts.cs): the list offers only installed fonts; Segoe Fluent Icons added (Windows 11's icon font, C:\Windows\Fonts\SegoeIcons.ttf; on Windows 10 it must be downloaded); a font typed (that exists) or chosen in the Font dialog joins the list, kept in settings.json (`IconEditorFonts`); a typed name that isn't installed shows in red with a message (the text is drawn in a plain font)
+- [x] The "…" character grid (UI/CharacterPicker.cs) shows every character the font has (GDI GetFontUnicodeRanges), scrolling and drawn only where in view: Segoe Fluent Icons 2,033, MDL2 Assets 1,830, Segoe UI Symbol 4,182; the one under the mouse large with its code (U+E721, "private use (an icon)"); arrows and Enter work. Symbol fonts (Wingdings) show their U+F021–U+F0FF block once. Emoji beyond U+FFFF aren't listed
+- [x] Character grid's jump list (UI/UnicodeBlocks.cs): the Unicode blocks the font has, by name (Arial 44, Segoe UI Symbol 38, Segoe UI Emoji 22 groups; Wingdings and Webdings one, "Symbols (symbol font)"; the icon fonts one, Private Use Area); click one to bring its first row to the top; the block at the top of the grid, or of the character selected, is highlighted; a blue mark in the grid where each block starts. One click now selects a character (shown large, with its code and block); double-click, Enter or OK uses it
+- [x] Bug: a click in the jump list scrolled the grid back to the character clicked before. The scrolling panel scrolled to the grid whenever the grid got the focus, undoing the jump; now it never scrolls on focus (`StayPanel`), and a jump selects the group's first character. Tested with the window focused (and the test fails on the old code)
+- [x] Window 26 px wider (1006); the right-hand groups 262 wide; the adjust box evenly spaced (12 | nudge | 18 | + − ◎ | 18 | Accept, Cancel | 12)
+- [ ] Note: the editor, icon editor and character picker are built in code, so they can't be adjusted in the Visual Studio designer; new forms should be designer forms where possible

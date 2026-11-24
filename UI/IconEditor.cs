@@ -64,12 +64,15 @@ namespace ClipX2.UI
         private readonly ComboBox _font = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
         private readonly CheckBox _bold = new CheckBox { Text = "B&old", AutoSize = true };
         private readonly CheckBox _italic = new CheckBox { Text = "Ita&lic", AutoSize = true };
-        private readonly GroupBox _layerBox = new GroupBox { Text = "Adjust before committing" };
-        private readonly Label _status = new Label();
+        private readonly GroupBox _layerBox = new GroupBox { Text = "Adjust before accepting" };
+        private readonly GroupBox _lineBox = new GroupBox { Text = "Lines and shapes" };
+        private Button _undoButton, _redoButton;
+        private readonly Label _status = new Label();   // the pointer's position, under the canvas
+        private readonly Label _message = new Label();  // why something didn't happen, at the bottom left
         private readonly ToolTip _tips = new ToolTip();
         private bool _loadingText;
 
-        // While a layer waits for Commit or Drop, the other tools are greyed out
+        // While a layer waits for Accept or Cancel, the other tools are greyed out
         private readonly List<Control> _otherTools = new List<Control>();
         private Button _commit, _drop;
         private bool _syncingTool;
@@ -92,7 +95,7 @@ namespace ClipX2.UI
             Text = "PowerButton icon";
             Font = new Font("Segoe UI", 10F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(980, 640);
+            ClientSize = new Size(1006, 616);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
             ShowInTaskbar = false;
@@ -138,24 +141,25 @@ namespace ClipX2.UI
                 Controls.Add(r);
                 y += 36;
             }
-            y += 6;
-            Controls.Add(new Label { Text = "Line &width:", AutoSize = true, Location = new Point(12, y + 4) });
-            _width.Bounds = new Rectangle(110, y, 72, 28);
-            _width.ValueChanged += (s, e) => { if (_shape != null) { _shape.Width = (float)_width.Value; Changed(); } };
-            Controls.Add(_width);
-            y += 34;
-            _filled.Location = new Point(12, y);
-            _filled.CheckedChanged += (s, e) => { if (_shape != null && _shape.Kind != ShapeKind.Line) { _shape.Filled = _filled.Checked; Changed(); } };
-            Controls.Add(_filled);
-            y += 30;
-            _grid.Location = new Point(12, y);
-            _grid.CheckedChanged += (s, e) => _canvas.Invalidate();
-            Controls.Add(_grid);
+            // Pictures from elsewhere, under the drawing tools
+            y += 2;
+            var import = new Button { Text = "I&mport image…", Bounds = new Rectangle(12, y, 170, 30) };
+            import.Click += (s, e) => ImportImage();
+            _tips.SetToolTip(import, "A picture from a file (PNG, ICO, BMP, GIF, JPEG, TIFF), fitted to the icon");
+            var paste = new Button { Text = "Paste ima&ge", Bounds = new Rectangle(12, y + 34, 170, 30) };
+            paste.Click += (s, e) => PasteImage();
+            _tips.SetToolTip(paste, "Paste a picture from the clipboard (Ctrl+V)");
+            Controls.Add(import);
+            Controls.Add(paste);
+            _otherTools.Add(import);
+            _otherTools.Add(paste);
+            y += 76;
 
-            // Colours, under the tools
-            y += 36;
-            Controls.Add(new Label { Text = "Colour:", AutoSize = true, Location = new Point(12, y) });
-            _swatch.Bounds = new Rectangle(80, y - 2, 102, 26);
+            // Colours, with Set Background under them: the palette's bottom level with the canvas's,
+            // Set Background beside Grid (the canvas is placed before the layout is built)
+            y = _canvas.Bottom - (4 * 26 + 22) - 32;
+            Controls.Add(new Label { Text = "Colour:", AutoSize = true, Location = new Point(12, y + 2) });
+            _swatch.Bounds = new Rectangle(80, y, 102, 26);
             _swatch.BorderStyle = BorderStyle.FixedSingle;
             _swatch.Cursor = Cursors.Hand;
             _swatch.Click += (s, e) => MoreColours();
@@ -177,28 +181,49 @@ namespace ClipX2.UI
                 p.Click += (s, e) => SetColour(c);
                 Controls.Add(p);
             }
-
-            // The canvas
-            Controls.Add(_canvas);
-
-            // Right: preview, background, layer adjustments, text, image, OK
-            int x = _canvas.Right + 16;
-            Controls.Add(new Label { Text = "On the button:", AutoSize = true, Location = new Point(x, 12) });
-            _preview.Bounds = new Rectangle(x, 36, 120, 56);
-            Controls.Add(_preview);
-
-            var background = new Button { Text = "&Background", Bounds = new Rectangle(x, 100, 120, 30) };
+            var background = new Button { Text = "Set &Background", Bounds = new Rectangle(12, _canvas.Bottom + 3, 170, 30) };
             background.Click += (s, e) => FillBackground();
             _tips.SetToolTip(background, "Fill behind everything with the colour, as a rounded square");
-            var clear = new Button { Text = "Clea&r all", Bounds = new Rectangle(x + 126, 100, 110, 30) };
-            clear.Click += (s, e) => ClearAll();
             Controls.Add(background);
-            Controls.Add(clear);
             _otherTools.Add(background);
+
+            // The canvas, with Grid and the pointer's position under it
+            Controls.Add(_canvas);
+            int under = _canvas.Bottom + 6;
+            var sizeLabel = new Label
+            {
+                Text = $"{N} × {N} px", AutoSize = false, ForeColor = SystemColors.GrayText,
+                TextAlign = ContentAlignment.MiddleLeft, Bounds = new Rectangle(_canvas.Left, under, 140, 24),
+            };
+            _tips.SetToolTip(sizeLabel, "Drawn at 64 × 64 and shown at 32 × 32 on the button: the extra detail keeps it sharp when Windows scales the display up (150 %, 200 %)");
+            Controls.Add(sizeLabel);
+            _grid.AutoSize = true;
+            Controls.Add(_grid);
+            _grid.Location = new Point(_canvas.Left + (_canvas.Width - _grid.PreferredSize.Width) / 2, under + 2);
+            _grid.CheckedChanged += (s, e) => _canvas.Invalidate();
+            _status.SetBounds(_canvas.Right - 140, under, 140, 24);
+            _status.ForeColor = SystemColors.GrayText;
+            _status.TextAlign = ContentAlignment.MiddleRight;
+            Controls.Add(_status);
+
+            // Right: the previews with Clear all, the layer's adjustments, text
+            int x = _canvas.Right + 16;
+            const int RightWidth = 262; // the right-hand groups' width
+            Controls.Add(new Label { Text = "On the button:", AutoSize = true, Location = new Point(x, 12) });
+            _preview.Bounds = new Rectangle(x, 34, 120, 60);
+            Controls.Add(_preview);
+            var clear = new Button { Text = "Clea&r all", Bounds = new Rectangle(x + RightWidth - 108, 49, 108, 30) };
+            clear.Click += (s, e) => ClearAll();
+            _tips.SetToolTip(clear, "Start again with an empty icon (Ctrl+Z brings it back)");
+            Controls.Add(clear);
             _otherTools.Add(clear);
 
-            // The layer: nudge, resize, commit
-            _layerBox.Bounds = new Rectangle(x, 140, 236, 150);
+            // The layer: nudge, resize, accept or cancel
+            // The three groups spaced evenly between the previews and the canvas's bottom, Text's bottom level with it
+            const int LayerHeight = 130, LineHeight = 66, TextHeight = 168;
+            int textTop = _canvas.Bottom - TextHeight;
+            int gap = (textTop - _preview.Bottom - LayerHeight - LineHeight) / 3;
+            _layerBox.Bounds = new Rectangle(x, _preview.Bottom + gap, RightWidth, LayerHeight);
             Button Small(string text, int bx, int by, string tip, Action click)
             {
                 var b = new Button { Text = text, Bounds = new Rectangle(bx, by, 34, 30) };
@@ -211,34 +236,45 @@ namespace ClipX2.UI
             Small("◀", 12, 56, "Left a pixel (←)", () => Nudge(-1, 0));
             Small("▶", 84, 56, "Right a pixel (→)", () => Nudge(1, 0));
             Small("▼", 48, 88, "Down a pixel (↓)", () => Nudge(0, 1));
-            Small("+", 126, 24, "Bigger (+)", () => ResizeLayer(1));
-            Small("−", 126, 56, "Smaller (−)", () => ResizeLayer(-1));
-            Small("◎", 126, 88, "Centre it", CentreLayer);
-            var commit = _commit = new Button { Text = "Commit", Bounds = new Rectangle(164, 24, 66, 46) };
+            Small("+", 136, 24, "Bigger (+)", () => ResizeLayer(1));
+            Small("−", 136, 56, "Smaller (−)", () => ResizeLayer(-1));
+            Small("◎", 136, 88, "Centre it", CentreLayer);
+            var commit = _commit = new Button { Text = "&Accept", Bounds = new Rectangle(188, 24, 62, 46) };
             commit.Click += (s, e) => Commit();
             _tips.SetToolTip(commit, "Draw it into the icon (Enter)");
-            var discard = _drop = new Button { Text = "Drop", Bounds = new Rectangle(164, 74, 66, 46) };
+            var discard = _drop = new Button { Text = "&Cancel", Bounds = new Rectangle(188, 72, 62, 46) };
             discard.Click += (s, e) => Discard();
             _tips.SetToolTip(discard, "Take it away (Esc)");
             _layerBox.Controls.Add(commit);
             _layerBox.Controls.Add(discard);
             Controls.Add(_layerBox);
 
-            // Text: characters, font
-            _textBox.Bounds = new Rectangle(x, 298, 236, 168);
+            // Lines and shapes: line width, filled (only for the tools that draw lines)
+            _lineBox.Bounds = new Rectangle(x, _layerBox.Bottom + gap, RightWidth, LineHeight);
+            _lineBox.Controls.Add(new Label { Text = "Line &width:", AutoSize = true, Location = new Point(10, 30) });
+            _width.Bounds = new Rectangle(92, 26, 56, 28);
+            _width.ValueChanged += (s, e) => { if (_shape != null) { _shape.Width = (float)_width.Value; Changed(); } };
+            _lineBox.Controls.Add(_width);
+            _filled.Location = new Point(172, 29);
+            _filled.CheckedChanged += (s, e) => { if (_shape != null && _shape.Kind != ShapeKind.Line) { _shape.Filled = _filled.Checked; Changed(); } };
+            _lineBox.Controls.Add(_filled);
+            Controls.Add(_lineBox);
+
+            // Text: characters, font (only with the Text tool)
+            _textBox.Bounds = new Rectangle(x, textTop, RightWidth, TextHeight);
             _textBox.Controls.Add(new Label { Text = "C&haracters:", AutoSize = true, Location = new Point(10, 28) });
-            _characters.Bounds = new Rectangle(100, 24, 76, 28);
+            _characters.Bounds = new Rectangle(100, 24, 102, 28);
             _characters.TextChanged += (s, e) => TextSettingsChanged(recentre: true);
-            var pick = new Button { Text = "…", Bounds = new Rectangle(182, 23, 42, 30) };
+            var pick = new Button { Text = "…", Bounds = new Rectangle(208, 23, 42, 30) };
             pick.Click += (s, e) => PickCharacter();
             _tips.SetToolTip(pick, "Choose a character from the font");
             _textBox.Controls.Add(_characters);
             _textBox.Controls.Add(pick);
             _textBox.Controls.Add(new Label { Text = "F&ont:", AutoSize = true, Location = new Point(10, 66) });
-            _font.Bounds = new Rectangle(60, 62, 164, 28);
-            foreach (string f in new[] { "Wingdings", "Wingdings 2", "Wingdings 3", "Webdings", "Segoe UI Symbol", "Segoe UI Emoji", "Segoe MDL2 Assets", "Segoe UI", "Arial", "Arial Narrow", "Georgia", "Consolas" })
-                _font.Items.Add(f);
+            _font.Bounds = new Rectangle(60, 62, 190, 28);
+            foreach (string f in IconFonts.ForList()) _font.Items.Add(f); // installed ones: symbol fonts, letters, the user's own
             _font.TextChanged += (s, e) => TextSettingsChanged(recentre: true);
+            _font.Leave += (s, e) => RememberFont(_font.Text);
             _textBox.Controls.Add(_font);
             _bold.Location = new Point(60, 98);
             _italic.Location = new Point(130, 98);
@@ -251,34 +287,24 @@ namespace ClipX2.UI
             _textBox.Controls.Add(fontDialog);
             Controls.Add(_textBox);
 
-            // Images
-            var import = new Button { Text = "I&mport image…", Bounds = new Rectangle(x, 476, 120, 30) };
-            import.Click += (s, e) => ImportImage();
-            var paste = new Button { Text = "Paste ima&ge", Bounds = new Rectangle(x + 126, 476, 110, 30) };
-            paste.Click += (s, e) => PasteImage();
-            _tips.SetToolTip(paste, "Paste a picture from the clipboard (Ctrl+V)");
-            Controls.Add(import);
-            Controls.Add(paste);
-            _otherTools.Add(import);
-            _otherTools.Add(paste);
+            // Bottom row: a message at the left; < Undo, Redo >, a little apart from OK and Cancel
+            int bottom = ClientSize.Height - 44;
+            _message.SetBounds(12, bottom, ClientSize.Width - 444 - 24, 32);
+            _message.ForeColor = Color.Firebrick;
+            _message.TextAlign = ContentAlignment.MiddleLeft;
+            Controls.Add(_message);
+            _undoButton = new Button { Text = "< &Undo", Bounds = new Rectangle(ClientSize.Width - 444, bottom, 96, 32) };
+            _undoButton.Click += (s, e) => Undo();
+            _redoButton = new Button { Text = "Re&do >", Bounds = new Rectangle(ClientSize.Width - 342, bottom, 96, 32) };
+            _redoButton.Click += (s, e) => Redo();
+            _tips.SetToolTip(_undoButton, "Ctrl+Z");
+            _tips.SetToolTip(_redoButton, "Ctrl+Y");
+            Controls.Add(_undoButton);
+            Controls.Add(_redoButton);
 
-            var undo = new Button { Text = "&Undo", Bounds = new Rectangle(x, 512, 120, 30) };
-            undo.Click += (s, e) => Undo();
-            var redo = new Button { Text = "Re&do", Bounds = new Rectangle(x + 126, 512, 110, 30) };
-            redo.Click += (s, e) => Redo();
-            _tips.SetToolTip(undo, "Ctrl+Z");
-            _tips.SetToolTip(redo, "Ctrl+Y");
-            Controls.Add(undo);
-            Controls.Add(redo);
-
-            _status.SetBounds(12, ClientSize.Height - 40, 560, 30);
-            _status.ForeColor = SystemColors.GrayText;
-            _status.TextAlign = ContentAlignment.MiddleLeft;
-            Controls.Add(_status);
-
-            var ok = new Button { Text = "OK", Bounds = new Rectangle(ClientSize.Width - 212, ClientSize.Height - 44, 96, 32) };
+            var ok = new Button { Text = "OK", Bounds = new Rectangle(ClientSize.Width - 212, bottom, 96, 32) };
             ok.Click += (s, e) => Ok();
-            var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Bounds = new Rectangle(ClientSize.Width - 108, ClientSize.Height - 44, 96, 32) };
+            var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Bounds = new Rectangle(ClientSize.Width - 108, bottom, 96, 32) };
             cancel.Click += (s, e) => _cancelClicked = true;
             Controls.Add(ok);
             Controls.Add(cancel);
@@ -349,11 +375,11 @@ namespace ClipX2.UI
                     g.DrawEllipse(thick, 2, 4, 16, 12);
                     break;
                 case Tool.Text:
-                    using (var font = new Font("Georgia", 15f, FontStyle.Bold, GraphicsUnit.Pixel))
+                    using (var font = new Font("Georgia", 19f, FontStyle.Bold, GraphicsUnit.Pixel))
                     using (var centre = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                     {
                         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-                        g.DrawString("A", font, inkBrush, new RectangleF(0, 1, S, S), centre);
+                        g.DrawString("A", font, inkBrush, new RectangleF(0, 2.5f, S, S), centre);
                     }
                     break;
             }
@@ -435,6 +461,7 @@ namespace ClipX2.UI
             try { _characters.Font = new Font(PickFamily(_text.FontName), 14F); } catch (ArgumentException) { }
             if (recentre) IconPainter.Centre(_text);
             Changed();
+            ShowFontInstalled(); // after Changed, which clears the message
         }
 
         private void ChooseFont()
@@ -448,46 +475,43 @@ namespace ClipX2.UI
             _bold.Checked = dialog.Font.Bold;
             _italic.Checked = dialog.Font.Italic;
             _loadingText = false;
+            RememberFont(dialog.Font.Name);
             TextSettingsChanged(recentre: true);
         }
 
-        /// <summary>A grid of the font's characters (a symbol font's 0x20–0xFF): click one to use it.</summary>
+        /// <summary>A font typed or chosen in the Font dialog joins the list (kept in the settings), if installed.</summary>
+        private void RememberFont(string name)
+        {
+            if (!IconFonts.Remember(name)) return;
+            string canonical = IconFonts.Canonical(name);
+            if (!_font.Items.Contains(canonical)) _font.Items.Add(canonical);
+        }
+
+        /// <summary>A font name that isn't installed shows in red, with why (the text is drawn in a plain font instead).</summary>
+        private void ShowFontInstalled()
+        {
+            string name = _font.Text.Trim();
+            bool missing = name.Length > 0 && !IconFonts.IsInstalled(name);
+            _font.ForeColor = missing ? Color.Firebrick : SystemColors.WindowText;
+            if (missing) _message.Text = $"“{name}” isn't installed on this computer: the text is drawn in a plain font instead";
+        }
+
+        /// <summary>Every character the font has, in a scrolling grid (<see cref="CharacterPicker"/>): click one to use it.</summary>
         private void PickCharacter()
         {
             string fontName = _font.Text.Trim().Length > 0 ? _font.Text.Trim() : "Segoe UI";
-            bool symbol = PowerButtonImport.IsSymbolFont(fontName);
-            using var picker = new Form
-            {
-                Text = "Characters in " + fontName,
-                FormBorderStyle = FormBorderStyle.FixedToolWindow,
-                StartPosition = FormStartPosition.CenterParent,
-                ClientSize = new Size(16 * 36 + 8, 14 * 36 + 8),
-                ShowInTaskbar = false,
-            };
-            Font font;
-            try { font = new Font(fontName, 18F, GraphicsUnit.Pixel); } catch (ArgumentException) { font = new Font("Segoe UI", 18F, GraphicsUnit.Pixel); }
-            string chosen = null;
-            for (int code = 0x20; code <= 0xFF; code++)
-            {
-                int i = code - 0x20;
-                string ch = ((char)(symbol ? 0xF000 + code : code)).ToString();
-                var b = new Button { Text = ch, Font = font, Bounds = new Rectangle(4 + (i % 16) * 36, 4 + (i / 16) * 36, 34, 34), Padding = Padding.Empty, UseMnemonic = false };
-                b.Click += (s, e) => { chosen = ch; picker.DialogResult = DialogResult.OK; };
-                picker.Controls.Add(b);
-            }
-            if (picker.ShowDialog(this) == DialogResult.OK && chosen != null)
-            {
-                if (_text == null) SelectTool(Tool.Text);
-                _characters.Text = chosen;
-            }
-            font.Dispose();
+            if (!IconFonts.IsInstalled(fontName)) { _message.Text = $"“{fontName}” isn't installed: choose another font first"; return; }
+            using var picker = new CharacterPicker(IconFonts.Canonical(fontName), _characters.Text);
+            if (picker.ShowDialog(this) != DialogResult.OK || picker.Chosen == null) return;
+            if (_text == null) SelectTool(Tool.Text);
+            _characters.Text = picker.Chosen;
         }
 
         /************ The layer: nudge, resize, commit ************/
 
         private void Nudge(int dx, int dy)
         {
-            if (_text == null && _shape == null) { _status.Text = "Nothing to move: draw a line, rectangle, ellipse or text first"; return; }
+            if (_text == null && _shape == null) { _message.Text = "Nothing to move: draw a line, rectangle, ellipse or text first"; return; }
             Snap(merge: true);
             if (_shape != null) { _shape.A = new PointF(_shape.A.X + dx, _shape.A.Y + dy); _shape.B = new PointF(_shape.B.X + dx, _shape.B.Y + dy); }
             else { _text.X += dx; _text.Y += dy; }
@@ -496,7 +520,7 @@ namespace ClipX2.UI
 
         private void ResizeLayer(int by)
         {
-            if (_text == null && _shape == null) { _status.Text = "Nothing to resize: draw a line, rectangle, ellipse or text first"; return; }
+            if (_text == null && _shape == null) { _message.Text = "Nothing to resize: draw a line, rectangle, ellipse or text first"; return; }
             Snap(merge: true);
             if (_shape != null)
             {
@@ -631,18 +655,36 @@ namespace ClipX2.UI
                 Filter = "Images|*.png;*.ico;*.bmp;*.gif;*.jpg;*.jpeg;*.tif;*.tiff|All files|*.*",
             };
             if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            Bitmap image = LoadImageFile(dialog.FileName, out string why);
+            if (image == null)
+            {
+                MessageBox.Show(this, "That file couldn't be read as an image.\r\n\r\n" + why, "Import image", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            using (image) PutImage(image);
+        }
+
+        /// <summary>
+        /// A picture from a file (an .ico at the icon's size), or null and why not. Anything GDI+
+        /// can't read as a picture (a text file, a damaged image) comes back null: GDI+ says so in
+        /// several ways (OutOfMemoryException, ExternalException, ArgumentException…), so every
+        /// error but the fatal ones is caught.
+        /// </summary>
+        internal static Bitmap LoadImageFile(string path, out string why)
+        {
+            why = null;
             try
             {
-                Image image;
-                if (dialog.FileName.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
-                    using (var ico = new System.Drawing.Icon(dialog.FileName, N, N)) image = ico.ToBitmap();
-                else
-                    using (var loaded = Image.FromFile(dialog.FileName)) image = new Bitmap(loaded);
-                using (image) PutImage(image);
+                if (path.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+                    using (var ico = new System.Drawing.Icon(path, N, N)) return ico.ToBitmap();
+                using (var loaded = Image.FromFile(path)) return new Bitmap(loaded);
             }
-            catch (Exception ex) when (ex is OutOfMemoryException || ex is ArgumentException || ex is System.IO.IOException || ex is UnauthorizedAccessException)
+            catch (Exception ex) when (!(ex is StackOverflowException || ex is AccessViolationException))
             {
-                MessageBox.Show(this, "That file couldn't be read as an image.\r\n\r\n" + ex.Message, "Import image", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                why = ex is OutOfMemoryException || ex is System.Runtime.InteropServices.ExternalException || ex is ArgumentException
+                    ? "It isn't a picture in a format Windows can read (PNG, ICO, BMP, GIF, JPEG, TIFF)."
+                    : ex.Message;
+                return null;
             }
         }
 
@@ -650,8 +692,8 @@ namespace ClipX2.UI
         {
             Image image = null;
             try { if (Clipboard.ContainsImage()) image = Clipboard.GetImage(); }
-            catch (System.Runtime.InteropServices.ExternalException) { }
-            if (image == null) { _status.Text = "There's no picture on the clipboard"; return; }
+            catch (Exception ex) when (!(ex is StackOverflowException || ex is AccessViolationException)) { image = null; } // an odd format on the clipboard
+            if (image == null) { _message.Text = "There's no picture on the clipboard"; return; }
             using (image) PutImage(image);
         }
 
@@ -824,6 +866,7 @@ namespace ClipX2.UI
             _redo.Clear();
             _lastSnap = DateTime.Now;
             _dirty = true;
+            UpdateUndoButtons();
         }
 
         private Snapshot Current() => new Snapshot { Bitmap = new Bitmap(_bitmap), Text = _text?.Clone(), Shape = _shape?.Clone() };
@@ -836,6 +879,14 @@ namespace ClipX2.UI
             _shape = s.Shape;
             LoadTextControls();
             Changed();
+        }
+
+        /// <summary>Undo and Redo greyed out when there is nothing to undo or redo.</summary>
+        private void UpdateUndoButtons()
+        {
+            if (_undoButton == null) return;
+            _undoButton.Enabled = _undo.Count > 0;
+            _redoButton.Enabled = _redo.Count > 0;
         }
 
         private void Undo()
@@ -866,11 +917,13 @@ namespace ClipX2.UI
 
         private void Changed()
         {
+            _message.Text = ""; // something happened: an earlier "nothing to…" no longer applies
             bool layer = _text != null || _shape != null;
             foreach (Control c in _layerBox.Controls) c.Enabled = layer;
             LockTools();
-            _layerBox.Text = _shape != null ? $"Adjust the {_shape.Kind.ToString().ToLowerInvariant()}, then commit"
-                : _text != null ? "Adjust the text, then commit" : "Adjust before committing";
+            _layerBox.Text = _shape != null ? $"Adjust the {_shape.Kind.ToString().ToLowerInvariant()}, then accept"
+                : _text != null ? "Adjust the text, then accept" : "Adjust before accepting";
+            UpdateUndoButtons();
             _swatch.BackColor = _colour;
             _canvas.Invalidate();
             ShowPreview();
@@ -885,9 +938,9 @@ namespace ClipX2.UI
         private static readonly Color WaitingBack = Color.FromArgb(255, 160, 40); // as a PowerButton's "Go"
 
         /// <summary>
-        /// While a layer (text or a shape) waits for Commit or Drop, only its own tool, the colours
+        /// While a layer (text or a shape) waits for Accept or Cancel, only its own tool, the colours
         /// and the adjustments work: the other tools are greyed out, so nothing else takes the
-        /// layer by surprise (a colour meant for a rectangle colouring the text). Commit and Drop
+        /// layer by surprise (a colour meant for a rectangle colouring the text). Accept and Cancel
         /// show in orange.
         /// </summary>
         private void LockTools()
@@ -904,8 +957,11 @@ namespace ClipX2.UI
             foreach (var pair in _toolButtons)
                 Lock(pair.Value, locked && pair.Key != own);
             foreach (Control c in _otherTools) Lock(c, locked);
-            _textBox.Enabled = !(locked && own != Tool.Text);
-            _width.Enabled = _filled.Enabled = !(locked && own == Tool.Text);
+            // The settings that go with the tool chosen: text for Text, line width and Filled for
+            // the tools that draw lines (Filled only for rectangles and ellipses)
+            _textBox.Enabled = _tool == Tool.Text;
+            _lineBox.Enabled = _tool != Tool.Fill && _tool != Tool.Text;
+            _filled.Enabled = _tool == Tool.Rectangle || _tool == Tool.Ellipse;
             foreach (Button b in new[] { _commit, _drop })
             {
                 b.BackColor = locked ? WaitingBack : SystemColors.Control;
@@ -923,6 +979,30 @@ namespace ClipX2.UI
             }
         }
 
+        /// <summary>The previews' tile when the icon's edge matches the dialog's grey: a little darker.</summary>
+        private static readonly Color PreviewContrast = Color.FromArgb(196, 196, 196);
+
+        /// <summary>
+        /// Most of the icon's outer edge (two pixels deep), as seen over <paramref name="back"/>,
+        /// is close to <paramref name="back"/> itself: the icon would have no visible edge on it.
+        /// </summary>
+        private static bool EdgeMatches(Bitmap icon, Color back)
+        {
+            int close = 0, total = 0;
+            for (int y = 0; y < icon.Height; y++)
+                for (int x = 0; x < icon.Width; x++)
+                {
+                    if (x > 1 && x < icon.Width - 2 && y > 1 && y < icon.Height - 2) continue;
+                    Color p = icon.GetPixel(x, y);
+                    float a = p.A / 255f;
+                    float r = p.R * a + back.R * (1 - a), gr = p.G * a + back.G * (1 - a), bl = p.B * a + back.B * (1 - a);
+                    float d = (r - back.R) * (r - back.R) + (gr - back.G) * (gr - back.G) + (bl - back.B) * (bl - back.B);
+                    if (d < 40 * 40) close++;
+                    total++;
+                }
+            return close * 2 > total;
+        }
+
         private void ShowPreview()
         {
             var b = new Bitmap(_preview.Width, _preview.Height);
@@ -930,10 +1010,20 @@ namespace ClipX2.UI
             using (Bitmap icon = Composed())
             {
                 g.Clear(SystemColors.Control);
+                // Each preview on a tile with a thin border; the tile turns a darker grey when the
+                // icon's edge would vanish against the dialog (background cleared, or near its grey)
+                Color tile = EdgeMatches(icon, SystemColors.Control) ? PreviewContrast : SystemColors.Control;
+                using (var brush = new SolidBrush(tile))
+                using (var border = new Pen(SystemColors.ControlDark))
+                    foreach (Rectangle r in new[] { new Rectangle(2, 14, 40, 40), new Rectangle(52, 1, 56, 56) })
+                    {
+                        g.FillRectangle(brush, r);
+                        g.DrawRectangle(border, r.X, r.Y, r.Width - 1, r.Height - 1);
+                    }
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                g.DrawImage(icon, 6, 12, 32, 32);   // as on the button
-                g.DrawImage(icon, 52, 4, 48, 48);   // at 150 % scaling
+                g.DrawImage(icon, 6, 18, 32, 32);   // as on the button
+                g.DrawImage(icon, 56, 5, 48, 48);   // at 150 % scaling
             }
             _preview.Image?.Dispose();
             _preview.Image = b;
@@ -998,7 +1088,7 @@ namespace ClipX2.UI
                 case Keys.Control | Keys.Y: Redo(); return true;
                 case Keys.Control | Keys.V when !typing: PasteImage(); return true;
                 case Keys.Escape:
-                    if (layer) { Discard(); return true; } // Drop (Ctrl+Z brings it back)
+                    if (layer) { Discard(); return true; } // the layer's Cancel (Ctrl+Z brings it back)
                     Close(); // as the close icon: asks, if there are changes
                     return true;
                 case Keys.Enter when layer && !(ActiveControl is Button):
@@ -1026,6 +1116,7 @@ namespace ClipX2.UI
         /// <summary>OK: shapes are committed; text not committed stays a layer of the icon (adjustable next time).</summary>
         private void Ok()
         {
+            if (_text != null) RememberFont(_text.FontName); // typed, and OK pressed without leaving the box
             if (_shape != null) Commit();
             Result = new ButtonIcon { Png = IconPainter.ToPng(_bitmap), Text = _text?.Clone() };
             DialogResult = DialogResult.OK;

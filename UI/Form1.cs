@@ -218,7 +218,7 @@ namespace ClipX2
 
         /// <summary>
         /// Closing ClipX (the close icon, Alt+F4) with the text changed and not copied: ClipX 1's
-        /// "Confirm close": Discard changes, Copy &amp; Close (the text to the clipboard, as Done),
+        /// "Confirm close": Copy &amp; Close (the text to the clipboard, as Done; the default), Discard changes,
         /// or Cancel (back to the text).
         /// </summary>
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -226,7 +226,7 @@ namespace ClipX2
             base.OnFormClosing(e);
             if (e.Cancel || _copiedAndClosing || e.CloseReason != CloseReason.UserClosing || !IsDirty) return;
             switch (ConfirmCloseDialog.Ask(this, "Confirm close", "Changes have been made to the text.",
-                keep: "Copy && Close", discard: "Discard changes", discardFirst: true))
+                keep: "Copy && Close", discard: "Discard changes"))
             {
                 case CloseChoice.Keep:
                     CopyForDone();

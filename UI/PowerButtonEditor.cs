@@ -121,6 +121,10 @@ namespace ClipX2.UI
             var delete = new Button { Text = "&Delete PowerButton", AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             delete.Location = new Point(ClientSize.Width - 190, 16);
             delete.Click += (s, e) => DeleteButton();
+            delete.Image = TrashImage();
+            delete.ImageAlign = ContentAlignment.MiddleLeft;
+            delete.TextImageRelation = TextImageRelation.ImageBeforeText;
+            delete.Padding = new Padding(6, 0, 4, 0);
             _tips.SetToolTip(delete, "Delete this whole PowerButton");
             top.Controls.AddRange(new Control[] { nameLabel, _name, _iconPreview, iconButton, _keyLabel, delete });
 
@@ -289,6 +293,27 @@ namespace ClipX2.UI
                 MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.OK) return;
             DeleteRequested = true;
             DialogResult = DialogResult.Abort;
+        }
+
+        /// <summary>A waste bin, 18 pixels, for "Delete PowerButton" (greyed with the button when it is).</summary>
+        private static Bitmap TrashImage()
+        {
+            var b = new Bitmap(18, 18, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using Graphics g = Graphics.FromImage(b);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Color ink = Color.FromArgb(60, 60, 60);
+            using var pen = new Pen(ink, 1.5f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round };
+            // the bin: tapering a little to the bottom, with three ribs
+            PointF[] body = { new PointF(4, 5.5f), new PointF(14, 5.5f), new PointF(13, 16.5f), new PointF(5, 16.5f) };
+            using (var fill = new SolidBrush(Color.FromArgb(225, 225, 225))) g.FillPolygon(fill, body);
+            g.DrawPolygon(pen, body);
+            g.DrawLine(pen, 7, 8.5f, 7.3f, 14);
+            g.DrawLine(pen, 9, 8.5f, 9, 14);
+            g.DrawLine(pen, 11, 8.5f, 10.7f, 14);
+            // the lid and its handle
+            g.DrawLine(pen, 2.5f, 3.8f, 15.5f, 3.8f);
+            g.DrawLines(pen, new[] { new PointF(7, 3.8f), new PointF(7, 1.8f), new PointF(11, 1.8f), new PointF(11, 3.8f) });
+            return b;
         }
 
         /************ Tasks ************/

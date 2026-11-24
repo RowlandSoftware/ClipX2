@@ -16,7 +16,7 @@ namespace ClipX2.UI
     {
         private CloseChoice _choice = CloseChoice.Cancel;
 
-        private ConfirmCloseDialog(string title, string message, string keep, string discard, bool discardFirst)
+        private ConfirmCloseDialog(string title, string message, string keep, string discard)
         {
             Text = title;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -52,22 +52,22 @@ namespace ClipX2.UI
                 b.Click += (s, e) => { _choice = choice; DialogResult = choice == CloseChoice.Cancel ? DialogResult.Cancel : DialogResult.OK; };
                 return b;
             }
-            Button keepButton = Make(keep, CloseChoice.Keep, discardFirst ? 64 : 16);
-            Button discardButton = Make(discard, CloseChoice.Discard, discardFirst ? 16 : 64);
+            Button keepButton = Make(keep, CloseChoice.Keep, 16);
+            Button discardButton = Make(discard, CloseChoice.Discard, 64);
             Button cancel = Make("Cancel", CloseChoice.Cancel, 116);
-            Controls.AddRange(new Control[] { icon, label, discardFirst ? discardButton : keepButton, discardFirst ? keepButton : discardButton, cancel });
-            AcceptButton = discardFirst ? discardButton : keepButton;
+            Controls.AddRange(new Control[] { icon, label, keepButton, discardButton, cancel });
+            AcceptButton = keepButton;
             CancelButton = cancel;
         }
 
         /// <summary>
-        /// Asks; Keep, Discard or Cancel. <paramref name="discardFirst"/> puts Discard at the top,
-        /// as the default (ClipX 1's main window).
+        /// Asks; Keep, Discard or Cancel. Keep is at the top and the default, in every window
+        /// (ClipX 1's main window had Discard first: changed for consistency).
         /// </summary>
-        public static CloseChoice Ask(IWin32Window owner, string title, string message, string keep, string discard = "Discard changes", bool discardFirst = false)
+        public static CloseChoice Ask(IWin32Window owner, string title, string message, string keep, string discard = "Discard changes")
         {
             if (TestAnswer != null) return TestAnswer(message);
-            using var d = new ConfirmCloseDialog(title, message, keep, discard, discardFirst);
+            using var d = new ConfirmCloseDialog(title, message, keep, discard);
             d.ShowDialog(owner);
             return d._choice;
         }

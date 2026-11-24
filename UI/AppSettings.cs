@@ -71,6 +71,9 @@ namespace ClipX2.UI
         /// <summary>The PowerButtons, in the order shown (Alt+1… run the first nine).</summary>
         public System.Collections.Generic.List<PowerButton> PowerButtons { get; set; } = new System.Collections.Generic.List<PowerButton>();
 
+        /// <summary>Fonts the user has typed or chosen in the icon editor, offered after its own list.</summary>
+        public System.Collections.Generic.List<string> IconEditorFonts { get; set; } = new System.Collections.Generic.List<string>();
+
         /// <summary>How many columns of PowerButtons the panel on the right shows (widened by dragging its left edge).</summary>
         public int PowerButtonColumns { get; set; } = 1;
 
@@ -130,6 +133,7 @@ namespace ClipX2.UI
                     b.Tasks.RemoveAll(t => t == null);
                 }
                 s.PowerButtonColumns = Math.Max(1, Math.Min(6, s.PowerButtonColumns));
+                s.IconEditorFonts ??= new System.Collections.Generic.List<string>();
                 s.Display.ProportionalFont ??= FontSpec.DefaultProportional;
                 s.Display.FixedFont ??= FontSpec.DefaultFixed;
                 s.Display.RichTextFont ??= FontSpec.DefaultRichText;
