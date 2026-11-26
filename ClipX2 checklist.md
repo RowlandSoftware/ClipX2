@@ -161,6 +161,20 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Strip email quote marks (edSTR): > and | at line starts, any depth, spaces before them; only the one space after each mark goes, so indentation inside a quote is kept; whole lines; engine: LineFormatter.StripQuoteMarks
 - [x] Select word, Ctrl+W in the editor (engine: WordSelection; 21 cases tested). Word = letters and digits (combining accents included); other = not word, not white space. No selection: the word at the caret, or just before it at a word's end (Esme has| → has), else the run of other characters (-|-> → -->), never white space; between spaces: the next word on the line. Selection: extends right over white space + the next word or run, or over a run of other characters, or the rest of a word. Never crosses a paragraph or line break. ’ is "other", so wasn’t is wasn + ’ + t
 - [ ] User to try Ctrl+W in ClipX
+- [x] Mouse selection: RichEdit's own dragging again (the old OnMouseDown/Move tracking removed: it lost the selection when the pointer left the control and couldn't reach the end of the text). Whole words only if Options, General: "When selecting with the mouse, automatically select whole words" (AppSettings.WholeWordMouseSelection, off; EM_SETOPTIONS ECO_AUTOWORDSELECTION, set again on each new handle)
+- [ ] User to try mouse selection: drag past the start of a line and out of the window; drag to the very end; the option on and off
+- [x] Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T (TextBoxKeys, now also for editable ComboBoxes) in: Find and Replace's find and replace boxes, What do you want to do?, the PB name, Insert text's text (PB Editor), Indent's text, the icon editor's characters; already in spelling's Change to
+- [x] PB Editor: Find and Replace's Help floats just right of the panel (over "When the PowerButton runs"), not past the options area's edge
+- [x] PB Editor: Search (edSRC) not in the palette; Find and Replace first in Edit. ClipX 1's Search tasks with their own options import as Find and Replace, Find the next one; Ask / Last-used ones stay edSRC (still run)
+- [x] PB Editor, When the PowerButton runs: Find the next one, Replace the next one, Replace all (Find all dropped; an old task set to it shows Find the next one)
+- [x] Import settings: the PowerButton panel shows the imported buttons at once
+- [x] New PowerButtons: navy (#1f2f8f) behind the number (was ClipX 1's green); navy in the icon editor's colours (in place of 0,99,177). Imported ClipX 1 buttons navy too (IconPainter.DefaultBackground)
+- [x] Settings: General page first. Export PowerButtons (between Export and Import; XML .pref with just Version and PowerButtons). Import of such a file replaces only the PowerButtons; the PowerButton panel's right-click import reads ClipX 1 or ClipX 2 .pref files and adds the buttons (new Ids, pbPBT links followed). File dialogs: plain "XML", no ClipX 1 wording
+- [ ] User to try Export PowerButtons, then import it both ways (Settings: replaces; right-click beside the buttons: adds)
+- [x] PowerButton panel: tiles laid out again if the scroll bar appears part-way (they were half a scroll bar too far right)
+- [x] PB Editor Undo / Redo (buttons beside Try, Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z except in text boxes, which keep their own): snapshots of the whole button after each change: task added, removed, moved; Use (These / Last-used / Ask); the icon; the name (on leaving it); a task's options as one step (on leaving them or the task). Tested in code: append, remove, use, rename, undone and redone
+- [x] Undo delete: a deleted PowerButton comes back to its place (with the tasks in other buttons that ran it) from the right-click menu beside the buttons; the status bar says so on deleting. This session only
+- [ ] User to try the editor's Undo with option changes (e.g. Find and Replace), and Undo delete
 
 ## Statistics (chSTAT)
 - [x] Side panel, kept up to date while open: Selection (only when there is one) above Whole text. Words, characters, without spaces, sentences, paragraphs, words per sentence, size (UTF-8 for plain text, RTF for rich text); lines left out (same as paragraphs)
@@ -271,3 +285,84 @@ Items for later that cover the whole program, not one tool. Tool-specific lists 
 - [x] Bug: a click in the jump list scrolled the grid back to the character clicked before. The scrolling panel scrolled to the grid whenever the grid got the focus, undoing the jump; now it never scrolls on focus (`StayPanel`), and a jump selects the group's first character. Tested with the window focused (and the test fails on the old code)
 - [x] Window 26 px wider (1006); the right-hand groups 262 wide; the adjust box evenly spaced (12 | nudge | 18 | + − ◎ | 18 | Accept, Cancel | 12)
 - [ ] Note: the editor, icon editor and character picker are built in code, so they can't be adjusted in the Visual Studio designer; new forms should be designer forms where possible
+
+### PowerButton editor: tool list groups (26 Nov 2026)
+- [x] The tool list's groups fold and open with a click on their heading (Windows' own chevron at the right of each heading): the ListView's collapsible groups, the look unchanged
+- [x] Remembered in settings.json (`PaletteCollapsedGroups`): read from the list itself (a click on a heading changes the group in Windows, which WinForms' CollapsedState doesn't hear of), saved when a group changes and when the editor closes. First use: all open
+- [x] An arrow above the list at the left (two chevrons, up: collapse all; down: expand all) toggles between the two, whatever each group's state; its next action is remembered too (`PaletteToggleExpands`). Each group is set both ways, so one folded or opened by hand still follows
+- [x] Tested off-screen, with groups folded and opened in Windows as a click does
+- [x] The arrow beside the "Tools: drag one onto the timeline…" label (moved right to make room), not on a row of its own
+
+### Character picker: plain groups (26 Nov 2026)
+- [x] The Unicode jump list (44 groups for Arial) was too technical: replaced by four plain groups, in this order: Arrows, Shapes, Symbols and Icons, Emoji, each offered only if the font has some (UI/SymbolGroups.cs gathers the Unicode blocks into them; UnicodeBlocks.cs removed). Letters, numbers, punctuation and other scripts aren't offered: they can be typed
+- [x] The grid shows one group at a time, picked in a short list on the right ("Show:", with each group's count, every line visible); it opens on the current character's group with it selected, else the first group
+- [x] Emoji beyond U+FFFF (😀 U+1F600, 🚀) now found: read from the font's own character map (cmap format 12), which Windows' coverage call doesn't report: Segoe UI Emoji 1,180 emoji, Segoe UI Symbol 1,026. Drawn as outlines (GDI+ can't draw colour emoji). An emoji is two UTF-16 units in the Characters box
+- [x] Tested off-screen: groups for Wingdings, Fluent Icons, Segoe UI Emoji and Symbol, Arial, Consolas, Georgia; opening on the current character; picking a group; choosing an emoji
+
+### Text & Symbols, Indent/Unindent in PowerButtons, Paragraph and headings (26 Nov 2026)
+- [x] Icon editor: the Text tool and its group read "Text & Symbols"
+- [x] PowerButton editor, Indent and Unindent task: "When the PowerButton runs" choice, Indent or Unindent, beside the options. It is the task's own choice, so it stays enabled when the task uses the last-used options or asks (the last-used settings, the task's direction; asking: Go on the chosen button)
+- [x] Old Unindent tasks (foUNI, in settings.json or a ClipX 1 .pref) become Indent and Unindent set to Unindent, keeping their options. (Since foUNI left the catalogue they had shown as an unknown tool and lost their options.) Done without reading the settings, which are still loading at that point
+- [x] Paragraph: in rich text a line joins the one before only if both have the same heading level (none, or Heading n), so headings stay apart from the text under them; the other rules as before. Plain text unchanged
+- [x] CS0419: the two ambiguous crefs to TextTools.Run (ToolCatalogue.cs) and one in ToolUsage.cs name the overload
+- [x] Tested off-screen: the engine with and without levels; a real rich text box with Heading 1 and Heading 2 lines; old Unindent tasks from JSON; the editor's choice
+- [x] The older doc-comment warnings fixed (CS1573: param tags added in RtfExport, TextFinder, ToolFinder; CS1574: cref RtfStyle.Words in RtfStyleSheet): a full rebuild has 0 warnings
+
+### Find All: list of matches (26 Nov 2026)
+- [x] Find All (Find & Replace panel) still highlights every match, and now also lists them, as ClipX 1 did but without line numbers: each match in bold on yellow, with up to 40 characters of its paragraph either side, the matches lined up a third of the way across (UI/Panels/FindAllList, a designer UserControl)
+- [x] The list lies over the Find & Replace panel; closing it (its cross, Esc, a click in the text) leaves the panel and the highlights as they are. A change to the text closes it (as it clears the highlights); so do the highlights going (Next, Replace All, closing the panel). Changing an option while it is open updates it
+- [x] A click on a match (or Up/Down in the list) scrolls the text to it, about a third of the way down if it has to move, and shows it as the current one, orange with an outline, without selecting it or moving the cursor; the highlights stay (ClipXRichTextBox.CurrentMark, ScrollToShow)
+- [x] Tested off-screen: 40 matches in 200 lines; clicking down the list; a click in the text, the close cross, a change to the text
+- [x] Quick search's Find all (the bottom bar) only highlights, as before: no list (decided 26 Nov 2026)
+- [x] The note under it is just "Click a match to see it in the text."
+- [x] Changed on request: typed bullets and numbers stay in the context (they tell matches apart); indents and runs of spaces or tabs show as one space; the matches are no longer lined up: each row starts at the left, the text before a match cut at its start ("…") only when it would push the match and what follows out of view
+
+### Typed lists not made live when the text ends with a line break (26 Nov 2026)
+- [x] Bug: switching plain text to rich text left typed bullets and numbers typed (so rich → plain → rich lost live lists) whenever the text ended with a line break, as plain text made from rich text usually does. TypedListRecognition took its lines from ListFormatter.LinesIn, which drops an empty last line (the end of a selection), so the count didn't match the paragraphs and it gave up on the whole document. It now takes one line per paragraph. Also affects plain text pasted with a final line break, and HTML
+- [x] Tested off-screen: bullets and numbers with a final line break; a rich list (with a second level) → plain → rich comes back the same
+- [x] Rich text: a live bullet or number (•, 3., c), (iv)…) shows in the list where a match's context starts at its paragraph's start, as a typed one does in plain text. The labels are worked out as rich → plain text writes them (DocumentExport.ListLabels), so every numbering style comes with them
+- [x] Noticed in testing: a second-level bullet (◦) read back as • in one test: see below
+
+### Deeper bullets all • after rich text from the clipboard (26 Nov 2026)
+- [x] Bug: rich text loaded at startup ("Formatted") showed second- and third-level bullets as • (demoting and promoting, or plain → rich, gave ◦ and ▪). RTF without named styles goes to the editor's own RTF reader, which drops each level's bullet character, even from RTF it wrote itself (• ◦ ▪ come back • • •). RichEditWriter.BulletsByLevel now gives a plain • on a deeper level its level's bullet (◦, ▪, as ClipX's own lists), after: loading RTF at startup and Refresh (as one Undo step), RTF converted to plain text (so the typed list gets ◦ ▪ too), and pasting rich text in rich-text mode (one Undo step with the paste). RTF read by ClipX itself (word processors' named styles) already kept them
+- [x] Tested off-screen: • ◦ ▪ through the editor's RTF reader and back; numbers and lettered levels untouched; a paste undone in one step
+- [ ] Also lost by the editor's RTF reader, not put back (the source's own characters are gone by then): a custom first-level bullet (– comes back •), a nested lettered level's ")" (a) comes back a.)
+
+### Legal numbering in rich text (26 Nov 2026)
+- [x] Bug: in rich text, Legal numbering (typed in, as the editor can't do 1.1. live) took levels only from typed tabs and spaces, so a line indented with Tab / Increase indent (a paragraph indent) or a live list's sub-item got 2. instead of 1.1.; promote and demote changed the indent without renumbering. Now the levels come from paragraph indents and list levels too (ListFormatter.NumberEdits / RenumberEdits take the extra levels), each numbered paragraph is indented half an inch a level (as Increase indent), and Increase / Decrease indent (Tab, Shift+Tab) renumbers typed lists around the selection (ListTools.RenumberTyped). Plain text unchanged (it already worked)
+- [x] Tested off-screen: an indented paragraph numbered 1.1.; demote → 1.2.; promote → 2. with the next 2.1.; a live list with a sub-item numbered Legal → 1. 1.1. 2.
+- [x] Rich text: Increase / Decrease indent (typed indent converted, list levels, paragraph indents, typed numbers renumbered) is one Undo step (ClipXRichTextBox.BeginUndoGroup); Redo does it all again. Tested off-screen
+- [x] A line indented with a typed tab when the list was made wouldn't promote (Decrease indent moves paragraph indents only). Now numbering Legal in rich text turns each numbered line's typed indentation into a paragraph indent, and before Increase / Decrease indent a typed-numbered line's typed tabs or spaces become a paragraph indent (ListTools.TypedIndentToParagraph), so lists made earlier move too
+- [x] "1. 2. 3." with nothing deeper reads as an ordinary list, so demoting a line of a fully promoted legal list gave a.: when renumbering after an indent (plain or rich), such a list counts as Legal if the Numbers tool is set to Legal. Converting plain text to rich isn't affected
+- [x] Tested off-screen: the two-list example numbered 1. 1.1. 2. / 3. 4. 4.1. 5.; 4.1. promoted to 5. and demoted back; a list with typed tabs from before promoted to 2. and demoted back to 1.1.
+
+### Indent buttons on the Lists tab (26 Nov 2026)
+- [x] Increase / Decrease indent copied to the right of the Lists toolbar, after a separator (toolStripButtonLiIIN / LiDIN, designer-made, full height with larger ⇥ ⇤): same tags (stIIN, stDIN), so they run the same command, Repeat and right-click included; the Styles toolbar keeps its own
+
+### Undo and Redo (26 Nov 2026)
+- [x] ↶ Undo and ↷ Redo buttons between Refresh and Finish (designer-made), greyed out when there's nothing to undo or redo; Ctrl+Z, Ctrl+Y (and Ctrl+Shift+Z) work wherever the focus is, except in another text field (Find box, "What do you want to do?"…), which keeps its own Undo (UI/Form1.Undo.cs)
+- [x] One history for typing and tools: the text box's own (typing as insertions and deletions, each tool one step, the change only, not a copy of the text), now 2,000 steps instead of 100 (ClipXRichTextBox.UndoLimit)
+- [x] Switching plain ⇄ rich (and a Refresh that changes mode) can be undone: ClipX keeps the text before each switch (formatting, selection, mode; the last 20 switches) and the text box starts a new history. Undo goes back through the edits since the switch, then over the switch (mode and all); Redo forward again. A new edit clears what could be redone
+- [x] The text as loaded is the bottom of the history
+- [x] Tested off-screen in the real window: edits, a switch to rich, Undo over it to plain, Redo, a new edit clearing Redo; rich with • ◦ bullets → plain → Undo gives the live list back; Ctrl+Z through ClipX
+- [ ] Known limit: the finer history from before a switch isn't kept (Undo goes back to just before the switch, then to just before the one before), and Redo over a switch gives the text as it was just after it (edits undone after the switch can't be redone)
+
+### Sorting: design notes (26 Nov 2026, nothing built yet; Andrew to summarise Hart's)
+- [ ] One Sort with an options side panel and presets (Index, Name list, Bibliography…) rather than separate Alphabetic and Smart; right-click = last settings. Oracle Style Guide (word by word, NISO TR03-1999) as one preset: space first; hyphen, dash, slash as a space; . , ; : ( ) [ ] < > { } ' " ! ? ignored; symbols, then numerals by value, then letters; case equal
+- [ ] Options so far: word by word / letter by letter; numbers by value / as decimals (after a point, digit by digit: Dewey) / as text; case: ignore (capitals first in an exact tie) or case-sensitive (capitals before all small letters: Zebra before apple); runs of spaces count as one (in the comparison only); ignore bracketed text in the comparison (Henry · Henry (of France), archbishop of Reims · Henry, chaplain); Mc = Mac, St = Saint (order only)
+- [ ] Text-changing conversions for indexes (reverse names: Andrew Rowland → Rowland, Andrew; articles after: Beatles, The) possibly a separate tool from sorting. Hard cases to decide: particles (de la Mare, van Gogh), suffixes (Jr, III), titles, compound surnames, lines already reversed, single names
+
+### Focus, spelling message, heading list (26 Nov 2026)
+- [x] After a tool button (click or right-click) the focus goes back to the text, so typing carries on; not when the tool has just opened a side panel (its options, Find), which keeps the focus it wants (Form1.BackToText)
+- [x] Spelling panel: the message at the top ("Spelling check complete.", "Not in dictionary:", "Loading dictionary…") bold and navy (labelKind, designer)
+- [x] Heading level list: choosing the level already shown now applies it (a list only reports a change: while it's open nothing is selected, so any choice is one; closed without a choice, it shows the paragraph's level again). The list opens on a click anywhere, as usual
+- [x] Tested off-screen in the real window (heading list, spelling message); the focus return not testable off-screen
+- [x] Decided: lists and case apply where you're typing when nothing is selected (see below)
+
+### Where you're typing, when nothing is selected (26 Nov 2026)
+- [x] Bullets, Numbers, Remove bullets, Remove numbers (button, right-click, Repeat, their panels' Apply): with nothing selected, the paragraph with the cursor, as in a word processor; Ctrl+A first for the whole text. The cursor stays with its text. On an empty paragraph a list starts there (a typed marker, or a live list item in rich text), the cursor after it; numbers carry on from a list just above (3. after 2.), typed or live. One Undo step (ListTools.Here, StartBullets, StartNumbers, ContinueNumbering)
+- [x] Plain text: Enter after a typed bullet or number starts the next item with the same indentation and marker, numbers carried on and the rest of the list renumbered (an item inserted mid-list); Enter on an empty item ends the list (the marker goes); Shift+Enter is a plain new line. Rich text's live lists already do this themselves (ClipXRichTextBox.ContinueTypedList)
+- [x] Case buttons with nothing selected: Upper, Lower, Reverse, Initial caps as their keys (the character right of the cursor, which moves on); Title, Sentence, Sentence caps on the cursor's paragraph
+- [x] PowerButtons keep ClipX 1's rule: a task with nothing selected uses the whole text (also an Ask task's panel)
+- [x] Text-processing tools (trim, wrap, remove lines, sort, line numbers, decode…) still use the whole text
+- [x] Tested off-screen in the real window: plain and rich, bullets/numbers at the cursor, an empty line starting a list, Enter carrying on / inserting mid-list / ending, remove at the cursor, case buttons, PowerButton whole text

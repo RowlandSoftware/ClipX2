@@ -534,6 +534,10 @@ namespace ClipX2.TextEngine
         private readonly RegexReplacement _replace;
         private readonly bool _emptyMatches;
 
+        /// <param name="pattern">The regular expression (Wildcard mode's translation, or Regex mode's own).</param>
+        /// <param name="replace">The replacement, with $1… for groups.</param>
+        /// <param name="options">The search options (Match case…).</param>
+        /// <param name="emptyMatches">Replace All includes empty matches (Regex mode: ^ or $ adds text to every line).</param>
         /// <param name="unescape">Special characters in the replacement are the characters (see <see cref="TextFinder.Unescape"/>).</param>
         public RegexFinder(string pattern, string replace, SearchOptions options, bool emptyMatches, bool unescape) : base(options)
         {

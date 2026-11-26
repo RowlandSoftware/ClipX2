@@ -59,7 +59,7 @@ namespace ClipX2.UI
         private readonly CheckBox _filled = new CheckBox { Text = "&Filled", AutoSize = true };
         private readonly CheckBox _grid = new CheckBox { Text = "&Grid", AutoSize = true, Checked = true };
         private readonly Dictionary<Tool, RadioButton> _toolButtons = new Dictionary<Tool, RadioButton>();
-        private readonly GroupBox _textBox = new GroupBox { Text = "Text" };
+        private readonly GroupBox _textBox = new GroupBox { Text = "Text && Symbols" };
         private readonly TextBox _characters = new TextBox { MaxLength = 4 };
         private readonly ComboBox _font = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
         private readonly CheckBox _bold = new CheckBox { Text = "B&old", AutoSize = true };
@@ -124,7 +124,7 @@ namespace ClipX2.UI
                 (Tool.Line, "Li&ne", "A straight line: drag; adjust, then Enter"),
                 (Tool.Rectangle, "&Rectangle", "Drag; adjust, then Enter"),
                 (Tool.Ellipse, "Elli&pse", "Drag; adjust, then Enter"),
-                (Tool.Text, "&Text", "Characters from a font (symbol fonts make good icons); adjust, then Enter"),
+                (Tool.Text, "&Text && Symbols", "Characters or symbols from a font (symbol fonts make good icons); adjust, then Enter"),
             };
             foreach (var (tool, text, tip) in tools)
             {
@@ -169,7 +169,7 @@ namespace ClipX2.UI
             Color[] palette =
             {
                 Color.White, Color.Black, Color.FromArgb(128, 128, 128), Color.FromArgb(192, 192, 192),
-                Color.FromArgb(1, 99, 49), Color.FromArgb(0, 158, 96), Color.FromArgb(0, 99, 177), Color.FromArgb(0, 120, 215),
+                Color.FromArgb(1, 99, 49), Color.FromArgb(0, 158, 96), Color.FromArgb(31, 47, 143), Color.FromArgb(0, 120, 215),
                 Color.FromArgb(0, 183, 195), Color.FromArgb(107, 105, 214), Color.FromArgb(135, 100, 184), Color.FromArgb(194, 57, 179),
                 Color.FromArgb(232, 17, 35), Color.FromArgb(202, 80, 16), Color.FromArgb(255, 140, 0), Color.FromArgb(255, 185, 0),
                 Color.FromArgb(255, 241, 118), Color.FromArgb(142, 86, 46), Color.FromArgb(73, 130, 5), Color.FromArgb(16, 124, 16),
@@ -265,6 +265,7 @@ namespace ClipX2.UI
             _textBox.Controls.Add(new Label { Text = "C&haracters:", AutoSize = true, Location = new Point(10, 28) });
             _characters.Bounds = new Rectangle(100, 24, 102, 28);
             _characters.TextChanged += (s, e) => TextSettingsChanged(recentre: true);
+            TextBoxKeys.Attach(_characters); // Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T, as in the editor
             var pick = new Button { Text = "…", Bounds = new Rectangle(208, 23, 42, 30) };
             pick.Click += (s, e) => PickCharacter();
             _tips.SetToolTip(pick, "Choose a character from the font");

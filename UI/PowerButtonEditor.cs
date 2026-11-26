@@ -28,6 +28,7 @@ namespace ClipX2.UI
         private readonly PictureBox _iconPreview = new PictureBox();
         private readonly Label _keyLabel = new Label();
         private readonly ListView _palette = new ListView();
+        private readonly Button _paletteToggle = new Button(); // expand all / collapse all
         private readonly TaskTimeline _timeline;
         private readonly Label _taskTitle = new Label();
         private readonly Label _taskDescription = new Label();
@@ -48,6 +49,16 @@ namespace ClipX2.UI
         private string _originalName;
         private string _shownOptions;        // the options as first shown (JSON), to tell whether they were changed
         private bool _cancelClicked;         // Cancel discards without asking; the close icon and Esc ask
+
+        // Undo and Redo: the whole button as it was after each change (it is small)
+        private sealed record Snapshot(string Json, string Name, int Selected);
+        private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
+        private readonly Stack<Snapshot> _redo = new Stack<Snapshot>();
+        private Snapshot _last;              // the button now, as far as kept
+        private bool _restoring;
+        private readonly Button _undoButton = new Button { Text = "Undo", Size = new Size(76, 32) };
+        private readonly Button _redoButton = new Button { Text = "Redo", Size = new Size(76, 32) };
+        private readonly Timer _undoTimer = new Timer { Interval = 300 };
 
         /// <summary>The button's place (1, 2…): Alt+n runs it.</summary>
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden), System.ComponentModel.Browsable(false)]
@@ -93,8 +104,18 @@ namespace ClipX2.UI
             ShowIconPreview();
             _timeline.Tasks = button.Tasks; // edited in place (the button is a copy)
             _timeline.SelectionChanged += (s, e) => ShowTask(_timeline.SelectedTask);
-            _timeline.TasksChanged += (s, e) => { _message.Text = ""; _dirty = true; };
+            _timeline.TasksChanging += (s, e) => KeepBeforeChange();
+            _timeline.TasksChanged += (s, e) => { _message.Text = ""; _dirty = true; Commit(); };
             ShowTask(_timeline.SelectedTask);
+
+            _last = Snap();
+            _name.Leave += (s, e) => Commit();
+            _optionsHost.Leave += (s, e) => Commit(); // a task's option changes: one step
+            _undoButton.Click += (s, e) => Undo();
+            _redoButton.Click += (s, e) => Redo();
+            _undoTimer.Tick += (s, e) => UpdateUndoButtons();
+            _undoTimer.Start();
+            UpdateUndoButtons();
         }
 
         /************ Layout ************/
@@ -109,6 +130,7 @@ namespace ClipX2.UI
             var nameLabel = new Label { Text = "&Name:", AutoSize = true, Location = new Point(12, 22) };
             _name.SetBounds(70, 18, 320, 26);
             _name.MaxLength = 80;
+            TextBoxKeys.Attach(_name); // Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T, as in the editor
             _iconPreview.SetBounds(408, 8, 46, 46);
             _iconPreview.Cursor = Cursors.Hand;
             _iconPreview.Click += (s, e) => EditIcon();
@@ -134,7 +156,11 @@ namespace ClipX2.UI
             tryButton.Click += (s, e) => TryOnText();
             _tips.SetToolTip(tryButton, "Run the button as it is now on ClipX's text (Ctrl+Z undoes it). Tasks that ask use the last-used options.");
             _message.AutoSize = false;
-            _message.SetBounds(160, 8, ClientSize.Width - 160 - 220, 38);
+            _undoButton.Location = new Point(160, 10);
+            _redoButton.Location = new Point(240, 10);
+            _tips.SetToolTip(_undoButton, "Undo the last change to this PowerButton (Ctrl+Z): a task added, removed or moved, a task's options, the name or the icon");
+            _tips.SetToolTip(_redoButton, "Redo what was undone (Ctrl+Y)");
+            _message.SetBounds(330, 8, ClientSize.Width - 330 - 220, 38);
             _message.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
             _message.ForeColor = Color.Firebrick;
             _message.TextAlign = ContentAlignment.MiddleLeft;
@@ -144,14 +170,28 @@ namespace ClipX2.UI
             cancel.Click += (s, e) => _cancelClicked = true;
             AcceptButton = null; // Enter belongs to the controls (the palette adds a tool)
             CancelButton = null; // Esc closes as the close icon does: it asks if there are changes
-            bottom.Controls.AddRange(new Control[] { tryButton, _message, ok, cancel });
+            bottom.Controls.AddRange(new Control[] { tryButton, _undoButton, _redoButton, _message, ok, cancel });
 
             // Left: the tools
             var left = new Panel { Dock = DockStyle.Left, Width = 300, Padding = new Padding(10, 0, 6, 6) };
-            var paletteLabel = new Label { Text = "Tools: drag one onto the timeline, or double-click it", Dock = DockStyle.Top, Height = 40, ForeColor = SystemColors.GrayText };
+            // Above the list: at the left, one arrow that expands all the groups or collapses them all,
+            // in turn; beside it, what to do with the tools
+            var paletteHeader = new Panel { Dock = DockStyle.Top, Height = 40, Padding = new Padding(34, 0, 0, 0) };
+            _paletteToggle.SetBounds(0, 7, 28, 26);
+            _paletteToggle.FlatStyle = FlatStyle.Flat;
+            _paletteToggle.FlatAppearance.BorderSize = 0;
+            _paletteToggle.FlatAppearance.MouseOverBackColor = SystemColors.ControlLight;
+            _paletteToggle.Click += (s, e) => ToggleAllGroups();
+            var paletteLabel = new Label
+            {
+                Text = "Tools: drag one onto the timeline, or double-click it", Dock = DockStyle.Fill,
+                ForeColor = SystemColors.GrayText, TextAlign = ContentAlignment.MiddleLeft,
+            };
+            paletteHeader.Controls.Add(paletteLabel);
+            paletteHeader.Controls.Add(_paletteToggle);
             _palette.Dock = DockStyle.Fill;
             left.Controls.Add(_palette);
-            left.Controls.Add(paletteLabel);
+            left.Controls.Add(paletteHeader);
 
             // Right: the timeline, then the selected task's options
             var right = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6, 0, 10, 6) };
@@ -218,9 +258,14 @@ namespace ClipX2.UI
             // The text tools first (what most buttons are made of), then styles, the PowerButton extras, ClipX's own
             int Rank(string g) => g == "Styles" ? 1 : g == "PowerButton Extras" ? 2 : g == "ClipX" ? 3 : 0;
             var groups = tools.Select(t => t.Group).Distinct().OrderBy(Rank).ToList(); // a stable sort: the catalogue's order within each
+            List<string> collapsed = AppSettings.Current.PaletteCollapsedGroups;
             foreach (string group in groups)
             {
-                var g = new ListViewGroup(group, group);
+                // Each group folds away with a click on its heading (Windows' own arrow); as left last time
+                var g = new ListViewGroup(group, group)
+                {
+                    CollapsedState = collapsed.Contains(group) ? ListViewGroupCollapsedState.Collapsed : ListViewGroupCollapsedState.Expanded,
+                };
                 _palette.Groups.Add(g);
                 foreach (ToolInfo t in tools.Where(x => x.Group == group))
                 {
@@ -228,6 +273,9 @@ namespace ClipX2.UI
                     _palette.Items.Add(new ListViewItem(t.Name.Replace("&&", "&"), t.Tag, g) { Tag = t.Tag, ToolTipText = t.Description });
                 }
             }
+            _palette.GroupCollapsedStateChanged += (s, e) => SavePaletteLayout();
+            FormClosing += (s, e) => SavePaletteLayout(); // however the editor closes (the list still there)
+            ShowPaletteToggle();
             _palette.ItemDrag += (s, e) =>
             {
                 if (e.Item is ListViewItem item) _palette.DoDragDrop(new DataObject(DataFormats.StringFormat, (string)item.Tag), DragDropEffects.Copy);
@@ -240,12 +288,108 @@ namespace ClipX2.UI
             };
         }
 
+        /// <summary>
+        /// The groups folded away, kept in the settings so the list opens as it was left. Saved when
+        /// a group is folded or opened, and again when the editor closes.
+        /// </summary>
+        private void SavePaletteLayout()
+        {
+            AppSettings s = AppSettings.Current;
+            s.PaletteCollapsedGroups.Clear();
+            for (int i = 0; i < _palette.Groups.Count; i++)
+                if (IsGroupCollapsed(i)) s.PaletteCollapsedGroups.Add(_palette.Groups[i].Header);
+            s.Save();
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct LVGROUP
+        {
+            public uint cbSize, mask;
+            public IntPtr pszHeader; public int cchHeader;
+            public IntPtr pszFooter; public int cchFooter;
+            public int iGroupId;
+            public uint stateMask, state, uAlign;
+            public IntPtr pszSubtitle; public uint cchSubtitle;
+            public IntPtr pszTask; public uint cchTask;
+            public IntPtr pszDescriptionTop; public uint cchDescriptionTop;
+            public IntPtr pszDescriptionBottom; public uint cchDescriptionBottom;
+            public int iTitleImage, iExtendedImage, iFirstItem;
+            public uint cItems;
+            public IntPtr pszSubsetTitle; public uint cchSubsetTitle;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref LVGROUP lParam);
+
+        /// <summary>
+        /// Whether a group is folded, asked of the list itself: a click on a heading folds it in
+        /// Windows, which WinForms' own CollapsedState may not hear of.
+        /// </summary>
+        private bool IsGroupCollapsed(int index)
+        {
+            if (!_palette.IsHandleCreated) return _palette.Groups[index].CollapsedState == ListViewGroupCollapsedState.Collapsed;
+            const int LVM_GETGROUPINFOBYINDEX = 0x1000 + 153;
+            const uint LVGF_STATE = 0x4, LVGS_COLLAPSED = 0x1;
+            var g = new LVGROUP { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<LVGROUP>(), mask = LVGF_STATE, stateMask = LVGS_COLLAPSED };
+            SendMessage(_palette.Handle, LVM_GETGROUPINFOBYINDEX, (IntPtr)index, ref g);
+            return (g.state & LVGS_COLLAPSED) != 0;
+        }
+
+        /// <summary>
+        /// The arrow above the list: expands all the groups or collapses them all, in turn, whatever
+        /// state each group is in. What it does next is kept in the settings too.
+        /// </summary>
+        private void ToggleAllGroups()
+        {
+            AppSettings s = AppSettings.Current;
+            var state = s.PaletteToggleExpands ? ListViewGroupCollapsedState.Expanded : ListViewGroupCollapsedState.Collapsed;
+            _palette.BeginUpdate();
+            var other = state == ListViewGroupCollapsedState.Expanded ? ListViewGroupCollapsedState.Collapsed : ListViewGroupCollapsedState.Expanded;
+            foreach (ListViewGroup g in _palette.Groups)
+            {
+                // Both ways: a group folded or opened by a click on its heading is changed in Windows,
+                // not in WinForms' CollapsedState, which would then skip it as "already" so
+                g.CollapsedState = other;
+                g.CollapsedState = state;
+            }
+            _palette.EndUpdate();
+            s.PaletteToggleExpands = !s.PaletteToggleExpands;
+            SavePaletteLayout(); // saves the toggle too
+            ShowPaletteToggle();
+        }
+
+        /// <summary>The arrow as what a click will do: chevrons down, expand all; up, collapse all.</summary>
+        private void ShowPaletteToggle()
+        {
+            bool expands = AppSettings.Current.PaletteToggleExpands;
+            _paletteToggle.Image?.Dispose();
+            _paletteToggle.Image = ChevronsImage(down: expands);
+            _paletteToggle.AccessibleName = expands ? "Expand all groups" : "Collapse all groups";
+            _tips.SetToolTip(_paletteToggle, expands ? "Expand all the groups" : "Collapse all the groups");
+        }
+
+        /// <summary>Two chevrons, 18 pixels, pointing down (expand) or up (collapse).</summary>
+        private static Bitmap ChevronsImage(bool down)
+        {
+            var b = new Bitmap(18, 18, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using Graphics g = Graphics.FromImage(b);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var pen = new Pen(Color.FromArgb(60, 60, 60), 1.7f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round };
+            foreach (float y in new[] { 4.5f, 10.5f })
+            {
+                float tip = down ? y + 3.5f : y, wing = down ? y : y + 3.5f;
+                g.DrawLines(pen, new[] { new PointF(4, wing), new PointF(9, tip), new PointF(14, wing) });
+            }
+            return b;
+        }
+
         /// <summary>The tools a PowerButton can use (not the ones about ClipX itself, or that only show something).</summary>
         private bool InPalette(ToolInfo t) => t.Tag switch
         {
             "clipxOPT" or "clipxQSR" or "clipxREF" or "clipxRPT" => false,
             "chSTAT" or "chGRA" or "ccCYC" => false,
             "pbPBT" => _all.Any(b => b.Id != _button.Id),
+            "edSRC" => false, // one Find and Replace (its "When the PowerButton runs" includes Find the next one); edSRC tasks from ClipX 1 still run
             _ => true,
         };
 
@@ -284,6 +428,7 @@ namespace ClipX2.UI
             _button.Icon = editor.Result;
             _dirty = true;
             ShowIconPreview();
+            Commit();
         }
 
         private void DeleteButton()
@@ -359,6 +504,7 @@ namespace ClipX2.UI
         private void ShowTask(PowerTask t)
         {
             SaveOptions();
+            Commit(); // the options of the task left: one step
             _current = t;
             _readOptions = null;
             foreach (Control c in _optionsHost.Controls.Cast<Control>().ToList()) { _optionsHost.Controls.Remove(c); c.Dispose(); }
@@ -425,7 +571,13 @@ namespace ClipX2.UI
                     };
                 }
                 else if (t.Tag == "foUNI" || t.Tag == "foIND")
-                    _readOptions = () => { var o = (IndentOptions)panel.EditedOptions; o.Unindent = t.Tag == "foUNI"; return o; };
+                {
+                    PowerTaskTypes.FromOldUnindent(t);
+                    var choice = IndentChoiceControls(PowerTaskTypes.IsUnindent(t), out Func<bool> unindent);
+                    choice.Location = new Point(panel.Right + 16, 8);
+                    _optionsHost.Controls.Add(choice);
+                    _readOptions = () => { var o = (IndentOptions)panel.EditedOptions; o.Unindent = unindent(); return o; };
+                }
                 else _readOptions = () => panel.EditedOptions;
                 return;
             }
@@ -437,6 +589,7 @@ namespace ClipX2.UI
                 case "pbINS":
                     label.Text = "Text to insert at the cursor (or in place of the selection):";
                     var text = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, AcceptsReturn = true, Bounds = new Rectangle(0, 32, 420, 120), Text = t.Options as string ?? "" };
+                    TextBoxKeys.Attach(text);
                     _optionsHost.Controls.Add(text);
                     _readOptions = () => text.Text;
                     break;
@@ -518,19 +671,20 @@ namespace ClipX2.UI
         private Control FindActionControls(PowerTask t, out Func<FindAction> action, out Func<bool> backwards)
         {
             var o = t.Options as FindReplaceTask ?? new FindReplaceTask { Action = t.Tag == "edSRC" ? FindAction.FindNext : FindAction.ReplaceAll };
-            var box = new GroupBox { Text = "When the PowerButton runs", Size = new Size(290, 190) };
+            var box = new GroupBox { Text = "When the PowerButton runs", Size = new Size(290, 162) };
+            // Find all isn't offered: in a PowerButton it would only highlight and count (an old task set to it shows Find the next one)
+            FindAction chosen = o.Action == FindAction.FindAll ? FindAction.FindNext : o.Action;
             var choices = new (FindAction Action, string Text)[]
             {
-                (FindAction.ReplaceAll, "Replace &all"),
-                (FindAction.ReplaceNext, "Replace the &next one"),
                 (FindAction.FindNext, "&Find the next one (select it)"),
-                (FindAction.FindAll, "Find all (&highlight them)"),
+                (FindAction.ReplaceNext, "Replace the &next one"),
+                (FindAction.ReplaceAll, "Replace &all"),
             };
             var radios = new List<(RadioButton Radio, FindAction Action)>();
             int y = 26;
             foreach (var (a, text) in choices)
             {
-                var r = new RadioButton { Text = text, AutoSize = true, Location = new Point(12, y), Checked = o.Action == a };
+                var r = new RadioButton { Text = text, AutoSize = true, Location = new Point(12, y), Checked = chosen == a };
                 box.Controls.Add(r);
                 radios.Add((r, a));
                 y += 28;
@@ -542,7 +696,7 @@ namespace ClipX2.UI
             Enable();
             var note = new Label
             {
-                Text = "From start: from the top of the text (else from the cursor). In selection: Replace all and Find all keep to the selection.",
+                Text = "From start: from the top of the text (else from the cursor). In selection: Replace all keeps to the selection.",
                 Location = new Point(0, box.Bottom + 8), Size = new Size(290, 64), ForeColor = SystemColors.GrayText,
             };
             var holder = new Panel { Size = new Size(292, box.Height + 80) };
@@ -553,6 +707,27 @@ namespace ClipX2.UI
             return holder;
         }
 
+        /// <summary>
+        /// Indent and Unindent: which of the two the task does. Its own choice whichever options it
+        /// uses (own, last used or asked), so never greyed out (<see cref="AlwaysEnabled"/>).
+        /// </summary>
+        private Control IndentChoiceControls(bool unindentChosen, out Func<bool> unindent)
+        {
+            var box = new GroupBox { Text = "When the PowerButton runs", Size = new Size(240, 92), Tag = AlwaysEnabled };
+            var indentRadio = new RadioButton { Text = "&Indent (add one level)", AutoSize = true, Location = new Point(12, 26), Checked = !unindentChosen };
+            var unindentRadio = new RadioButton { Text = "&Unindent (take one level off)", AutoSize = true, Location = new Point(12, 54), Checked = unindentChosen };
+            _tips.SetToolTip(indentRadio, "The task indents the lines one level");
+            _tips.SetToolTip(unindentRadio, "The task takes one level of indent off the lines that start with it");
+            box.Controls.Add(indentRadio);
+            box.Controls.Add(unindentRadio);
+            unindentRadio.CheckedChanged += (s, e) => { if (!_loading) SaveOptions(); };
+            unindent = () => unindentRadio.Checked;
+            return box;
+        }
+
+        /// <summary>A Tag on option controls that stay enabled when the task uses the last-used options or asks.</summary>
+        private static readonly object AlwaysEnabled = new object();
+
         private void UseChanged()
         {
             if (_loading || _current == null) return;
@@ -560,13 +735,14 @@ namespace ClipX2.UI
             _dirty = true;
             EnableOptions();
             _timeline.RefreshCards();
+            Commit();
         }
 
         /// <summary>The options can be changed only when the task uses its own.</summary>
         private void EnableOptions()
         {
             bool own = _current != null && _current.Use == TaskOptions.Own;
-            foreach (Control c in _optionsHost.Controls) c.Enabled = own;
+            foreach (Control c in _optionsHost.Controls) c.Enabled = own || c.Tag == AlwaysEnabled;
         }
 
         /// <summary>Keeps what the options controls show in the task they belong to.</summary>
@@ -602,6 +778,102 @@ namespace ClipX2.UI
                 SaveOptions();
                 return _dirty || _name.Text.Trim() != _originalName;
             }
+        }
+
+        /************ Undo, Redo ************/
+
+        /// <summary>The button as it is now (the name as typed, the options as shown).</summary>
+        private Snapshot Snap()
+        {
+            var b = new PowerButton { Id = _button.Id, Name = _name.Text, Icon = _button.Icon, Tasks = _button.Tasks };
+            return new Snapshot(PowerButtonStore.Serialize(new[] { b }), _name.Text, _timeline.SelectedIndex);
+        }
+
+        /// <summary>
+        /// Keeps the button as it is now as an undo step, if it differs from the last one kept:
+        /// after a task is added, removed or moved, the icon changed, the name left, or a task's
+        /// options left (the task shown changes, or the focus leaves the options).
+        /// </summary>
+        private void Commit()
+        {
+            if (_restoring || _loading || _last == null) return;
+            SaveOptions();
+            Snapshot now = Snap();
+            if (now.Json == _last.Json) { _last = now; return; } // the selection only
+            _undo.Push(_last);
+            _redo.Clear();
+            _last = now;
+            UpdateUndoButtons();
+        }
+
+        /// <summary>Before tasks are added, removed or moved: keep any changes to the options first (their own step).</summary>
+        private void KeepBeforeChange()
+        {
+            Commit();
+            if (_last != null) _last = _last with { Selected = _timeline.SelectedIndex }; // Undo selects the task that changed
+        }
+
+        private void Undo()
+        {
+            Commit(); // anything not yet kept is the step undone
+            if (_undo.Count == 0) return;
+            _redo.Push(_last with { Selected = _timeline.SelectedIndex });
+            _last = _undo.Pop();
+            Restore(_last);
+        }
+
+        private void Redo()
+        {
+            Commit();
+            if (_redo.Count == 0) return;
+            _undo.Push(_last with { Selected = _timeline.SelectedIndex });
+            _last = _redo.Pop();
+            Restore(_last);
+        }
+
+        private void Restore(Snapshot s)
+        {
+            PowerButton b = PowerButtonStore.Deserialize(s.Json)[0];
+            _restoring = true;
+            try
+            {
+                _current = null; // the controls showing are for a task about to go: don't save them
+                _readOptions = null;
+                _name.Text = b.Name;
+                _button.Icon = b.Icon;
+                _button.Tasks.Clear();
+                _button.Tasks.AddRange(b.Tasks);
+                _timeline.Tasks = _button.Tasks; // shows the first task
+                _timeline.SelectedIndex = s.Selected;
+                ShowIconPreview();
+            }
+            finally { _restoring = false; }
+            _dirty = true;
+            _message.Text = "";
+            UpdateUndoButtons();
+        }
+
+        /// <summary>Undo is there when a change is kept, or is being made (the name, or the options showing).</summary>
+        private void UpdateUndoButtons()
+        {
+            if (_last == null) return;
+            bool pending = _name.Text != _last.Name || (_readOptions != null && _current != null && OptionsJson() != _shownOptions);
+            _undoButton.Enabled = _undo.Count > 0 || pending;
+            _redoButton.Enabled = _redo.Count > 0;
+        }
+
+        /// <summary>The focus is in something with its own Ctrl+Z: a text box or an editable list.</summary>
+        private bool TypingInBox()
+        {
+            Control c = ActiveControl;
+            while (c is ContainerControl cc && cc.ActiveControl != null) c = cc.ActiveControl;
+            return c is TextBoxBase || c is ComboBox { DropDownStyle: ComboBoxStyle.DropDown } || c is ComboBox { DropDownStyle: ComboBoxStyle.Simple };
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _undoTimer.Dispose();
+            base.Dispose(disposing);
         }
 
         /************ Try, OK ************/
@@ -652,6 +924,12 @@ namespace ClipX2.UI
             {
                 Close();
                 return true;
+            }
+            // Ctrl+Z / Ctrl+Y: the editor's undo, except while typing in a box (its own undo)
+            if (!TypingInBox())
+            {
+                if (keyData == (Keys.Control | Keys.Z)) { Undo(); return true; }
+                if (keyData == (Keys.Control | Keys.Y) || keyData == (Keys.Control | Keys.Shift | Keys.Z)) { Redo(); return true; }
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }

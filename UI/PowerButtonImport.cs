@@ -21,9 +21,6 @@ namespace ClipX2.UI
     /// </summary>
     public static class PowerButtonImport
     {
-        /// <summary>ClipX 1's button background (the colour of its round button picture).</summary>
-        public static readonly int ClipX1Green = unchecked((int)0xFF016331);
-
         private const string RegistryPath = @"Software\VB and VBA Program Settings\ClipX\PowerButtons";
 
         /// <summary>A key: its values and subkeys (the registry and the .pref file have the same shape).</summary>
@@ -136,7 +133,7 @@ namespace ClipX2.UI
             string text = key.Value("Text");
             string font = key.Value("FontName");
             float scale = ButtonIcon.Size / 32f;
-            var icon = new ButtonIcon { Png = IconPainter.SolidPng(ClipX1Green) };
+            var icon = new ButtonIcon { Png = IconPainter.SolidPng(IconPainter.DefaultBackground) }; // navy (ClipX 1's were green)
             if (text.Length == 0) return icon;
             if (font.Length == 0) font = "Arial";
             float points = (float)Number(key.Value("FontSize"), 16);
@@ -197,11 +194,19 @@ namespace ClipX2.UI
             string tag = action.Value("Token").Trim();
             var p = Details(action.Value("Details"));
             int dlg = (int)Number(action.Value("DlgOption"), 1);
+            bool unindent = tag == "foUNI"; // ClipX 1's Unindent: Indent and Unindent, set to Unindent
+            if (unindent) tag = "foIND";
             var task = new PowerTask(tag, dlg == 0 ? TaskOptions.Ask : dlg == 2 ? TaskOptions.LastUsed : TaskOptions.Own);
+            if (unindent) task.Tag = "foUNI"; // until its options are read
             if (!PowerTaskTypes.HasOptions(tag)) { task.Use = TaskOptions.Own; return task; }
             if (task.Use == TaskOptions.Own) task.Options = OptionsFrom(tag, p, bySlot);
             if (task.Options == null && task.Use == TaskOptions.Own) task.Use = TaskOptions.LastUsed; // nothing kept: as a right-click
             if (PowerTaskTypes.MustBeOwn(tag)) task.Use = TaskOptions.Own;
+            // ClipX 2 has one Find and Replace: a Search with its own options becomes Find and Replace
+            // set to "Find the next one" (the same thing). Ask and Last-used keep edSRC, which still
+            // runs as before (its last-used options are the search's; asking waits for a Find).
+            if (tag == "edSRC" && task.Use == TaskOptions.Own && task.Options is FindReplaceTask) task.Tag = "edREP";
+            PowerTaskTypes.FromOldUnindent(task); // Unindent: Indent and Unindent, set to Unindent
             return task;
         }
 

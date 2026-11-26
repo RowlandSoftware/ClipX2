@@ -164,6 +164,23 @@ namespace ClipX2.UI
         public static T CopyOf<T>(T o) => o == null ? default : (T)JsonSerializer.Deserialize(JsonSerializer.Serialize(o, o.GetType()), o.GetType());
 
         public static object CopyOf(object o, Type type) => o == null ? null : JsonSerializer.Deserialize(JsonSerializer.Serialize(o, type), type);
+
+        /// <summary>
+        /// ClipX 1's separate Unindent (foUNI) is now Indent and Unindent set to Unindent: a task
+        /// with the old tag becomes one (its options, or the defaults, with Unindent on). Not the
+        /// last-used ones: this runs while the settings themselves are being read.
+        /// </summary>
+        public static void FromOldUnindent(PowerTask task)
+        {
+            if (task == null || task.Tag != "foUNI") return;
+            task.Tag = "foIND";
+            var o = task.Options as IndentOptions ?? new IndentOptions();
+            o.Unindent = true;
+            task.Options = o;
+        }
+
+        /// <summary>Indent and Unindent: which of the two the task does (set in the PowerButton editor, whatever its options).</summary>
+        public static bool IsUnindent(PowerTask task) => task.Tag == "foUNI" || task.Options is IndentOptions { Unindent: true };
     }
 
     /// <summary>
@@ -179,6 +196,8 @@ namespace ClipX2.UI
             JsonElement root = doc.RootElement;
             var task = new PowerTask();
             if (root.TryGetProperty("Tag", out JsonElement tag)) task.Tag = tag.GetString() ?? "";
+            bool oldUnindent = task.Tag == "foUNI";
+            if (oldUnindent) task.Tag = "foIND"; // read its options as Indent's, then set to Unindent
             if (root.TryGetProperty("Use", out JsonElement use))
                 task.Use = use.ValueKind == JsonValueKind.Number ? (TaskOptions)use.GetInt32()
                     : Enum.TryParse(use.GetString(), out TaskOptions u) ? u : TaskOptions.Own;
@@ -188,6 +207,7 @@ namespace ClipX2.UI
                 try { task.Options = o.Deserialize(type, options); }
                 catch (Exception ex) when (ex is JsonException || ex is NotSupportedException || ex is FormatException) { task.Options = null; } // a changed type: the defaults
             }
+            if (oldUnindent) { task.Tag = "foUNI"; PowerTaskTypes.FromOldUnindent(task); }
             return task;
         }
 

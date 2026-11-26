@@ -84,20 +84,38 @@ namespace ClipX2.UI
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            LayoutTiles();
+            if (!_laying) LayoutTiles(); // during a layout, the layout itself starts again
         }
 
+        private bool _laying;
+
+        /// <summary>
+        /// Places the tiles, centred. Placing a tile below the bottom brings in the scroll bar,
+        /// which narrows the client area part-way through: the tiles placed after it would be
+        /// centred on the old width (half a scroll bar too far right). So if the width changed,
+        /// it starts again with the new one (at most once more each way).
+        /// </summary>
         private void LayoutTiles()
         {
-            int columns = _columns;
-            int used = columns * Pitch - (Pitch - Cell);
-            int left = Math.Max(Grip, (ClientSize.Width - used) / 2);
-            var all = new List<Tile>(_tiles) { _newTile };
-            for (int i = 0; i < all.Count; i++)
+            _laying = true;
+            try
             {
-                Point p = new Point(left + (i % columns) * Pitch, TopMargin + (i / columns) * Pitch);
-                all[i].Bounds = new Rectangle(p.X + AutoScrollPosition.X, p.Y + AutoScrollPosition.Y, Cell, Cell);
+                for (int pass = 0; pass < 3; pass++)
+                {
+                    int width = ClientSize.Width;
+                    int columns = _columns;
+                    int used = columns * Pitch - (Pitch - Cell);
+                    int left = Math.Max(Grip, (width - used) / 2);
+                    var all = new List<Tile>(_tiles) { _newTile };
+                    for (int i = 0; i < all.Count; i++)
+                    {
+                        Point p = new Point(left + (i % columns) * Pitch, TopMargin + (i / columns) * Pitch);
+                        all[i].Bounds = new Rectangle(p.X + AutoScrollPosition.X, p.Y + AutoScrollPosition.Y, Cell, Cell);
+                    }
+                    if (ClientSize.Width == width) break;
+                }
             }
+            finally { _laying = false; }
             Invalidate();
         }
 

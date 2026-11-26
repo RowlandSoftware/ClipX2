@@ -53,7 +53,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
-            Load(AppSettings.Current.NumLines);
+            ShowOptions(AppSettings.Current.NumLines);
             numericStart.Focus();
         }
 
@@ -67,12 +67,12 @@ namespace ClipX2.UI.Panels
         internal override void EditOptions(object options)
         {
             EnterEditMode(buttonApply);
-            Load(options as LineNumberOptions ?? new LineNumberOptions());
+            ShowOptions(options as LineNumberOptions ?? new LineNumberOptions());
         }
 
         internal override object EditedOptions => Options();
 
-        private void Load(LineNumberOptions o)
+        private void ShowOptions(LineNumberOptions o)
         {
             _loading = true;
             numericStart.Value = Clamp(numericStart, o.Start);

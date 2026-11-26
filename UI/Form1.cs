@@ -21,9 +21,6 @@ namespace ClipX2
         {
             InitializeComponent();
             _isRtfMode = false;
-            // when load settings (example)
-            //richTextBox1.PreciseSelection = userSettings.PreciseSelection;
-            //richTextBox1.AutoWordSelectionEnabled = userSettings.AutoWordSelection;
             richTextBox1.IsRtfModeGetter = () => _isRtfMode;
             richTextBox1.TextSettled += (s, e) => UpdateWordCount();
             richTextBox1.SelectionSettled += (s, e) => ShowWordCount();
@@ -54,6 +51,7 @@ namespace ClipX2
             InitFind();   // "What do you want to do?"
             InitAppButtons();
             InitPowerButtons(); // the column on the right (Form1.PowerButtons.cs)
+            InitUndo();         // Undo and Redo, across plain / rich switches too (Form1.Undo.cs)
         }
 
         /// <summary>
@@ -243,6 +241,7 @@ namespace ClipX2
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (PowerButtonKey(keyData)) return true; // Alt+1…9 run PowerButtons, Shift+Alt+1…9 change them
+            if (UndoKey(keyData)) return true;        // Ctrl+Z, Ctrl+Y: the text's Undo and Redo, unless another text field has the focus
             switch (keyData)
             {
                 case Keys.Alt | Keys.D:                   // Done (as ClipX 1)
@@ -548,6 +547,9 @@ namespace ClipX2
             dialog.Applied += (s, e) =>
             {
                 ApplyDisplaySettings();
+                // After an import the settings (and their PowerButtons) are new: show them now
+                _powerBar.SetButtons(PowerButtons);
+                SetPowerButtonColumns(AppSettings.Current.PowerButtonColumns, save: false);
                 // The spelling options (or, after an import, the language) may have changed
                 _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language));
             };
@@ -564,6 +566,7 @@ namespace ClipX2
         {
             DisplaySettings d = AppSettings.Current.Display;
             if (richTextBox1.WordWrap != d.WordWrap) richTextBox1.WordWrap = d.WordWrap;
+            richTextBox1.WholeWordSelection = AppSettings.Current.WholeWordMouseSelection;
             if (!_isRtfMode || richTextBox1.TextLength == 0)
             {
                 // Plain text: the plain-text font; an empty rich text (a blank start): the default rich-text font
@@ -573,12 +576,31 @@ namespace ClipX2
             }
         }
 
-        private void ApplyCase(CaseMode mode)
+        /// <summary>
+        /// A case button: the selection. With nothing selected, as in a word processor: Upper, Lower,
+        /// Reverse and Initial Caps as their keys (the character right of the cursor, the cursor
+        /// moving past it, so repeated presses go along the text); Title, Sentence and Sentence caps,
+        /// which need whole words and sentences, the paragraph with the cursor. A PowerButton's
+        /// task with nothing selected: the whole text (as ClipX 1).
+        /// </summary>
+        private void ApplyCase(CaseMode mode, bool wholeTextIfNone = false)
         {
             int selStart = richTextBox1.SelectionStart;
             int selLen = richTextBox1.SelectionLength;
 
-            if (selLen == 0)
+            if (selLen == 0 && !wholeTextIfNone)
+            {
+                if (mode == CaseMode.Upper || mode == CaseMode.Lower || mode == CaseMode.Reverse || mode == CaseMode.InitCaps)
+                {
+                    richTextBox1.CaseAtCaret(mode);
+                    return;
+                }
+                string text = richTextBox1.Text;
+                var line = ClipX2.TextEngine.ListFormatter.LinesIn(text, selStart, selStart)[0];
+                if (line.Length == 0) { ShowStatus("Put the cursor in a paragraph, or select some text (Ctrl+A: all of it)"); return; }
+                richTextBox1.Select(line.Start, line.Length);
+            }
+            else if (selLen == 0)
                 richTextBox1.SelectAll();
 
             richTextBox1.ApplyCase(mode);
@@ -588,7 +610,9 @@ namespace ClipX2
 
         private void toolStripLabelRtfMode_Click(object sender, EventArgs e)
         {
+            var before = BeforeSwitch(); // for Undo: the text box can't undo a switch itself
             if (!SwitchMode()) return; // lists, indents converted both ways (Form1.Conversion.cs)
+            SwitchDone(before);
             toolStripLabelRtfMode.Text = _isRtfMode ? toolStripLabelRtfMode.Text = "Rich text" : "Plain text";
             ApplyDisplaySettings();
             _panels.Current?.OnModeChanged(); // an open panel shows what applies in the new mode

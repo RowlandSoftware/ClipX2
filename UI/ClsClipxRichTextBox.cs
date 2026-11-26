@@ -179,6 +179,7 @@ public class ClipXRichTextBox : RichTextBox
     public void SetMarkers(IEnumerable<(int Start, int Length)> marks)
     {
         _marks.Clear();
+        _currentMark = -1;
         foreach (var m in marks)
             if (m.Start >= 0 && m.Length > 0) _marks.Add(m);
         Invalidate();
@@ -186,8 +187,54 @@ public class ClipXRichTextBox : RichTextBox
 
     public void ClearMarker()
     {
+        _currentMark = -1;
         if (_marks.Count == 0) return;
         _marks.Clear();
+        Invalidate();
+    }
+
+    private int _currentMark = -1;
+
+    /// <summary>
+    /// The marker shown as the current one (Find All's list: the match clicked), in a stronger
+    /// colour with an outline; -1 for none. Not a selection: the cursor stays where it was.
+    /// </summary>
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int CurrentMark
+    {
+        get => _currentMark;
+        set
+        {
+            int v = value >= 0 && value < _marks.Count ? value : -1;
+            if (v == _currentMark) return;
+            _currentMark = v;
+            Invalidate();
+        }
+    }
+
+    /// <summary>The current marker's colour and outline.</summary>
+    private static readonly Color CurrentMarkColor = Color.FromArgb(150, 255, 140, 0), CurrentMarkOutline = Color.FromArgb(200, 90, 0);
+
+    private const int EM_GETFIRSTVISIBLELINE = 0x00CE, EM_LINESCROLL = 0x00B6;
+
+    [DllImport("user32.dll", EntryPoint = "SendMessage")]
+    private static extern IntPtr SendMessageInt(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// Scrolls so the character at <paramref name="position"/> is in view, about a third of the
+    /// way down if it has to move, without moving the cursor or the selection.
+    /// </summary>
+    public void ScrollToShow(int position)
+    {
+        if (!IsHandleCreated) return;
+        position = Math.Max(0, Math.Min(position, TextLength));
+        int line = GetLineFromCharIndex(position);
+        int first = (int)SendMessageInt(Handle, EM_GETFIRSTVISIBLELINE, IntPtr.Zero, IntPtr.Zero);
+        int last = GetLineFromCharIndex(GetCharIndexFromPosition(new Point(1, ClientSize.Height - 1)));
+        if (line > first && line < last) { Invalidate(); return; } // already in view (not at the very edge)
+        int visible = Math.Max(1, last - first);
+        int scrollBy = line - first - visible / 3;
+        SendMessageInt(Handle, EM_LINESCROLL, IntPtr.Zero, (IntPtr)scrollBy);
         Invalidate();
     }
 
@@ -254,21 +301,27 @@ public class ClipXRichTextBox : RichTextBox
 
     private void PaintMarker(IntPtr updateRgn)
     {
-        List<Rectangle> rects = MarkerRectangles();
+        List<(Rectangle Box, bool Current)> rects = MarkerRectangles();
         if (rects.Count == 0) return;
         using (Graphics g = CreateGraphics())
         using (Region clip = Region.FromHrgn(updateRgn))
         using (var brush = new SolidBrush(MarkerColor))
+        using (var current = new SolidBrush(CurrentMarkColor))
+        using (var outline = new Pen(CurrentMarkOutline))
         {
             g.Clip = clip;
-            foreach (Rectangle r in rects) g.FillRectangle(brush, r);
+            foreach (var (r, isCurrent) in rects)
+            {
+                g.FillRectangle(isCurrent ? current : brush, r);
+                if (isCurrent) g.DrawRectangle(outline, r.X - 1, r.Y, r.Width + 1, r.Height - 1);
+            }
         }
     }
 
-    /// <summary>The marker's boxes in client coordinates, one per line it is on (usually one).</summary>
-    private List<Rectangle> MarkerRectangles()
+    /// <summary>The markers' boxes in client coordinates, one per line each is on (usually one); which are the current marker's.</summary>
+    private List<(Rectangle Box, bool Current)> MarkerRectangles()
     {
-        var rects = new List<Rectangle>();
+        var rects = new List<(Rectangle Box, bool Current)>();
         ITextDocument doc = null;
         try { doc = RichEditTom.GetDocument(this); } catch (Exception) { /* TOM not available */ }
         if (doc == null) return rects;
@@ -281,8 +334,10 @@ public class ClipXRichTextBox : RichTextBox
             int lastLine = GetLineFromCharIndex(GetCharIndexFromPosition(new Point(ClientSize.Width - 1, ClientSize.Height - 1)));
             int afterVisible = GetFirstCharIndexFromLine(lastLine + 1);
             if (afterVisible < 0) afterVisible = length;
-            foreach (var mark in _marks)
+            for (int mi = 0; mi < _marks.Count; mi++)
             {
+                var mark = _marks[mi];
+                bool isCurrent = mi == _currentMark;
                 int end = Math.Min(Math.Min(mark.Start + mark.Length, length), afterVisible);
                 for (int k = Math.Max(mark.Start, firstVisible); k < end; k++)
                 {
@@ -297,10 +352,10 @@ public class ClipXRichTextBox : RichTextBox
                         var r = Rectangle.FromLTRB(a.X, a.Y, b.X, b.Y);
                         if (r.Width > ClientSize.Width / 2 || !ClientRectangle.IntersectsWith(r)) continue; // not plausible / not visible
                         int last = rects.Count - 1;
-                        if (last >= 0 && rects[last].Top == r.Top && rects[last].Bottom == r.Bottom && Math.Abs(rects[last].Right - r.Left) <= 1)
-                            rects[last] = Rectangle.Union(rects[last], r); // same line: one box
+                        if (last >= 0 && rects[last].Current == isCurrent && rects[last].Box.Top == r.Top && rects[last].Box.Bottom == r.Bottom && Math.Abs(rects[last].Box.Right - r.Left) <= 1)
+                            rects[last] = (Rectangle.Union(rects[last].Box, r), isCurrent); // same line: one box
                         else
-                            rects.Add(r);
+                            rects.Add((r, isCurrent));
                     }
                     catch (COMException) { /* off screen */ }
                     finally { Marshal.ReleaseComObject(ch); }
@@ -342,64 +397,39 @@ public class ClipXRichTextBox : RichTextBox
         base.Dispose(disposing);
     }
 
-    private bool _mouseDown;
-    private int _mouseDownCharIndex;
     [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Func<bool> IsRtfModeGetter { get; set; } // delegate to query Form1
 
-    /// <summary>
-    /// If true, use normal RichTextBox word-selection behaviour.
-    /// If false, dragging selects characters exactly (ClipX1 style).
-    /// </summary>
-    [DefaultValue(true)]
-    public bool PreciseSelection { get; set; } = true;
+    private bool _wholeWordSelection;
 
     /// <summary>
-    /// Mirrors the built-in AutoWordSelection, but only applies
-    /// when PreciseSelection is false.
+    /// When selecting with the mouse, extend the selection to whole words (RichEdit's own
+    /// ECO_AUTOWORDSELECTION). Off (the default): dragging selects exactly the characters passed
+    /// over. RichEdit does the dragging itself either way, so the selection survives the pointer
+    /// leaving the control (it scrolls) and can reach the very end of the text. Set directly with
+    /// EM_SETOPTIONS, and again whenever the handle is made: WinForms' AutoWordSelection doesn't
+    /// reliably turn the option off (RichEdit starts with it on).
     /// </summary>
     [DefaultValue(false)]
-    public bool AutoWordSelectionEnabled
+    public bool WholeWordSelection
     {
-        get => this.AutoWordSelection;
-        set => this.AutoWordSelection = value;
+        get => _wholeWordSelection;
+        set { _wholeWordSelection = value; if (IsHandleCreated) ApplyWordSelection(); }
     }
 
-    protected override void OnMouseDown(MouseEventArgs e)
-    {
-        base.OnMouseDown(e);
+    private const int EM_SETOPTIONS = 0x0400 + 77, ECOOP_OR = 2, ECOOP_AND = 3, ECO_AUTOWORDSELECTION = 0x00000001;
 
-        if (PreciseSelection)
-        {
-            _mouseDown = true;
-            _mouseDownCharIndex = this.GetCharIndexFromPosition(e.Location);
-        }
-    }
+    private void ApplyWordSelection() => SendMessage(Handle, EM_SETOPTIONS,
+        (IntPtr)(_wholeWordSelection ? ECOOP_OR : ECOOP_AND),
+        (IntPtr)(_wholeWordSelection ? ECO_AUTOWORDSELECTION : ~ECO_AUTOWORDSELECTION));
 
-    protected override void OnMouseMove(MouseEventArgs e)
-    {
-        base.OnMouseMove(e);
-
-        if (PreciseSelection && _mouseDown)
-        {
-            int current = this.GetCharIndexFromPosition(e.Location);
-
-            // Force character-accurate selection
-            this.Select(
-                Math.Min(_mouseDownCharIndex, current),
-                Math.Abs(current - _mouseDownCharIndex)
-            );
-        }
-    }
-
-    protected override void OnMouseUp(MouseEventArgs e)
-    {
-        base.OnMouseUp(e);
-        _mouseDown = false;
-    }
     protected override void OnKeyDown(KeyEventArgs e)
     {
         bool isRtfMode = IsRtfModeGetter?.Invoke() ?? false;
+
+        // Plain text: Enter in a typed list item carries the list on (a live list does it itself)
+        if (e.KeyCode == Keys.Enter && e.Modifiers == Keys.None && !isRtfMode && !ReadOnly && ContinueTypedList())
+            goto Handle;
 
         /**** Ctrl+ keypresses ***/
         if (e.Control)
@@ -452,6 +482,57 @@ public class ClipXRichTextBox : RichTextBox
         e.SuppressKeyPress = true;
         e.Handled = true;
         return;
+    }
+
+    /// <summary>
+    /// Plain text, Enter with nothing selected, the cursor after a typed bullet or number: the
+    /// next line starts with the same indentation and marker (numbers carry on: 3. after 2., b)
+    /// after a), 1.3. after 1.2.), as a word processor's list does. Enter on an item with nothing
+    /// typed after its marker ends the list: the marker goes. Shift+Enter is a plain new line.
+    /// False (Enter as usual) anywhere else. One Undo step.
+    /// </summary>
+    private bool ContinueTypedList()
+    {
+        if (SelectionLength > 0) return false;
+        string text = Text;
+        int caret = SelectionStart;
+        var line = ListFormatter.LinesIn(text, caret, caret)[0];
+        int indent = ListFormatter.IndentLength(text, line);
+        int at = line.Start + indent;
+        int bullet = ListFormatter.BulletLength(text, at, line.End);
+        int number = bullet > 0 ? 0 : ListFormatter.NumberLength(text, at, line.End);
+        int marker = bullet + number;
+        if (marker == 0 || caret < at + marker) return false;
+
+        using (BeginUndoGroup())
+        {
+            if (text.Substring(at + marker, line.End - at - marker).Trim().Length == 0)
+            {
+                // An empty item: the list ends here (the marker and indentation go)
+                Select(line.Start, line.Length);
+                SelectedText = "";
+                return true;
+            }
+            string prefix = text.Substring(line.Start, indent + marker);
+            SelectedText = "\n" + prefix;
+            int newCaret = SelectionStart;
+            if (number > 0)
+            {
+                // The new item numbered on, the rest of the list after it too
+                var options = ClipX2.UI.AppSettings.Current.NumList;
+                string now = Text;
+                var newLine = ListFormatter.LinesIn(now, newCaret, newCaret)[0];
+                List<TextEdit> edits = ListFormatter.RenumberEdits(now, newLine.Start, newLine.End, options);
+                if (edits.Count > 0)
+                {
+                    ApplyEdits(edits);
+                    newCaret += edits.Where(e => e.Start < newCaret).Sum(e => e.Replacement.Length - e.Length);
+                }
+            }
+            Select(newCaret, 0);
+            ScrollToCaret();
+        }
+        return true;
     }
 
     /// <summary>
@@ -1184,6 +1265,40 @@ public class ClipXRichTextBox : RichTextBox
         return result == int.MinValue ? 0 : result;
     }
 
+    /// <summary>
+    /// The heading level (0 ordinary, 1–9) of each line from <paramref name="from"/> to
+    /// <paramref name="to"/>, by the line's start; empty if the document can't be read (plain
+    /// text: every line ordinary).
+    /// </summary>
+    public Dictionary<int, int> HeadingLevels(int from, int to)
+    {
+        var result = new Dictionary<int, int>();
+        ITextDocument doc = null;
+        try { doc = RichEditTom.GetDocument(this); } catch (Exception) { }
+        if (doc == null) return result;
+        try
+        {
+            foreach (var line in ListFormatter.LinesIn(Text, from, to))
+            {
+                ITextRange range = doc.Range(line.Start, line.Start);
+                object pf = range.Para;
+                try
+                {
+                    int style = ((dynamic)pf).Style;
+                    result[line.Start] = style <= -2 && style >= -10 ? -1 - style : 0;
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(pf);
+                    Marshal.ReleaseComObject(range);
+                }
+            }
+        }
+        catch (Exception) { result.Clear(); }
+        finally { Marshal.ReleaseComObject(doc); }
+        return result;
+    }
+
     /// <summary>The caret's paragraph alignment: 0 left, 1 centre, 2 right, 3 justify.</summary>
     public int ParagraphAlignment()
     {
@@ -1224,10 +1339,20 @@ public class ClipXRichTextBox : RichTextBox
     // RichEdit shows justified paragraphs as left-aligned unless advanced typography is on
     private const int EM_SETTYPOGRAPHYOPTIONS = 0x0400 + 202, TO_ADVANCEDTYPOGRAPHY = 1;
 
+    /// <summary>
+    /// Undo steps the editor keeps (its default is 100). Each is the change only (typing merged
+    /// into words, a tool's edits as one), not a copy of the text, so many cost little.
+    /// </summary>
+    public const int UndoLimit = 2000;
+
+    private const int EM_SETUNDOLIMIT = 0x0400 + 82;
+
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        SendMessage(Handle, EM_SETUNDOLIMIT, (IntPtr)UndoLimit, IntPtr.Zero);
         SendMessage(Handle, EM_SETTYPOGRAPHYOPTIONS, (IntPtr)TO_ADVANCEDTYPOGRAPHY, (IntPtr)TO_ADVANCEDTYPOGRAPHY);
+        ApplyWordSelection();
     }
 
     /// <summary>0xRRGGBB to the editor's COLORREF (0x00BBGGRR).</summary>
@@ -1467,8 +1592,8 @@ public class ClipXRichTextBox : RichTextBox
 
         if (!forcePlain && isRtfMode)
         {
-            // Normal paste (RTF allowed)
-            Paste();
+            // Normal paste (RTF allowed); deeper bullets put back, as one Undo step (the editor's RTF reader drops ◦ and ▪)
+            RichEditWriter.BulletsByLevel(this, Paste);
             return;
         }
 
@@ -1496,6 +1621,9 @@ public class ClipXRichTextBox : RichTextBox
     /// changes the character to the right of the caret and moves the caret past it, so holding
     /// the key down works along the text. (Toolstrip buttons act on the whole text instead.)
     /// </summary>
+    /// <summary>A case button with nothing selected: as its key (the character right of the caret, the caret past it).</summary>
+    public void CaseAtCaret(CaseMode mode) => KeyCase(mode);
+
     private void KeyCase(CaseMode mode)
     {
         if (this.SelectionLength > 0)

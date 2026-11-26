@@ -36,9 +36,24 @@ namespace ClipX2
                     if (item.Tag is string tag && tag.Length > 0 && !(item is ToolStripControlHost) && !(item is ToolStripSplitButton)) // lists (font, size) and colour buttons have their own events
                         item.MouseUp += (s, e) =>
                         {
+                            ClipX2.UI.Panels.SidePanelView panelBefore = _panels.Current;
                             if (e.Button == MouseButtons.Left) RunTool(tag, ToolTrigger.Click);
                             else if (e.Button == MouseButtons.Right) RunTool(tag, ToolTrigger.RightClick);
+                            else return;
+                            BackToText(panelBefore);
                         };
+        }
+
+        /// <summary>
+        /// After a tool button: the focus back in the text, so typing carries on (a click on a tab
+        /// leaves it on the tabs). Not if the tool opened a side panel (its options, Find), which
+        /// has the focus it wants.
+        /// </summary>
+        private void BackToText(ClipX2.UI.Panels.SidePanelView panelBefore)
+        {
+            if (IsDisposed || !richTextBox1.CanFocus) return;
+            if (_panels.Current != null && _panels.Current != panelBefore) return; // a panel just opened
+            richTextBox1.Focus();
         }
 
         /// <summary>
@@ -83,13 +98,13 @@ namespace ClipX2
             switch (tag)
             {
                 // Change case
-                case "ccUPP": ApplyCase(CaseMode.Upper); break;
-                case "ccLOW": ApplyCase(CaseMode.Lower); break;
-                case "ccREV": ApplyCase(CaseMode.Reverse); break;
-                case "ccINC": ApplyCase(CaseMode.InitCaps); break;
-                case "ccTIT": ApplyCase(CaseMode.Title); break;
-                case "ccSEN": ApplyCase(CaseMode.Sentence); break;
-                case "ccCAP": ApplyCase(CaseMode.SentenceCaps); break;
+                case "ccUPP": ApplyCase(CaseMode.Upper, how == ToolTrigger.PowerButton); break;
+                case "ccLOW": ApplyCase(CaseMode.Lower, how == ToolTrigger.PowerButton); break;
+                case "ccREV": ApplyCase(CaseMode.Reverse, how == ToolTrigger.PowerButton); break;
+                case "ccINC": ApplyCase(CaseMode.InitCaps, how == ToolTrigger.PowerButton); break;
+                case "ccTIT": ApplyCase(CaseMode.Title, how == ToolTrigger.PowerButton); break;
+                case "ccSEN": ApplyCase(CaseMode.Sentence, how == ToolTrigger.PowerButton); break;
+                case "ccCAP": ApplyCase(CaseMode.SentenceCaps, how == ToolTrigger.PowerButton); break;
                 case "ccCYC":
                     if (box.SelectionLength > 0) box.CycleCase();
                     else ShowStatus("Select some text to cycle its case");
@@ -133,20 +148,40 @@ namespace ClipX2
                     break;
 
                 // Lists
+                // Bullets, Numbers and their removal: with nothing selected, the paragraph with the
+                // cursor (an empty one starts a list there), as in a word processor; a PowerButton's
+                // task, the whole text (as ClipX 1)
                 case "liBUL":
                     if (showOptions) ShowPanel<ClipX2.UI.Panels.BulletListPanel>(p => p.Attach(box, () => _isRtfMode, ShowStatus));
-                    else ShowStatus(ListTools.Bullets(box, _isRtfMode, Use(s.BulletList)));
+                    else
+                    {
+                        BulletOptions bo = Use(s.BulletList);
+                        ShowStatus(how == ToolTrigger.PowerButton ? ListTools.Bullets(box, _isRtfMode, bo)
+                            : ListTools.Here(box, () => ListTools.Bullets(box, _isRtfMode, bo), line => ListTools.StartBullets(box, _isRtfMode, bo, line)));
+                    }
                     break;
                 case "liNUM":
                     if (showOptions) ShowPanel<ClipX2.UI.Panels.NumberListPanel>(p => p.Attach(box, () => _isRtfMode, ShowStatus));
-                    else ShowStatus(ListTools.Numbers(box, _isRtfMode, Use(s.NumList)));
+                    else
+                    {
+                        NumberOptions no = Use(s.NumList);
+                        ShowStatus(how == ToolTrigger.PowerButton ? ListTools.Numbers(box, _isRtfMode, no)
+                            : ListTools.Here(box, () => ListTools.Numbers(box, _isRtfMode, no), line => ListTools.StartNumbers(box, _isRtfMode, no, line),
+                                line => ListTools.ContinueNumbering(box, _isRtfMode, no, line)));
+                    }
                     break;
                 case "liREN":
                     if (showOptions) ShowPanel<ClipX2.UI.Panels.LineNumbersPanel>(p => p.Attach(box, () => _isRtfMode, ShowStatus));
                     else ShowStatus(FormatTools.LineNumbers(box, Use(s.NumLines)));
                     break;
-                case "liRMB": ShowStatus(ListTools.RemoveBullets(box, _isRtfMode, s.BulletList)); break;
-                case "liREM": ShowStatus(ListTools.RemoveNumbers(box, _isRtfMode, s.NumList)); break;
+                case "liRMB":
+                    ShowStatus(how == ToolTrigger.PowerButton ? ListTools.RemoveBullets(box, _isRtfMode, s.BulletList)
+                        : ListTools.Here(box, () => ListTools.RemoveBullets(box, _isRtfMode, s.BulletList)));
+                    break;
+                case "liREM":
+                    ShowStatus(how == ToolTrigger.PowerButton ? ListTools.RemoveNumbers(box, _isRtfMode, s.NumList)
+                        : ListTools.Here(box, () => ListTools.RemoveNumbers(box, _isRtfMode, s.NumList)));
+                    break;
                 case "liRLN": ShowStatus(FormatTools.RemoveLineNumbers(box)); break;
 
                 // Sorting

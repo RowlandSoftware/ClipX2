@@ -58,6 +58,11 @@ namespace ClipX2
                 if (!_showingStyles && headings.SelectedIndex >= 0) RunTool("stHDG", ToolTrigger.Click, headings.SelectedIndex);
                 richTextBox1.Focus();
             };
+            // Choosing the level already shown applies it too (a list only reports a change): while
+            // the list is open nothing is selected, so any choice is one; closed without a choice,
+            // it shows the paragraph's level again
+            headings.DropDown += (s, e) => { _showingStyles = true; headings.SelectedIndex = -1; _showingStyles = false; };
+            headings.DropDownClosed += (s, e) => { if (headings.SelectedIndex < 0) BeginInvoke((Action)ShowStyles); };
 
             // They show the formatting where the caret is: after any move, and on coming back to the text
             richTextBox1.SelectionSettled += (s, e) => ShowStyles();
@@ -381,9 +386,16 @@ namespace ClipX2
                     bool increase = tag == "stIIN";
                     if (_isRtfMode)
                     {
-                        // List items go down / up a level (bullet and number style follow); other paragraphs move
-                        var (moved, anyItems) = ListTools.ChangeListLevel(box, increase ? 1 : -1, AppSettings.Current.BulletList);
-                        bool indented = box.ChangeParagraphIndent(increase ? IndentStepPoints : -IndentStepPoints, skipListItems: true);
+                        // List items go down / up a level (bullet and number style follow); other paragraphs
+                        // move; typed numbers follow. All one Undo step
+                        int moved; bool anyItems, indented;
+                        using (box.BeginUndoGroup())
+                        {
+                            ListTools.TypedIndentToParagraph(box, AppSettings.Current.NumList); // a typed number's typed indent: a paragraph indent, which moves
+                            (moved, anyItems) = ListTools.ChangeListLevel(box, increase ? 1 : -1, AppSettings.Current.BulletList);
+                            indented = box.ChangeParagraphIndent(increase ? IndentStepPoints : -IndentStepPoints, skipListItems: true);
+                            if (indented) ListTools.RenumberTyped(box, AppSettings.Current.NumList); // typed Legal numbers (1.1.) follow the new levels
+                        }
                         ShowStatus(moved > 0 ? (increase ? "List level down" : "List level up")
                             : indented ? (increase ? "Indent increased" : "Indent reduced")
                             : anyItems ? (increase ? "Already the deepest level" : "Already the top level")

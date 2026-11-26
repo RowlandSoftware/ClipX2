@@ -298,9 +298,11 @@ namespace ClipX2.TextEngine
         /// Paragraph (foPAR), un-wordwrap: joins each line to the one before with a space, making
         /// paragraphs again. A line stays on its own if the one before is blank, or it is blank,
         /// indented, or starts with a bullet or a number (a list). Trailing spaces go; blank lines
-        /// in a row become one.
+        /// in a row become one. In rich text, <paramref name="headingLevel"/> gives each line's
+        /// heading level (0 none) by its start: a line is joined only to one of the same level, so
+        /// a heading stays apart from the text under it (and from a heading of another level).
         /// </summary>
-        public static List<TextEdit> Paragraph(string text, int from, int to)
+        public static List<TextEdit> Paragraph(string text, int from, int to, Func<int, int> headingLevel = null)
         {
             List<Line> lines = ListFormatter.LinesIn(text, from, to);
             var edits = BlankLineEdits(text, lines, single: false, multiple: true, trimEnd: false);
@@ -309,7 +311,8 @@ namespace ClipX2.TextEngine
                 Line line = lines[i];
                 if (IsBlank(text, line)) continue; // emptied above if need be
                 int end = TrimmedEnd(text, line);
-                bool join = i + 1 < lines.Count && !IsBlank(text, lines[i + 1]) && !StartsOwnLine(text, lines[i + 1]);
+                bool join = i + 1 < lines.Count && !IsBlank(text, lines[i + 1]) && !StartsOwnLine(text, lines[i + 1])
+                    && (headingLevel == null || headingLevel(line.Start) == headingLevel(lines[i + 1].Start));
                 if (join)
                     edits.Add(new TextEdit(end, lines[i + 1].Start - end, " "));
                 else if (end < line.End)

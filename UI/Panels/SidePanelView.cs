@@ -80,6 +80,9 @@ namespace ClipX2.UI.Panels
         internal static readonly Color GoColour = Color.FromArgb(255, 160, 40);
 
         private Button _go;
+
+        /// <summary>A PowerButton is waiting on this view (an "Ask" task): its Apply works as the PowerButton's tasks do.</summary>
+        internal bool WaitedOnByPowerButton => _go != null;
         private string _goText;
         private Color _goBack;
         private bool _goVisualStyle;

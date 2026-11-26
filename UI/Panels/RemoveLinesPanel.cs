@@ -38,7 +38,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
-            Load(AppSettings.Current.RemLines);
+            ShowOptions(AppSettings.Current.RemLines);
             checkBoxMultiple.Focus();
         }
 
@@ -47,12 +47,12 @@ namespace ClipX2.UI.Panels
         internal override void EditOptions(object options)
         {
             EnterEditMode(buttonApply);
-            Load(options as RemoveLinesOptions ?? new RemoveLinesOptions());
+            ShowOptions(options as RemoveLinesOptions ?? new RemoveLinesOptions());
         }
 
         internal override object EditedOptions => Options();
 
-        private void Load(RemoveLinesOptions o)
+        private void ShowOptions(RemoveLinesOptions o)
         {
             _loading = true;
             checkBoxMultiple.Checked = o.Multiple;

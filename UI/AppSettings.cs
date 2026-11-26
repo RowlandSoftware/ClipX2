@@ -33,6 +33,12 @@ namespace ClipX2.UI
         /// </summary>
         public bool HideFormattingLossWarning { get; set; }
 
+        /// <summary>
+        /// Selecting with the mouse extends to whole words (Options, General). Off by default:
+        /// the selection is exactly the characters dragged over.
+        /// </summary>
+        public bool WholeWordMouseSelection { get; set; }
+
         /// <summary>Quick search's recent searches, latest first (kept short).</summary>
         public System.Collections.Generic.List<string> QuickSearchHistory { get; set; } = new System.Collections.Generic.List<string>();
 
@@ -73,6 +79,12 @@ namespace ClipX2.UI
 
         /// <summary>Fonts the user has typed or chosen in the icon editor, offered after its own list.</summary>
         public System.Collections.Generic.List<string> IconEditorFonts { get; set; } = new System.Collections.Generic.List<string>();
+
+        /// <summary>The PowerButton editor's tool list: the groups folded away (by heading); none at first, so all open.</summary>
+        public System.Collections.Generic.List<string> PaletteCollapsedGroups { get; set; } = new System.Collections.Generic.List<string>();
+
+        /// <summary>What the tool list's expand/collapse-all arrow does next: true, expand all; false (at first), collapse all.</summary>
+        public bool PaletteToggleExpands { get; set; }
 
         /// <summary>How many columns of PowerButtons the panel on the right shows (widened by dragging its left edge).</summary>
         public int PowerButtonColumns { get; set; } = 1;
@@ -134,6 +146,7 @@ namespace ClipX2.UI
                 }
                 s.PowerButtonColumns = Math.Max(1, Math.Min(6, s.PowerButtonColumns));
                 s.IconEditorFonts ??= new System.Collections.Generic.List<string>();
+                s.PaletteCollapsedGroups ??= new System.Collections.Generic.List<string>();
                 s.Display.ProportionalFont ??= FontSpec.DefaultProportional;
                 s.Display.FixedFont ??= FontSpec.DefaultFixed;
                 s.Display.RichTextFont ??= FontSpec.DefaultRichText;

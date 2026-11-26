@@ -33,8 +33,11 @@ namespace ClipX2.TextEngine.Import
             // The paragraphs as lines of one text (no-break spaces as spaces, for recognition only)
             string[] texts = paragraphs.Select(p => p.ListKind == ListKind.None ? string.Concat(p.Runs.Select(r => r.Text)) : "").ToArray();
             string joined = string.Join("\n", texts).Replace(' ', ' ');
-            List<Line> lines = ListFormatter.LinesIn(joined, 0, joined.Length);
-            if (lines.Count != count) return; // a paragraph with a line break in it: leave the document as it is
+            if (texts.Any(t => t.IndexOf('\n') >= 0 || t.IndexOf('\r') >= 0)) return; // a paragraph with a line break in it: leave the document as it is
+            // One line a paragraph, an empty last one included (LinesIn would drop it, as the end of
+            // a selection, and the text ending with a line break would then leave every list typed)
+            var lines = new List<Line>(count);
+            for (int i = 0, at = 0; i < count; at += texts[i].Length + 1, i++) lines.Add(new Line(at, at + texts[i].Length));
 
             bool Blank(int i) => paragraphs[i].ListKind == ListKind.None && joined.Substring(lines[i].Start, lines[i].Length).Trim().Length == 0;
             int Indent(int i) => ListFormatter.IndentLength(joined, lines[i]);

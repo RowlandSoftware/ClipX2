@@ -28,6 +28,8 @@ namespace ClipX2.UI
         public event EventHandler SelectionChanged;
         /// <summary>Tasks added, removed or moved.</summary>
         public event EventHandler TasksChanged;
+        /// <summary>Tasks are about to be added, removed or moved (the editor keeps an undo step first).</summary>
+        public event EventHandler TasksChanging;
         /// <summary>A tool dropped in: make its task (the timeline inserts it).</summary>
         public Func<string, PowerTask> MakeTask;
 
@@ -71,6 +73,7 @@ namespace ClipX2.UI
         public void RemoveSelected()
         {
             if (_selected < 0) return;
+            TasksChanging?.Invoke(this, EventArgs.Empty);
             _tasks.RemoveAt(_selected);
             int next = Math.Min(_selected, _tasks.Count - 1);
             _selected = -2; // force the change event
@@ -259,6 +262,7 @@ namespace ClipX2.UI
         {
             int to = _selected + by;
             if (_selected < 0 || to < 0 || to >= _tasks.Count) return;
+            TasksChanging?.Invoke(this, EventArgs.Empty);
             PowerTask t = _tasks[_selected];
             _tasks.RemoveAt(_selected);
             _tasks.Insert(to, t);
@@ -302,6 +306,8 @@ namespace ClipX2.UI
                 int from = _tasks.IndexOf(moved);
                 if (from < 0) return;
                 if (to > from) to--;
+                if (to == from) { Invalidate(); return; } // dropped where it was
+                TasksChanging?.Invoke(this, EventArgs.Empty);
                 _tasks.RemoveAt(from);
                 _tasks.Insert(to, moved);
             }
@@ -309,6 +315,7 @@ namespace ClipX2.UI
             {
                 PowerTask t = MakeTask(tag);
                 if (t == null) return;
+                TasksChanging?.Invoke(this, EventArgs.Empty);
                 _tasks.Insert(to, t);
             }
             else return;
@@ -322,6 +329,7 @@ namespace ClipX2.UI
         /// <summary>Adds a task at the end (double-click or Enter in the palette).</summary>
         public void Append(PowerTask t)
         {
+            TasksChanging?.Invoke(this, EventArgs.Empty);
             _tasks.Add(t);
             UpdateScroll();
             _selected = -2;

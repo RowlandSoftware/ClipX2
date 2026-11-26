@@ -84,8 +84,7 @@ namespace ClipX2.TextEngine.Tools
             ["stALJ"] = new[] { "justify", "justified", "both edges", "straight edges", "alignment", "flush" },
             ["stCOL"] = new[] { "colour", "color", "text colour", "font color", "red", "blue", "coloured text" },
             ["stHIL"] = new[] { "highlight", "highlighter", "marker", "background colour", "background color", "yellow" },
-            ["stIIN"] = new[] { "indent", "increase indent", "move right", "tab", "list level down", "demote" },
-            ["stDIN"] = new[] { "outdent", "unindent", "decrease indent", "move left", "shift tab", "list level up", "promote" },
+            ["stIIN"] = new[] { "indent", "increase indent", "move right", "tab", "list level down", "demote", "outdent", "unindent", "decrease indent", "move left", "shift tab", "list level up", "promote" },
 
             // ClipX itself
             ["clipxREF"] = new[] { "start again", "reload", "refresh", "clipboard again", "undo everything", "reset", "paste again", "start over" },

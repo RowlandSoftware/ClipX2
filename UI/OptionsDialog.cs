@@ -43,7 +43,13 @@ namespace ClipX2.UI
         public OptionsDialog(OptionsPage page = OptionsPage.Display)
         {
             InitializeComponent();
-            tabControl.SelectedIndex = (int)page;
+            tabControl.SelectedTab = page switch
+            {
+                OptionsPage.General => tabGeneral,
+                OptionsPage.Spelling => tabSpelling,
+                OptionsPage.Grammar => tabGrammar,
+                _ => tabDisplay,
+            };
 
             buttonOK.Click += (s, e) => { if (Apply()) { DialogResult = DialogResult.OK; Close(); } };
             buttonApply.Click += (s, e) => Apply();
@@ -58,6 +64,7 @@ namespace ClipX2.UI
             linkSettingsFolder.Text = AppSettings.Folder;
             linkSettingsFolder.LinkClicked += (s, e) => OpenFolder(AppSettings.Folder);
             buttonExport.Click += (s, e) => ExportSettings();
+            buttonExportPowerButtons.Click += (s, e) => ExportPowerButtons();
             buttonImport.Click += (s, e) => ImportSettings();
 
             // Spelling
@@ -105,6 +112,7 @@ namespace ClipX2.UI
             radioProportional.Checked = !d.UseFixedFont;
             checkBoxWordWrap.Checked = d.WordWrap;
             checkBoxHideFormattingWarning.Checked = AppSettings.Current.HideFormattingLossWarning;
+            checkBoxWholeWords.Checked = AppSettings.Current.WholeWordMouseSelection;
 
             SpellingSettings sp = all.Spelling;
             checkBoxIgnoreUppercase.Checked = sp.IgnoreUppercase;
@@ -160,6 +168,7 @@ namespace ClipX2.UI
             d.UseFixedFont = radioFixed.Checked;
             d.WordWrap = checkBoxWordWrap.Checked;
             all.HideFormattingLossWarning = checkBoxHideFormattingWarning.Checked;
+            all.WholeWordMouseSelection = checkBoxWholeWords.Checked;
 
             SpellingSettings sp = all.Spelling;
             sp.IgnoreUppercase = checkBoxIgnoreUppercase.Checked;
@@ -227,7 +236,7 @@ namespace ClipX2.UI
         {
             saveFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if (saveFileDialog.ShowDialog(this) != DialogResult.OK) return;
-            // The file type chosen says which: JSON, or XML in ClipX 1's .pref format
+            // The file type chosen says which: JSON, or XML (.pref)
             bool asPref = saveFileDialog.FilterIndex == 2;
             string path = saveFileDialog.FileName;
             string wanted = asPref ? ".pref" : ".json";
@@ -245,12 +254,47 @@ namespace ClipX2.UI
             }
         }
 
+        /// <summary>Just the PowerButtons, as XML (.pref): to keep, share or take to another computer.</summary>
+        private void ExportPowerButtons()
+        {
+            if (AppSettings.Current.PowerButtons.Count == 0)
+            {
+                MessageBox.Show(this, "You have no PowerButtons to export.", "Export PowerButtons", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using var dialog = new SaveFileDialog
+            {
+                Title = "Export PowerButtons",
+                Filter = "XML|*.pref",
+                DefaultExt = "pref",
+                FileName = "ClipX2 PowerButtons.pref",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            string path = dialog.FileName;
+            if (!string.Equals(Path.GetExtension(path), ".pref", StringComparison.OrdinalIgnoreCase))
+                path = Path.ChangeExtension(path, ".pref");
+            try
+            {
+                SettingsPref.ExportPowerButtons(AppSettings.Current, path); // the PowerButtons aren't edited here: no Apply needed
+                int n = AppSettings.Current.PowerButtons.Count;
+                MessageBox.Show(this, $"{n} PowerButton{(n == 1 ? "" : "s")} exported to\n" + path, "Export PowerButtons", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+            {
+                MessageBox.Show(this, "The PowerButtons could not be exported: " + ex.Message, "Export PowerButtons", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void ImportSettings()
         {
             openFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if (openFileDialog.ShowDialog(this) != DialogResult.OK) return;
-            if (MessageBox.Show(this, "Replace your settings with those in\n" + openFileDialog.FileName + "?",
-                    "Import settings", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            bool buttonsOnly = SettingsPref.IsPowerButtonsFile(openFileDialog.FileName);
+            string question = buttonsOnly
+                ? "Replace your PowerButtons with those in\n" + openFileDialog.FileName + "?\n\nYour other settings stay as they are. (To add them to yours instead, right-click beside the PowerButtons.)"
+                : "Replace your settings with those in\n" + openFileDialog.FileName + "?";
+            if (MessageBox.Show(this, question, "Import settings", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 return;
             bool fromClipX1;
             try
@@ -269,6 +313,12 @@ namespace ClipX2.UI
                 ? "\n\nThe LanguageTool API key in it can't be read on this account: enter it again on the Grammar page." : "";
             string clipX1Note = fromClipX1
                 ? "\n\nFrom ClipX 1: its tool settings, find options, fonts and PowerButtons; your other settings are as they were." : "";
+            if (buttonsOnly)
+            {
+                int n = AppSettings.Current.PowerButtons.Count;
+                MessageBox.Show(this, $"{n} PowerButton{(n == 1 ? "" : "s")} imported.", "Import settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
             MessageBox.Show(this, "Settings imported." + clipX1Note + keyNote, "Import settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

@@ -99,6 +99,12 @@ namespace ClipX2
         private void PowerButtonMenu(Point at)
         {
             var menu = new ContextMenuStrip();
+            if (_deleted.Count > 0)
+            {
+                DeletedButton last = _deleted.Peek();
+                menu.Items.Add($"Undo delete “{last.Button.Name}”", null, (s, e) => UndoDelete());
+                menu.Items.Add(new ToolStripSeparator());
+            }
             menu.Items.Add("New PowerButton…", null, (s, e) => EditPowerButton(null));
             menu.Items.Add(new ToolStripSeparator());
             var fromRegistry = new ToolStripMenuItem("Import ClipX 1's PowerButtons from this computer", null, (s, e) => ImportClipX1(fromFile: false))
@@ -106,7 +112,7 @@ namespace ClipX2
                 Enabled = PowerButtonImport.RegistryHasButtons(),
             };
             menu.Items.Add(fromRegistry);
-            menu.Items.Add("Import ClipX 1's PowerButtons from a preferences file…", null, (s, e) => ImportClipX1(fromFile: true));
+            menu.Items.Add("Import PowerButtons from a preferences file (ClipX 1 or 2)…", null, (s, e) => ImportClipX1(fromFile: true));
             menu.Items.Add(new ToolStripSeparator());
             int columns = AppSettings.Current.PowerButtonColumns;
             menu.Items.Add("More columns", null, (s, e) => SetPowerButtonColumns(columns + 1, save: true)).Enabled = columns < PowerButtonBar.MaxColumns;
@@ -125,17 +131,18 @@ namespace ClipX2
                 {
                     using var dialog = new OpenFileDialog
                     {
-                        Title = "ClipX 1 preferences file",
-                        Filter = "ClipX 1 preferences (*.pref;*.xml)|*.pref;*.xml|All files|*.*",
+                        Title = "Import PowerButtons",
+                        Filter = "Preferences (*.pref;*.xml)|*.pref;*.xml|All files|*.*",
                     };
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                    found = PowerButtonImport.FromPrefFile(dialog.FileName);
+                    // ClipX 1's, or ClipX 2's (a settings or PowerButtons export): added as new buttons
+                    found = WithNewIds(SettingsPref.ReadPowerButtons(dialog.FileName));
                 }
                 else found = PowerButtonImport.FromRegistry();
             }
             catch (Exception ex) when (ex is System.Xml.XmlException || ex is FormatException || ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is System.Security.SecurityException)
             {
-                MessageBox.Show(this, "ClipX 1's PowerButtons couldn't be read.\r\n\r\n" + ex.Message, "Import PowerButtons", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "The PowerButtons couldn't be read.\r\n\r\n" + ex.Message, "Import PowerButtons", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             if (found.Count == 0)
@@ -153,6 +160,19 @@ namespace ClipX2
             ShowStatus($"{found.Count} PowerButtons added" + (missing.Count > 0 ? $" (tools not in ClipX2 yet: {string.Join(", ", missing)})" : ""));
         }
 
+        /// <summary>
+        /// Buttons being added get Ids of their own (the file may be an export of these very
+        /// buttons); a pbPBT task that runs one of them follows it to its new Id.
+        /// </summary>
+        private static List<PowerButton> WithNewIds(List<PowerButton> buttons)
+        {
+            var map = new Dictionary<Guid, Guid>();
+            foreach (PowerButton b in buttons) { Guid id = Guid.NewGuid(); map[b.Id] = id; b.Id = id; }
+            foreach (PowerTask t in buttons.SelectMany(b => b.Tasks))
+                if (t.Tag == "pbPBT" && t.Options is Guid inner && map.TryGetValue(inner, out Guid moved)) t.Options = moved;
+            return buttons;
+        }
+
         /************ The editor ************/
 
         /// <summary>Opens the editor on a PowerButton (null: a new one); saves what it returns.</summary>
@@ -168,10 +188,18 @@ namespace ClipX2
             DialogResult result = editor.ShowDialog(this);
             if (editor.DeleteRequested && !isNew)
             {
+                var deleted = new DeletedButton(b, PowerButtons.IndexOf(b));
                 PowerButtons.Remove(b);
-                // Tasks including it would do nothing now: they go too
+                // Tasks including it would do nothing now: they go too (and come back with it)
                 foreach (PowerButton other in PowerButtons)
-                    other.Tasks.RemoveAll(t => t.Tag == "pbPBT" && t.Options is Guid id && id == b.Id);
+                    for (int i = other.Tasks.Count - 1; i >= 0; i--)
+                        if (other.Tasks[i].Tag == "pbPBT" && other.Tasks[i].Options is Guid id && id == b.Id)
+                        {
+                            deleted.Includes.Insert(0, (other.Id, i, other.Tasks[i]));
+                            other.Tasks.RemoveAt(i);
+                        }
+                _deleted.Push(deleted);
+                ShowStatus($"PowerButton “{b.Name}” deleted: right-click beside the PowerButtons to undo");
             }
             else if (result == DialogResult.OK)
             {
@@ -183,12 +211,46 @@ namespace ClipX2
             _powerBar.SetButtons(PowerButtons);
         }
 
-        /// <summary>A new button: a name, and an icon with its number on ClipX 1's green.</summary>
+        /// <summary>A deleted PowerButton, for Undo delete: where it was, and the tasks in other buttons that ran it.</summary>
+        private sealed class DeletedButton
+        {
+            public DeletedButton(PowerButton button, int index) { Button = button; Index = index; }
+            public PowerButton Button { get; }
+            public int Index { get; }
+            public List<(Guid Owner, int Index, PowerTask Task)> Includes { get; } = new List<(Guid, int, PowerTask)>();
+        }
+
+        /// <summary>The PowerButtons deleted since ClipX started, the last on top (not kept between runs).</summary>
+        private readonly Stack<DeletedButton> _deleted = new Stack<DeletedButton>();
+
+        /// <summary>Puts the last deleted PowerButton back where it was, and the tasks that ran it.</summary>
+        private void UndoDelete()
+        {
+            if (_deleted.Count == 0) return;
+            if (_run != null) StopRun("stopped, to change PowerButtons");
+            DeletedButton d = _deleted.Pop();
+            if (PowerButtons.Any(x => x.Id == d.Button.Id)) // already back (e.g. imported again)
+            {
+                ShowStatus($"PowerButton “{d.Button.Name}” is already there");
+                return;
+            }
+            PowerButtons.Insert(Math.Min(d.Index, PowerButtons.Count), d.Button);
+            foreach (var (owner, index, task) in d.Includes)
+            {
+                PowerButton other = PowerButtons.FirstOrDefault(x => x.Id == owner);
+                if (other != null) other.Tasks.Insert(Math.Min(index, other.Tasks.Count), task);
+            }
+            AppSettings.Current.Save();
+            _powerBar.SetButtons(PowerButtons);
+            ShowStatus($"PowerButton “{d.Button.Name}” is back");
+        }
+
+        /// <summary>A new button: a name, and an icon with its number on ClipX 2's navy (ClipX 1's were green).</summary>
         private static PowerButton NewPowerButton()
         {
             int n = PowerButtons.Count + 1;
             var b = new PowerButton { Name = "PowerButton " + n };
-            b.Icon.Png = IconPainter.SolidPng(PowerButtonImport.ClipX1Green);
+            b.Icon.Png = IconPainter.SolidPng(IconPainter.DefaultBackground);
             b.Icon.Text = new IconText { Characters = n.ToString(), FontName = "Segoe UI", Size = 40, Bold = true };
             IconPainter.Centre(b.Icon.Text);
             return b;
@@ -304,6 +366,13 @@ namespace ClipX2
                 {
                     object options = task.Use == TaskOptions.Own && task.Options != null
                         ? PowerTaskTypes.CopyOf(task.Options, task.Options.GetType()) : null;
+                    if (task.Tag == "foIND" && options == null)
+                    {
+                        // Last used: the last settings, but the task's own choice of Indent or Unindent
+                        var indent = PowerTaskTypes.CopyOf(AppSettings.Current.Indent) ?? new IndentOptions();
+                        indent.Unindent = PowerTaskTypes.IsUnindent(task);
+                        options = indent;
+                    }
                     RunTool(task.Tag, ToolTrigger.PowerButton, options);
                 }
                 catch (Exception ex) when (ex is SearchPatternException || ex is NotSupportedException || ex is ArgumentException || ex is InvalidOperationException)
@@ -351,7 +420,7 @@ namespace ClipX2
                 ShowStatus($"“{run.Button.Name}” carries on when you close the {task.Name} panel");
             else
             {
-                view.ShowGo(task.Tag); // its Apply reads "Go", in orange
+                view.ShowGo(task.Tag == "foIND" && PowerTaskTypes.IsUnindent(task) ? "foUNI" : task.Tag); // its Apply (Indent's: the task's choice) reads "Go", in orange
                 ShowStatus($"“{run.Button.Name}” is waiting: choose the {task.Name} options, then Go");
             }
         }

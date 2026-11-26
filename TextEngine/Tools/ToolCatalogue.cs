@@ -7,7 +7,7 @@ namespace ClipX2.TextEngine.Tools
     /// <summary>What a tool needs in order to run.</summary>
     public enum ToolKind
     {
-        /// <summary>Text in, edits out: the engine runs it (<see cref="TextTools.Run"/>), with or without options.</summary>
+        /// <summary>Text in, edits out: the engine runs it (<see cref="TextTools.Run(string, string, int, int, object)"/>), with or without options.</summary>
         Text,
         /// <summary>Works with the user (spelling, search, statistics): the host program provides it.</summary>
         Interactive,
@@ -89,6 +89,7 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("ccCAP", "Capitalise sentences", Case, ToolKind.Text, null, "Initial letter of each sentence capital, remaining letters unchanged"),
             new ToolInfo("ccCYC", "Cycle case", Case, ToolKind.Interactive, null, "Step the selection through Sentence case, Initial Caps, UPPER CASE and lower case (Shift+F3)"),
 
+            new ToolInfo("edREP", "Find and Replace", Edit, ToolKind.Interactive, null, "Find text and replace it: simple, wildcard or regular expression search (Ctrl+H or Alt+F)"),
             new ToolInfo("edSTR", "Strip email characters", Edit, ToolKind.Text, null, "Removes indent character (usually >) from start of each line"),
             new ToolInfo("edPLA", "Plain characters", Edit, ToolKind.Text, null, "Replace special characters such as curly quotes with plain characters"),
             new ToolInfo("edCRL", "Curly quotes etc.", Edit, ToolKind.Text, null, "Replace plain quotes with curly ones ('66 and 99'), en- and em-dashes and three dots"),
@@ -98,15 +99,13 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("edMIM", "Decode MIME", Edit, ToolKind.Text, null, "Decode quotable printed MIME 1.0 encoded characters, e.g. =30=20"),
             new ToolInfo("edEOL", "Regularise line ends", Edit, ToolKind.Text, null, "Replace LF and CR with standard line ending"),
             new ToolInfo("edSRC", "Search", Edit, ToolKind.Interactive, null, "Search"),
-            new ToolInfo("edREP", "Find and Replace", Edit, ToolKind.Interactive, null, "Find text and replace it: simple, wildcard or regular expression search (Ctrl+H or Alt+F)"),
 
             new ToolInfo("foTRM", "Trim white space", Format, ToolKind.Text, null, "Remove white space from start and end of lines"),
             new ToolInfo("foTRA", "Trim trailing space", Format, ToolKind.Text, null, "Remove white space from end of lines only"),
             new ToolInfo("foSSP", "Single space", Format, ToolKind.Text, null, "Replace multiple spaces with single space"),
             new ToolInfo("foS2T", "Spaces to tab", Format, ToolKind.Text, null, "Convert multiple spaces to single tab character"),
             new ToolInfo("foT2S", "Tabs to spaces", Format, ToolKind.Text, null, "Replace tabs with spaces to form columns"),
-            new ToolInfo("foIND", "Indent", Format, ToolKind.Text, typeof(IndentOptions), "Indent text one level"),
-            new ToolInfo("foUNI", "Unindent", Format, ToolKind.Text, typeof(IndentOptions), "Remove one level of indenting"),
+            new ToolInfo("foIND", "Indent and Unindent", Format, ToolKind.Text, typeof(IndentOptions), "Indent/Unindent text one level"),
             new ToolInfo("foWRP", "Word wrap", Format, ToolKind.Text, typeof(WordWrapOptions), "Split paragraphs into lines with optional hanging indents and full justification"),
             new ToolInfo("foREM", "Remove extra lines", Format, ToolKind.Text, typeof(RemoveLinesOptions), "Remove blank lines; make multiple blank lines into single ones"),
             new ToolInfo("foPAR", "Paragraph", Format, ToolKind.Text, null, "Un-wordwrap: concatenate lines into single paragraphs; make multiple blank lines into single ones"),
@@ -147,7 +146,7 @@ namespace ClipX2.TextEngine.Tools
         /// <summary>The tool with this tag, or null.</summary>
         public static ToolInfo Find(string tag) => tag != null && ByTag.TryGetValue(tag, out ToolInfo t) ? t : null;
 
-        /// <summary>Whether the engine can run this tool itself (<see cref="TextTools.Run"/>).</summary>
+        /// <summary>Whether the engine can run this tool itself (<see cref="TextTools.Run(string, string, int, int, object)"/>).</summary>
         public static bool CanRun(string tag) => TextTools.Supports(tag);
     }
 }

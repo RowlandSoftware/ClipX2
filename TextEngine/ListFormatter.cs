@@ -239,16 +239,21 @@ namespace ClipX2.TextEngine
 
         /************ Numbers ************/
 
-        /// <summary>Numbers the lines (see the class notes for levels).</summary>
-        public static List<TextEdit> NumberEdits(string text, int from, int to, NumberOptions options)
+        /// <summary>
+        /// Numbers the lines (see the class notes for levels). <paramref name="paragraphLevel"/>
+        /// (rich text): levels a line has beyond its typed indentation, by the line's start (a
+        /// paragraph indent, a list level), added to it.
+        /// </summary>
+        public static List<TextEdit> NumberEdits(string text, int from, int to, NumberOptions options, Func<int, int> paragraphLevel = null)
         {
+            int LevelOf(Line l) => Level(text, l, options.Tab, options.PadChars) + (paragraphLevel?.Invoke(l.Start) ?? 0);
             var edits = new List<TextEdit>();
             var counts = new List<int> { options.StartNumber - 1 };
             int current = 0;   // Legal: the level being numbered
             int previous = 0;  // hierarchical: the last line's level
             // Levels count from the list's own shallowest line (a list that is all indented starts at the top)
             int baseLevel = LinesIn(text, from, to).Where(l => !IsBlank(text, l))
-                .Select(l => Level(text, l, options.Tab, options.PadChars)).DefaultIfEmpty(0).Min();
+                .Select(LevelOf).DefaultIfEmpty(0).Min();
             foreach (Line line in LinesIn(text, from, to))
             {
                 if (IsBlank(text, line)) continue;
@@ -257,7 +262,7 @@ namespace ClipX2.TextEngine
 
                 if (options.Style == NumberStyle.Legal)
                 {
-                    int level = Math.Max(0, Level(text, line, options.Tab, options.PadChars) - baseLevel);
+                    int level = Math.Max(0, LevelOf(line) - baseLevel);
                     while (current < level) { current++; if (counts.Count <= current) counts.Add(0); else counts[current] = 0; } // a new sub-list
                     current = level;
                     counts[current]++;
@@ -269,7 +274,7 @@ namespace ClipX2.TextEngine
                 {
                     // Hierarchical: each level numbered in the next style down (1 → a → i → I → A),
                     // a sub-list starting again at 1 under each item; the indentation is kept
-                    int level = Math.Max(0, Level(text, line, options.Tab, options.PadChars) - baseLevel);
+                    int level = Math.Max(0, LevelOf(line) - baseLevel);
                     while (counts.Count <= level) counts.Add(0);
                     if (level > previous) for (int l = previous + 1; l <= level; l++) counts[l] = 0;
                     previous = level;
@@ -304,7 +309,7 @@ namespace ClipX2.TextEngine
         /// padding read from its first top-level number, and numbered again level by level (a line
         /// indented under "2." becomes "a."). Lines that aren't in a numbered list are left alone.
         /// </summary>
-        public static List<TextEdit> RenumberEdits(string text, int from, int to, NumberOptions defaults)
+        public static List<TextEdit> RenumberEdits(string text, int from, int to, NumberOptions defaults, Func<int, int> paragraphLevel = null)
         {
             var edits = new List<TextEdit>();
             List<Line> all = LinesIn(text, 0, text.Length);
@@ -325,9 +330,13 @@ namespace ClipX2.TextEngine
                 for (int i = seed + 1; i < all.Count; i++) { if (Numbered(i)) end = i; else if (!IsBlank(text, all[i])) break; }
                 done = end;
 
-                NumberOptions o = RecogniseList(text, all, start, end, defaults);
+                NumberOptions o = RecogniseList(text, all, start, end, defaults, paragraphLevel);
                 if (o == null) continue;
-                edits.AddRange(NumberEdits(text, all[start].Start, all[end].End, o));
+                // "1. 2. 3." could be either: with Legal chosen for numbering, a line indented under
+                // "2." becomes 2.1., not a. (a legal list promoted back to one level reads as this)
+                if (defaults.Style == NumberStyle.Legal && o.Style == NumberStyle.Arabic && o.FollowChar == NumberPunctuation.Period)
+                    o.Style = NumberStyle.Legal;
+                edits.AddRange(NumberEdits(text, all[start].Start, all[end].End, o, paragraphLevel));
             }
             edits.Sort((a, b) => a.Start.CompareTo(b.Start));
             return edits;
@@ -337,13 +346,13 @@ namespace ClipX2.TextEngine
         /// A typed list's numbering, read from its first top-level number: style (1, a, A, i, I or
         /// legal 1.1.), punctuation, start, and a tab or spaces after it. Null if unreadable.
         /// </summary>
-        internal static NumberOptions RecogniseList(string text, List<Line> all, int start, int end, NumberOptions defaults)
+        internal static NumberOptions RecogniseList(string text, List<Line> all, int start, int end, NumberOptions defaults, Func<int, int> paragraphLevel = null)
         {
             int topLevel = int.MaxValue, top = -1;
             for (int i = start; i <= end; i++)
             {
                 if (IsBlank(text, all[i])) continue;
-                int level = Level(text, all[i], defaults.Tab, defaults.PadChars);
+                int level = Level(text, all[i], defaults.Tab, defaults.PadChars) + (paragraphLevel?.Invoke(all[i].Start) ?? 0);
                 if (level < topLevel) { topLevel = level; top = i; }
             }
             if (top < 0) return null;

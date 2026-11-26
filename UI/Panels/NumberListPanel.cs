@@ -49,7 +49,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
-            Load(AppSettings.Current.NumList);
+            ShowOptions(AppSettings.Current.NumList);
             comboStyle.Focus();
         }
 
@@ -63,12 +63,12 @@ namespace ClipX2.UI.Panels
         internal override void EditOptions(object options)
         {
             EnterEditMode(buttonApply);
-            Load(options as NumberOptions ?? new NumberOptions());
+            ShowOptions(options as NumberOptions ?? new NumberOptions());
         }
 
         internal override object EditedOptions => Options();
 
-        private void Load(NumberOptions o)
+        private void ShowOptions(NumberOptions o)
         {
             _loading = true;
             comboStyle.SelectedIndex = Math.Max(0, Math.Min(comboStyle.Items.Count - 1, (int)o.Style));
@@ -136,7 +136,11 @@ namespace ClipX2.UI.Panels
             NumberOptions o = Options();
             AppSettings.Current.NumList = o; // the last used: a right-click on the button applies them
             AppSettings.Current.Save();
-            _status?.Invoke(ListTools.Numbers(_box, _isRichText(), o));
+            bool rich = _isRichText();
+            // Nothing selected: the paragraph with the cursor (a PowerButton waiting here: the whole text, as its other tasks)
+            _status?.Invoke(WaitedOnByPowerButton ? ListTools.Numbers(_box, rich, o)
+                : ListTools.Here(_box, () => ListTools.Numbers(_box, rich, o), line => ListTools.StartNumbers(_box, rich, o, line),
+                    line => ListTools.ContinueNumbering(_box, rich, o, line)));
             RaiseApplied();
         }
     }

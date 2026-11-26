@@ -64,6 +64,46 @@ namespace ClipX2.UI
         }
 
         /// <summary>
+        /// After the editor has read RTF itself: bullets on deeper levels get their level's bullet
+        /// (◦, ▪ … as ClipX's own lists, demoting, and typed lists made live have them). The
+        /// editor's RTF reader drops a level's bullet character, even from RTF it wrote itself, and
+        /// shows • on every level. A bullet character it did keep is left alone.
+        /// <paramref name="read"/>: the editor reading the RTF (a paste), done first, so that and
+        /// this are one Undo step.
+        /// </summary>
+        public static void BulletsByLevel(ClipXRichTextBox box, Action read = null)
+        {
+            box.EditDocument(tom =>
+            {
+                read?.Invoke();
+                string text = box.Text;
+                if (text.Length == 0) return;
+                foreach (var line in ClipX2.TextEngine.ListFormatter.LinesIn(text, 0, text.Length))
+                {
+                    ITextRange range = tom.Range(line.Start, line.Start);
+                    object para = range.Para;
+                    try
+                    {
+                        dynamic d = para;
+                        int type = d.ListType;
+                        int level = d.ListLevelIndex;
+                        if ((type & 0xFFFF) != 1 || level <= 0) continue; // not a plain • bullet on a deeper level
+                        string bullet = ClipX2.TextEngine.ListFormatter.BulletForLevel("•", level);
+                        if (bullet == "•") continue;
+                        d.ListType = (type & ~0xFFFF) | char.ConvertToUtf32(bullet, 0);
+                        range.Para = para;
+                    }
+                    catch (Exception) { /* leave this paragraph as it is */ }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(para);
+                        Marshal.ReleaseComObject(range);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
         /// Takes all paragraph formatting (lists, indents, alignment) and character formatting off,
         /// so the editor can take plain text without any of it lingering.
         /// </summary>

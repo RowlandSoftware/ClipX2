@@ -97,6 +97,8 @@ namespace ClipX2.UI.Panels
             // 
             labelKind.AutoSize = true;
             tableLayout.SetColumnSpan(labelKind, 2);
+            labelKind.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            labelKind.ForeColor = System.Drawing.Color.Navy;
             labelKind.Location = new System.Drawing.Point(5, 39);
             labelKind.Margin = new System.Windows.Forms.Padding(3, 6, 3, 0);
             labelKind.MaximumSize = new System.Drawing.Size(233, 0);

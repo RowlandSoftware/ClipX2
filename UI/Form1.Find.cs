@@ -60,6 +60,7 @@ namespace ClipX2
 
             textBoxWhatToDo.TextChanged += (s, e) => ShowSuggestions();
             textBoxWhatToDo.KeyDown += WhatToDoKeyDown;
+            ClipX2.UI.TextBoxKeys.Attach(textBoxWhatToDo); // Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T, as in the editor
             textBoxWhatToDo.Leave += (s, e) => BeginInvoke((Action)(() =>
             {
                 if (!_suggestions.Focused && !textBoxWhatToDo.Focused) _suggestions.Visible = false;

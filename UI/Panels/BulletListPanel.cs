@@ -46,7 +46,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
-            Load(AppSettings.Current.BulletList);
+            ShowOptions(AppSettings.Current.BulletList);
             comboCharacter.Focus();
         }
 
@@ -60,12 +60,12 @@ namespace ClipX2.UI.Panels
         internal override void EditOptions(object options)
         {
             EnterEditMode(buttonApply);
-            Load(options as BulletOptions ?? new BulletOptions());
+            ShowOptions(options as BulletOptions ?? new BulletOptions());
         }
 
         internal override object EditedOptions => Options();
 
-        private void Load(BulletOptions o)
+        private void ShowOptions(BulletOptions o)
         {
             _loading = true;
             comboCharacter.Text = o.Character;
@@ -110,7 +110,10 @@ namespace ClipX2.UI.Panels
             BulletOptions o = Options();
             AppSettings.Current.BulletList = o; // the last used: a right-click on the button applies them
             AppSettings.Current.Save();
-            _status?.Invoke(ListTools.Bullets(_box, _isRichText(), o));
+            bool rich = _isRichText();
+            // Nothing selected: the paragraph with the cursor (a PowerButton waiting here: the whole text, as its other tasks)
+            _status?.Invoke(WaitedOnByPowerButton ? ListTools.Bullets(_box, rich, o)
+                : ListTools.Here(_box, () => ListTools.Bullets(_box, rich, o), line => ListTools.StartBullets(_box, rich, o, line)));
             RaiseApplied();
         }
     }

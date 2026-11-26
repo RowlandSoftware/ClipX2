@@ -102,8 +102,13 @@ namespace ClipX2.UI
         public static string RemoveExtraLines(ClipXRichTextBox box, RemoveLinesOptions o) =>
             Removed(Run(box, (t, f, e) => LineFormatter.RemoveExtraLines(t, f, e, o)));
 
+        /// <summary>Paragraph: lines rejoined; in rich text, headings (each level) stay apart from other lines.</summary>
         public static string Paragraph(ClipXRichTextBox box) =>
-            Removed(Run(box, LineFormatter.Paragraph));
+            Removed(Run(box, (t, f, e) =>
+            {
+                Dictionary<int, int> levels = box.HeadingLevels(f, e);
+                return LineFormatter.Paragraph(t, f, e, start => levels.TryGetValue(start, out int level) ? level : 0);
+            }));
 
         /// <summary>Strip email quote marks (edSTR): whole lines; "n characters removed", as ClipX 1.</summary>
         public static string StripEmail(ClipXRichTextBox box)

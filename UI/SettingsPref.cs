@@ -33,7 +33,17 @@ namespace ClipX2.UI
 
         /************ Export ************/
 
-        public static void Export(AppSettings settings, string path)
+        public static void Export(AppSettings settings, string path) => Write(settings, path, powerButtonsOnly: false);
+
+        /// <summary>
+        /// Just the PowerButtons (and the settings' Version, which marks a ClipX 2 file): Import
+        /// then replaces only the PowerButtons, and the PowerButton panel's import can add them.
+        /// </summary>
+        public static void ExportPowerButtons(AppSettings settings, string path) => Write(settings, path, powerButtonsOnly: true);
+
+        private static readonly string[] PowerButtonsOnlyEntries = { nameof(AppSettings.Version), nameof(AppSettings.PowerButtons) };
+
+        private static void Write(AppSettings settings, string path, bool powerButtonsOnly)
         {
             using JsonDocument doc = JsonDocument.Parse(JsonSerializer.Serialize(settings));
             var xmlSettings = new XmlWriterSettings
@@ -48,8 +58,9 @@ namespace ClipX2.UI
                 w.WriteStartDocument();
                 w.WriteStartElement("Preferences");
                 foreach (JsonProperty p in doc.RootElement.EnumerateObject())
-                    WriteEntry(w, p.Name, p.Value);
-                WriteClipX1Preferences(w, settings.Display);
+                    if (!powerButtonsOnly || PowerButtonsOnlyEntries.Contains(p.Name))
+                        WriteEntry(w, p.Name, p.Value);
+                if (!powerButtonsOnly) WriteClipX1Preferences(w, settings.Display);
                 w.WriteEndElement();
                 w.WriteEndDocument();
             }
@@ -136,29 +147,70 @@ namespace ClipX2.UI
         /// </summary>
         public static AppSettings Import(string path, AppSettings current, out bool fromClipX1)
         {
+            XElement root = Root(path);
+            fromClipX1 = IsClipX1(root);
+            if (!fromClipX1)
+            {
+                AppSettings read = FromClipX2(root);
+                if (!IsPowerButtonsOnly(root)) return read;
+                AppSettings s2 = Copy(current); // a PowerButtons file: only the PowerButtons change
+                s2.PowerButtons = read.PowerButtons;
+                return s2;
+            }
+
+            AppSettings s = Copy(current);
+            FromClipX1(root, s, path);
+            return s;
+        }
+
+        /// <summary>True if the file is ClipX 2's PowerButtons export (<see cref="ExportPowerButtons"/>); false for anything else, readable or not.</summary>
+        public static bool IsPowerButtonsFile(string path)
+        {
+            try { XElement root = Root(path); return !IsClipX1(root) && IsPowerButtonsOnly(root); }
+            catch (Exception ex) when (ex is FormatException || ex is IOException || ex is UnauthorizedAccessException) { return false; }
+        }
+
+        /// <summary>
+        /// The PowerButtons in a .pref file, ClipX 2's (a settings or PowerButtons export) or
+        /// ClipX 1's: for the PowerButton panel's import, which adds them to those there.
+        /// </summary>
+        public static List<PowerButton> ReadPowerButtons(string path)
+        {
+            XElement root = Root(path);
+            return IsClipX1(root) ? PowerButtonImport.FromPrefFile(path) : FromClipX2(root).PowerButtons ?? new List<PowerButton>();
+        }
+
+        private static XElement Root(string path)
+        {
             XDocument doc;
             try { doc = XDocument.Load(path); }
             catch (XmlException ex) { throw new FormatException("It isn't XML: " + ex.Message, ex); }
             XElement root = doc.Root;
             if (root == null || root.Name.LocalName != "Preferences")
                 throw new FormatException("It isn't a ClipX preference file (no <Preferences>).");
-
-            fromClipX1 = !root.Elements("Value").Any(v => (string)v.Attribute("name") == "Version");
-            if (!fromClipX1)
-            {
-                JsonNode tree = ReadKey(root);
-                try
-                {
-                    return JsonSerializer.Deserialize<AppSettings>(tree.ToJsonString(), Json)
-                        ?? throw new FormatException("The file is empty.");
-                }
-                catch (JsonException ex) { throw new FormatException("Its settings couldn't be read: " + ex.Message, ex); }
-            }
-
-            AppSettings s = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(current), Json); // a copy
-            FromClipX1(root, s, path);
-            return s;
+            return root;
         }
+
+        /// <summary>ClipX 2 writes the settings' Version at the top; ClipX 1 has none.</summary>
+        private static bool IsClipX1(XElement root) => !root.Elements("Value").Any(v => (string)v.Attribute("name") == nameof(AppSettings.Version));
+
+        /// <summary>Nothing at the top but Version and PowerButtons.</summary>
+        private static bool IsPowerButtonsOnly(XElement root) =>
+            root.Elements().Any(e => (string)e.Attribute("name") == nameof(AppSettings.PowerButtons))
+            && root.Elements().All(e => PowerButtonsOnlyEntries.Contains((string)e.Attribute("name")));
+
+        private static AppSettings FromClipX2(XElement root)
+        {
+            JsonNode tree = ReadKey(root);
+            try
+            {
+                return JsonSerializer.Deserialize<AppSettings>(tree.ToJsonString(), Json)
+                    ?? throw new FormatException("The file is empty.");
+            }
+            catch (JsonException ex) { throw new FormatException("Its settings couldn't be read: " + ex.Message, ex); }
+        }
+
+        private static AppSettings Copy(AppSettings s) => JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(s), Json);
 
         /// <summary>A key as JSON: an array if its entries are named 1, 2, 3…, else an object.</summary>
         private static JsonNode ReadKey(XElement key)

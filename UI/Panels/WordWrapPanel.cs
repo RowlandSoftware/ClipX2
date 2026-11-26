@@ -49,7 +49,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false;
-            Load(AppSettings.Current.Wordwrap);
+            ShowOptions(AppSettings.Current.Wordwrap);
             numericWidth.Focus();
         }
 
@@ -63,12 +63,12 @@ namespace ClipX2.UI.Panels
         internal override void EditOptions(object options)
         {
             EnterEditMode(buttonApply);
-            Load(options as WordWrapOptions ?? new WordWrapOptions());
+            ShowOptions(options as WordWrapOptions ?? new WordWrapOptions());
         }
 
         internal override object EditedOptions => Options();
 
-        private void Load(WordWrapOptions o)
+        private void ShowOptions(WordWrapOptions o)
         {
             _loading = true;
             numericWidth.Value = Math.Max(numericWidth.Minimum, Math.Min(numericWidth.Maximum, o.Width));

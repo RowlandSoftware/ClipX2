@@ -46,6 +46,9 @@ namespace ClipX2.TextEngine.Tools
         private const double NameWeight = 10, KeywordWeight = 8, DescriptionWeight = 3, GroupWeight = 2;
 
         /// <summary>The tools best matching <paramref name="query"/>, best first, at most <paramref name="max"/>.</summary>
+        /// <param name="query">What the user typed.</param>
+        /// <param name="tools">The tools to search.</param>
+        /// <param name="max">At most this many results.</param>
         /// <param name="shown">
         /// What the program shows for a tool, if not the catalogue's English: its button's caption
         /// and tooltip (searched as name and description too, so users find what they see).

@@ -76,9 +76,244 @@ namespace ClipX2.UI
                     return "Numbered (a live list)";
             }
             var (from, to) = Scope(box);
+            if (richText)
+            {
+                // Typed in rich text (Legal, 1.1.): levels from paragraph indents and list levels
+                // too, not only typed tabs. Each numbered line's typed indentation then goes, and
+                // its paragraph is indented for its whole level instead, so Increase / Decrease
+                // indent move every line alike
+                string text = box.Text;
+                Dictionary<int, int> levels = ParagraphLevels(box);
+                int LevelAt(int start) => levels.TryGetValue(start, out int l) ? l : 0;
+                List<TextEdit> legal = ListFormatter.NumberEdits(text, from, to, o, LevelAt);
+                var total = new Dictionary<int, int>();
+                foreach (Line line in ListFormatter.LinesIn(text, from, to))
+                {
+                    total[line.Start] = ListFormatter.Level(text, line, o.Tab, o.PadChars) + LevelAt(line.Start);
+                    int indent = ListFormatter.IndentLength(text, line);
+                    int k = legal.FindIndex(e => e.Start == line.Start + indent);
+                    if (indent > 0 && k >= 0) legal[k] = new TextEdit(line.Start, indent + legal[k].Length, legal[k].Replacement);
+                }
+                Typed(box, richText, legal, from, to, start => total.TryGetValue(start, out int l) ? l : 0);
+                return "Numbered";
+            }
             List<TextEdit> edits = ListFormatter.NumberEdits(box.Text, from, to, o);
             Typed(box, richText, edits, from, to);
             return "Numbered";
+        }
+
+        /************ Where you're typing: nothing selected ************/
+
+        /// <summary>
+        /// A list tool with nothing selected works on the paragraph with the cursor, as in a word
+        /// processor (Ctrl+A first for the whole text); with a selection, on its lines. The cursor
+        /// stays with its text. On an empty paragraph, <paramref name="onBlank"/> runs instead
+        /// (starting a list there). <paramref name="after"/> runs on the line once the tool has
+        /// (numbers carrying on from the list above). All one Undo step.
+        /// </summary>
+        public static string Here(ClipXRichTextBox box, Func<string> tool, Func<Line, string> onBlank = null, Action<Line> after = null)
+        {
+            if (box.SelectionLength > 0) return tool();
+            string text = box.Text;
+            int caret = box.SelectionStart;
+            Line line = ListFormatter.LinesIn(text, caret, caret)[0]; // an empty last line too
+            int index = 0; // which line (by counting breaks: the line list leaves out an empty last line)
+            for (int k = 0; k < line.Start; k++) if (text[k] == '\n') index++;
+            using (box.BeginUndoGroup())
+            {
+                if (text.Substring(line.Start, line.Length).Trim().Length == 0)
+                    return onBlank != null ? onBlank(line) : "Put the cursor in a paragraph, or select the lines (Ctrl+A: all of them)";
+                int fromEnd = line.End - caret;
+                box.Select(line.Start, line.Length);
+                string message = tool();
+                Line LineNow()
+                {
+                    string t = box.Text;
+                    int at = 0;
+                    for (int n = 0; n < index && at < t.Length; at++) if (t[at] == '\n') n++;
+                    return ListFormatter.LinesIn(t, Math.Min(at, t.Length), Math.Min(at, t.Length))[0];
+                }
+                if (after != null) { Line moved = LineNow(); box.Select(moved.Start, 0); after(moved); }
+                Line done = LineNow();
+                box.Select(Math.Max(done.Start, done.End - fromEnd), 0);
+                return message;
+            }
+        }
+
+        /// <summary>An empty paragraph, nothing selected: a bullet there, to type the item after it.</summary>
+        public static string StartBullets(ClipXRichTextBox box, bool richText, BulletOptions o, Line line)
+        {
+            int level = ListFormatter.Level(box.Text, line, o.Tab, o.PadChars);
+            if (richText && BulletsAreLive(o) && StartLive(box, line, level, BulletKind(o.Character, level), 1))
+                return "Bulleted (a live list)";
+            string bullet = string.IsNullOrEmpty(o.Character) ? "•" : o.Character;
+            TypeMarker(box, line, ListFormatter.Indent(level, o.Tab, o.PadChars) + ListFormatter.Pad(ListFormatter.BulletForLevel(bullet, level), o.Tab, o.PadChars));
+            return "Bulleted";
+        }
+
+        /// <summary>An empty paragraph, nothing selected: a number there (carrying on from a list above), to type the item after it.</summary>
+        public static string StartNumbers(ClipXRichTextBox box, bool richText, NumberOptions o, Line line)
+        {
+            int level = ListFormatter.Level(box.Text, line, o.Tab, o.PadChars);
+            if (richText && NumbersAreLive(o) && StartLive(box, line, level, NumberKind(o.Style, level) | Punctuation(o), Math.Max(1, o.StartNumber)))
+                return "Numbered (a live list)";
+            var first = new NumberOptions { Style = o.Style, FollowChar = o.FollowChar, StartNumber = o.StartNumber, Tab = o.Tab, PadChars = o.PadChars };
+            List<TextEdit> one = ListFormatter.NumberEdits("x", 0, 1, first);
+            string marker = one.Count > 0 ? one[0].Replacement : "1. ";
+            TypeMarker(box, line, (richText ? "" : ListFormatter.Indent(level, o.Tab, o.PadChars)) + marker);
+            ContinueNumbering(box, richText, o, LineAt(box, line.Start));
+            return "Numbered";
+        }
+
+        /// <summary>After a typed number on one line: the list it is in numbered on from the items above (and below).</summary>
+        public static void ContinueNumbering(ClipXRichTextBox box, bool richText, NumberOptions o, Line line)
+        {
+            if (richText && NumbersAreLive(o)) return; // a live list numbers itself
+            int caret = box.SelectionStart;
+            if (richText)
+            {
+                box.Select(line.Start, 0);
+                RenumberTyped(box, o);
+            }
+            else
+            {
+                List<TextEdit> edits = ListFormatter.RenumberEdits(box.Text, line.Start, line.End, o);
+                if (edits.Count > 0) box.ApplyEdits(edits);
+            }
+            box.Select(Math.Min(caret, box.TextLength), 0);
+        }
+
+        /// <summary>The line starting at (or containing) a position.</summary>
+        private static Line LineAt(ClipXRichTextBox box, int position)
+        {
+            string text = box.Text;
+            return ListFormatter.LinesIn(text, position, position)[0];
+        }
+
+        /// <summary>An empty line's indentation replaced by a typed marker; the cursor after it.</summary>
+        private static void TypeMarker(ClipXRichTextBox box, Line line, string marker)
+        {
+            box.Select(line.Start, line.Length);
+            box.SelectedText = marker;
+            box.Select(line.Start + marker.Length, 0);
+        }
+
+        /// <summary>
+        /// An empty paragraph made a live list item: its typed indentation taken off, the level
+        /// kept; numbered on from a live item of the same kind and level just above. The cursor in
+        /// it. False if TOM isn't available.
+        /// </summary>
+        private static bool StartLive(ClipXRichTextBox box, Line line, int level, int kind, int start)
+        {
+            level = Math.Min(level, MaxLevel);
+            bool ok = box.EditDocument(doc =>
+            {
+                if (line.Length > 0) ApplyEdits(doc, new List<TextEdit> { new TextEdit(line.Start, line.Length, "") });
+                if (line.Start > 0)
+                    SetParagraph(doc, line.Start - 1, p =>
+                    {
+                        int type = p.ListType, lvl = p.ListLevelIndex;
+                        if ((type & 0xFFFF) == (kind & 0xFFFF) && lvl == level) start = p.ListStart;
+                    });
+                SetParagraph(doc, line.Start, p =>
+                {
+                    p.ListType = kind;
+                    p.ListLevelIndex = level;
+                    p.ListStart = start;
+                    p.ListTab = Hang;
+                    p.SetIndents(-Hang, LevelStep * (level + 1), 0f);
+                });
+            });
+            if (ok) box.Select(line.Start, 0);
+            return ok;
+        }
+
+        private static int Punctuation(NumberOptions o) => o.FollowChar switch
+        {
+            NumberPunctuation.None => tomListPlain,
+            NumberPunctuation.Period => tomListPeriod,
+            NumberPunctuation.TwoBrackets => tomListParentheses,
+            _ => 0, // "1)"
+        };
+
+        /// <summary>
+        /// Rich text, after Increase / Decrease indent: typed numbered lists (Legal, 1.1.) around the
+        /// selection renumbered for their paragraphs' new levels, as plain text's are after a Tab.
+        /// Returns true if any number changed.
+        /// </summary>
+        public static bool RenumberTyped(ClipXRichTextBox box, NumberOptions defaults)
+        {
+            string text = box.Text;
+            int selStart = box.SelectionStart, selLength = box.SelectionLength;
+            Dictionary<int, int> levels = ParagraphLevels(box);
+            List<TextEdit> edits = ListFormatter.RenumberEdits(text, selStart, selStart + selLength, defaults,
+                start => levels.TryGetValue(start, out int l) ? l : 0);
+            if (edits.Count == 0) return false;
+            using (box.BeginBulkEdit())
+            {
+                box.ApplyEdits(edits);
+                int Moved(int position) => position + edits.Where(e => e.Start < position).Sum(e => e.Replacement.Length - e.Length);
+                int start = Moved(selStart), end = Moved(selStart + selLength);
+                box.Select(start, Math.Max(0, end - start));
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Rich text, before Increase / Decrease indent: a typed numbered line in the selection
+        /// that is indented with typed tabs or spaces (a list made before levels were read from
+        /// paragraphs, or pasted) has them taken off and its paragraph indented by as many levels
+        /// instead, so the indent can move it. One Undo step with nothing else; false if none.
+        /// </summary>
+        public static bool TypedIndentToParagraph(ClipXRichTextBox box, NumberOptions o)
+        {
+            string text = box.Text;
+            int selStart = box.SelectionStart, selLength = box.SelectionLength;
+            var lines = new List<(Line Line, int Indent, int Levels)>();
+            foreach (Line line in ListFormatter.LinesIn(text, selStart, selStart + selLength))
+            {
+                int indent = ListFormatter.IndentLength(text, line);
+                if (indent == 0 || ListFormatter.NumberLength(text, line.Start + indent, line.End) == 0) continue;
+                lines.Add((line, indent, ListFormatter.Level(text, line, o.Tab, o.PadChars)));
+            }
+            if (lines.Count == 0) return false;
+            var edits = lines.Select(l => new TextEdit(l.Line.Start, l.Indent, "")).ToList();
+            box.EditDocument(doc =>
+            {
+                ApplyEdits(doc, edits);
+                foreach (var (line, _, levels) in lines)
+                    SetParagraph(doc, NewPosition(line.Start, edits), p =>
+                    {
+                        if ((int)p.ListType != tomListNone || levels == 0) return;
+                        float left = p.LeftIndent;
+                        if (left < 0 || left > 10000) left = 0;
+                        p.SetIndents(0f, left + LevelStep * levels, 0f);
+                    });
+            });
+            int Moved(int position) => position - edits.Where(e => e.Start < position).Sum(e => Math.Min(e.Length, position - e.Start));
+            int start = Moved(selStart), end = Moved(selStart + selLength);
+            box.Select(start, Math.Max(0, end - start));
+            return true;
+        }
+
+        /// <summary>
+        /// Each line's level in rich text, by its start: its live list's level, or its paragraph
+        /// indent (each half inch a level, as Increase indent sets it). Empty if TOM isn't available.
+        /// </summary>
+        private static Dictionary<int, int> ParagraphLevels(ClipXRichTextBox box)
+        {
+            var result = new Dictionary<int, int>();
+            ITextDocument doc = null;
+            try { doc = RichEditTom.GetDocument(box); } catch (Exception) { }
+            if (doc == null) return result;
+            try
+            {
+                foreach (Line line in ListFormatter.LinesIn(box.Text, 0, box.TextLength))
+                    result[line.Start] = ExistingLevel(doc, line.Start);
+            }
+            catch (Exception) { result.Clear(); }
+            finally { Marshal.ReleaseComObject(doc); }
+            return result;
         }
 
         /// <summary>Takes the bullets off the lines (typed or live); indentation is kept or restored. Returns a status message.</summary>
@@ -184,7 +419,12 @@ namespace ClipX2.UI
         /// Applies typed bullets or numbers; in rich text, the lines first stop being a live list
         /// (so they don't get two numbers). Keeps the lines selected if they were.
         /// </summary>
-        private static void Typed(ClipXRichTextBox box, bool richText, List<TextEdit> edits, int from, int to)
+        /// <param name="paragraphLevel">
+        /// Rich text: each line's level as a paragraph (by its start, before the edits); a typed
+        /// number's paragraph is then indented for it (a live item's list indent replaced by the
+        /// half inch a level that Increase indent uses, so the level reads back the same).
+        /// </param>
+        private static void Typed(ClipXRichTextBox box, bool richText, List<TextEdit> edits, int from, int to, Func<int, int> paragraphLevel = null)
         {
             bool hadSelection = box.SelectionLength > 0;
             List<Line> lines = ListFormatter.LinesIn(box.Text, from, to);
@@ -192,7 +432,15 @@ namespace ClipX2.UI
                 {
                     ApplyEdits(doc, edits);
                     foreach (Line line in lines)
-                        SetParagraph(doc, NewPosition(line.Start, edits), p => { if ((int)p.ListType != tomListNone) p.ListType = tomListNone; });
+                    {
+                        bool numbered = paragraphLevel != null && edits.Exists(e => e.Start >= line.Start && e.Start <= line.End);
+                        int level = paragraphLevel?.Invoke(line.Start) ?? 0;
+                        SetParagraph(doc, NewPosition(line.Start, edits), p =>
+                        {
+                            if ((int)p.ListType != tomListNone) p.ListType = tomListNone;
+                            if (numbered) p.SetIndents(0f, LevelStep * level, 0f);
+                        });
+                    }
                 }))
                 box.ApplyEdits(edits);
             Reselect(box, hadSelection, lines, edits);

@@ -23,6 +23,7 @@ namespace ClipX2.UI.Panels
             radioText.CheckedChanged += (s, e) => OptionsChanged();
             numericSpaces.ValueChanged += (s, e) => OptionsChanged();
             comboText.TextChanged += (s, e) => { if (!_loading && comboText.Focused) radioText.Checked = true; OptionsChanged(); };
+            TextBoxKeys.Attach(comboText); // Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T, as in the editor
             buttonIndent.Click += (s, e) => Apply(indent: true);
             buttonUnindent.Click += (s, e) => Apply(indent: false);
         }
@@ -42,7 +43,7 @@ namespace ClipX2.UI.Panels
             if (_box == null) return;
             _oldHideSelection = _box.HideSelection;
             _box.HideSelection = false; // the selection is what the buttons work on
-            Load(AppSettings.Current.Indent);
+            ShowOptions(AppSettings.Current.Indent);
         }
 
         protected internal override void OnDeactivated()
@@ -55,12 +56,12 @@ namespace ClipX2.UI.Panels
         internal override void EditOptions(object options)
         {
             EnterEditMode(buttonIndent, buttonUnindent);
-            Load(options as IndentOptions ?? new IndentOptions());
+            ShowOptions(options as IndentOptions ?? new IndentOptions());
         }
 
         internal override object EditedOptions => Options();
 
-        private void Load(IndentOptions o)
+        private void ShowOptions(IndentOptions o)
         {
             _loading = true;
             radioSpaces.Checked = o.Option == "Spaces";

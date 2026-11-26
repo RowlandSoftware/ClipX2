@@ -68,6 +68,8 @@ namespace ClipX2.UI.Panels
             comboFind.TextChanged += (s, e) => { SearchChanged(refresh: false); UpdateButtons(); CheckPattern(); };
             comboFind.KeyDown += FindKeyDown;
             comboReplace.KeyDown += ReplaceKeyDown;
+            TextBoxKeys.Attach(comboFind);    // Ctrl+L, Ctrl+Shift+L, Ctrl+S, Ctrl+T, as in the editor
+            TextBoxKeys.Attach(comboReplace);
             _lastBox = comboFind;
             comboFind.Enter += (s, e) => _lastBox = comboFind;
             comboReplace.Enter += (s, e) => _lastBox = comboReplace;
@@ -103,6 +105,9 @@ namespace ClipX2.UI.Panels
         {
             _box = box;
             _status = status;
+            // A click in the text, or a change to it, closes Find All's list (its positions would be stale)
+            _box.MouseDown += (s, e) => HideList();
+            _box.TextChanged += (s, e) => HideList();
             _loading = true;
             foreach (string term in AppSettings.Current.FindHistory.Take(HistoryLimit)) comboFind.Items.Add(term);
             foreach (string term in AppSettings.Current.ReplaceHistory.Take(HistoryLimit)) comboReplace.Items.Add(term);
@@ -357,22 +362,31 @@ namespace ClipX2.UI.Panels
             return true;
         }
 
-        /// <summary>Find All: every match (in the selection with In selection) highlighted and counted; the selection stays.</summary>
+        /// <summary>
+        /// Find All: every match (in the selection with In selection) highlighted and counted; the
+        /// selection stays. The matches are listed too, with their context, over this panel.
+        /// </summary>
         private void FindAll()
         {
             if (Finder() == null) return;
             Keep(replacing: false);
-            Highlight();
+            Highlight(list: true);
             RaiseApplied("FindAll");
         }
 
-        /// <summary>Every match highlighted as the spelling panel marks a word; the cursor stays put.</summary>
-        private void Highlight()
+        /// <summary>
+        /// Every match highlighted as the spelling panel marks a word; the cursor stays put. With
+        /// <paramref name="list"/>, or while the list is shown (an option changed), the list too.
+        /// </summary>
+        private void Highlight() => Highlight(list: false);
+
+        private void Highlight(bool list)
         {
             TextFinder f = Finder();
             if (f == null) { ClearHighlights(); return; }
             var (start, end) = Range();
-            List<SearchMatch> found = f.FindAll(_box.Text, start, end);
+            string text = _box.Text;
+            List<SearchMatch> found = f.FindAll(text, start, end);
             if (found.Count == 0)
             {
                 ClearHighlights();
@@ -381,14 +395,66 @@ namespace ClipX2.UI.Panels
             }
             _box.SetMarkers(found.Select(m => (m.Start, m.Length)));
             _highlighting = true;
-            Report((found.Count == 1 ? "1 found" : $"{found.Count:N0} found") + (checkBoxInSelection.Checked ? " in the selection" : ""));
+            string summary = (found.Count == 1 ? "1 found" : $"{found.Count:N0} found") + (checkBoxInSelection.Checked ? " in the selection" : "");
+            Report(summary);
+            if (list || ListShown) ShowList(text, found, summary);
         }
 
         private void ClearHighlights()
         {
+            HideList(); // its matches go with the highlights
             if (!_highlighting) return;
             _highlighting = false;
             _box.ClearMarker();
+        }
+
+        /************ Find All's list ************/
+
+        private FindAllList _list;
+
+        private bool ListShown => _list != null && _list.Visible;
+
+        /// <summary>The list of matches, over this panel (created the first time).</summary>
+        private void ShowList(string text, List<SearchMatch> found, string summary)
+        {
+            if (_list == null)
+            {
+                _list = new FindAllList { Dock = DockStyle.Fill, Visible = false };
+                _list.CloseRequested += (s, e) => HideList();
+                Controls.Add(_list);
+            }
+            _list.ShowMatches(_box, text, found, $"“{Term}”: {summary}", LiveListLabels(text));
+            _list.BringToFront();
+            _list.Visible = true;
+            _list.OnActivated();
+        }
+
+        /// <summary>
+        /// Rich text: each paragraph's live bullet or number ("•", "3.", "c)"), which isn't in the
+        /// text itself, so the list can show it as plain text shows a typed one; null if none
+        /// (plain text, or the paragraphs can't be matched up).
+        /// </summary>
+        private string[] LiveListLabels(string text)
+        {
+            try
+            {
+                var doc = RichEditReader.Read(_box);
+                int paragraphs = 1;
+                foreach (char c in text) if (c == '\n' || c == '\r') paragraphs++;
+                if (doc.Paragraphs.Count != paragraphs || doc.Paragraphs.TrueForAll(p => p.ListKind == TextEngine.Export.ListKind.None)) return null;
+                return TextEngine.Export.DocumentExport.ListLabels(doc);
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException || ex is InvalidOperationException) { return null; }
+        }
+
+        /// <summary>Closes the list: the highlights (and this panel) stay as they are.</summary>
+        private void HideList()
+        {
+            if (!ListShown) return;
+            bool hadFocus = _list.ContainsFocus;
+            _list.Visible = false;
+            _box.CurrentMark = -1;
+            if (hadFocus) comboFind.Focus();
         }
 
         /// <summary>Where Find All and Replace All work: the selection with In selection, else the whole text (end -1).</summary>
@@ -602,7 +668,10 @@ namespace ClipX2.UI.Panels
             if (_help == null || Parent == null) return;
             Form form = _help.Parent as Form;
             if (form == null) return;
-            _help.Place(form, Parent, form.PointToClient(Parent.PointToScreen(System.Drawing.Point.Empty)).Y);
+            // In the PowerButton editor the panel sits in a wide options area: float the help just
+            // right of the panel itself (over "When the PowerButton runs"), not past the area's edge
+            Control side = IsEditingOptions ? this : Parent;
+            _help.Place(form, side, form.PointToClient(side.PointToScreen(System.Drawing.Point.Empty)).Y);
         }
 
         /// <summary>

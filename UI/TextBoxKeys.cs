@@ -1,20 +1,35 @@
+using System;
 using System.Windows.Forms;
 using ClipX2.TextEngine;
 
 namespace ClipX2.UI
 {
     /// <summary>
-    /// Gives a plain TextBox (e.g. in a side panel) some of the editor's keyboard tools:
-    /// Ctrl+L lower case, Ctrl+Shift+L upper case, Ctrl+S reverse case, Ctrl+T transpose. They
-    /// behave as in the main editor: with a selection, the case keys act on it; otherwise on the
-    /// character right of the caret, then move past it. Ctrl+T swaps the characters either side of the caret (with a selection, its first
-    /// character and the one before) and moves one place right.
+    /// Gives a plain TextBox or an editable ComboBox (e.g. in a side panel) some of the editor's
+    /// keyboard tools: Ctrl+L lower case, Ctrl+Shift+L upper case, Ctrl+S reverse case, Ctrl+T
+    /// transpose. They behave as in the main editor: with a selection, the case keys act on it;
+    /// otherwise on the character right of the caret, then move past it. Ctrl+T swaps the
+    /// characters either side of the caret (with a selection, its first character and the one
+    /// before) and moves one place right.
     /// </summary>
     internal static class TextBoxKeys
     {
-        public static void Attach(TextBox box) => box.KeyDown += (s, e) =>
+        public static void Attach(TextBox box) => Attach(box, new Box(
+            () => box.Text, () => box.SelectionStart, () => box.SelectionLength,
+            () => box.SelectedText, t => box.SelectedText = t, (s, l) => box.Select(s, l)));
+
+        /// <summary>For an editable ComboBox (DropDown style), such as Find and Replace's.</summary>
+        public static void Attach(ComboBox box) => Attach(box, new Box(
+            () => box.Text, () => box.SelectionStart, () => box.SelectionLength,
+            () => box.SelectedText, t => box.SelectedText = t, (s, l) => box.Select(s, l)));
+
+        private sealed record Box(Func<string> Text, Func<int> Start, Func<int> Length,
+            Func<string> Selected, Action<string> Replace, Action<int, int> Select);
+
+        private static void Attach(Control control, Box box) => control.KeyDown += (s, e) =>
         {
             if (!e.Control || e.Alt) return;
+            if (control is ComboBox { DropDownStyle: ComboBoxStyle.DropDownList }) return;
             switch (e.KeyCode)
             {
                 case Keys.L: ChangeCase(box, e.Shift ? CaseMode.Upper : CaseMode.Lower); break;
@@ -26,33 +41,34 @@ namespace ClipX2.UI
             e.SuppressKeyPress = true;
         };
 
-        private static void ChangeCase(TextBox box, CaseMode mode)
+        private static void ChangeCase(Box box, CaseMode mode)
         {
-            int start = box.SelectionStart, length = box.SelectionLength;
+            string text = box.Text();
+            int start = box.Start(), length = box.Length();
             if (length > 0)
             {
-                box.SelectedText = CaseTransformer.Transform(box.SelectedText, mode);
+                box.Replace(CaseTransformer.Transform(box.Selected(), mode));
                 box.Select(start, length);
                 return;
             }
-            if (start >= box.TextLength) return;
-            int n = char.IsHighSurrogate(box.Text[start]) && start + 1 < box.TextLength ? 2 : 1;
+            if (start >= text.Length) return;
+            int n = char.IsHighSurrogate(text[start]) && start + 1 < text.Length ? 2 : 1;
             box.Select(start, n);
-            box.SelectedText = CaseTransformer.Transform(box.SelectedText, mode);
+            box.Replace(CaseTransformer.Transform(box.Selected(), mode));
             box.Select(start + n, 0);
         }
 
-        private static void Transpose(TextBox box)
+        private static void Transpose(Box box)
         {
-            string text = box.Text;
-            int pos = box.SelectionStart;
+            string text = box.Text();
+            int pos = box.Start();
             if (pos <= 0 || pos >= text.Length) return;
             int rightLen = char.IsHighSurrogate(text[pos]) && pos + 1 < text.Length && char.IsLowSurrogate(text[pos + 1]) ? 2 : 1;
             int leftLen = char.IsLowSurrogate(text[pos - 1]) && pos >= 2 && char.IsHighSurrogate(text[pos - 2]) ? 2 : 1;
             if (text[pos] == '\n' || text[pos] == '\r' || text[pos - 1] == '\n' || text[pos - 1] == '\r') return;
             int leftStart = pos - leftLen;
             box.Select(leftStart, leftLen + rightLen);
-            box.SelectedText = text.Substring(pos, rightLen) + text.Substring(leftStart, leftLen); // SelectedText keeps Ctrl+Z working
+            box.Replace(text.Substring(pos, rightLen) + text.Substring(leftStart, leftLen)); // replacing the selection keeps Ctrl+Z working
             box.Select(pos + rightLen, 0);
         }
     }

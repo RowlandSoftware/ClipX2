@@ -290,7 +290,7 @@ namespace ClipX2.TextEngine.Import
         }
 
         /// <summary>
-        /// The style's definition with everything it inherits written into it (its <see cref="Words"/>),
+        /// The style's definition with everything it inherits written into it (its <see cref="RtfStyle.Words"/>),
         /// its parent still named. A reader such as Writer's compares each paragraph with its style's
         /// own definition only: with the parents' settings in it too, a paragraph that repeats them has
         /// no direct formatting; and a style created from it (in another document) looks the same.

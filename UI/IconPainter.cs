@@ -10,6 +10,12 @@ namespace ClipX2.UI
     /// <summary>Draws PowerButton icons (<see cref="ButtonIcon"/>): the bitmap, then its text layer.</summary>
     public static class IconPainter
     {
+        /// <summary>
+        /// ClipX 2's navy (#1f2f8f, as its toolbar icons): behind a new PowerButton's number, and
+        /// behind the characters of a button imported from ClipX 1 (whose buttons were green, 0x016331).
+        /// </summary>
+        public static readonly int DefaultBackground = unchecked((int)0xFF1F2F8F);
+
         /// <summary>The icon's bitmap at full size (<see cref="ButtonIcon.Size"/>), or a transparent one.</summary>
         public static Bitmap BitmapOf(ButtonIcon icon)
         {

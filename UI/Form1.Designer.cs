@@ -64,6 +64,7 @@
             toolStripButtonCapitaliseSentences = new System.Windows.Forms.ToolStripButton();
             tabEdit = new System.Windows.Forms.TabPage();
             toolStrip6 = new System.Windows.Forms.ToolStrip();
+            toolStripButtonEdSRC = new System.Windows.Forms.ToolStripButton();
             toolStripButtonEdPLA = new System.Windows.Forms.ToolStripButton();
             toolStripButtonEdCRL = new System.Windows.Forms.ToolStripButton();
             toolStripButtonEdUDC = new System.Windows.Forms.ToolStripButton();
@@ -91,6 +92,9 @@
             toolStripButtonLiRMB = new System.Windows.Forms.ToolStripButton();
             toolStripButtonLiREM = new System.Windows.Forms.ToolStripButton();
             toolStripButtonLiRLN = new System.Windows.Forms.ToolStripButton();
+            toolStripSeparatorLiIndent = new System.Windows.Forms.ToolStripSeparator();
+            toolStripButtonLiIIN = new System.Windows.Forms.ToolStripButton();
+            toolStripButtonLiDIN = new System.Windows.Forms.ToolStripButton();
             tabSorting = new System.Windows.Forms.TabPage();
             toolStrip7 = new System.Windows.Forms.ToolStrip();
             toolStripButtonSoSMA = new System.Windows.Forms.ToolStripButton();
@@ -102,7 +106,7 @@
             toolStripButtonSoKEY = new System.Windows.Forms.ToolStripButton();
             tabLangTools = new System.Windows.Forms.TabPage();
             toolStrip2 = new System.Windows.Forms.ToolStrip();
-            toolStripButtonSpellcheck = new System.Windows.Forms.ToolStripButton();
+            toolStripButtonEdSPE = new System.Windows.Forms.ToolStripButton();
             toolStripButtonCheckPunctuation = new System.Windows.Forms.ToolStripButton();
             toolStripButton3 = new System.Windows.Forms.ToolStripButton();
             toolStripButton4 = new System.Windows.Forms.ToolStripButton();
@@ -122,6 +126,8 @@
             toolStripCheckBoxWholeWords = new ClipX2.UI.ToolStripCheckBox();
             toolStripButtonFindAll = new System.Windows.Forms.ToolStripButton();
             toolStripButtonFinish = new System.Windows.Forms.ToolStripButton();
+            toolStripButtonRedo = new System.Windows.Forms.ToolStripButton();
+            toolStripButtonUndo = new System.Windows.Forms.ToolStripButton();
             toolStripButtonRefresh = new System.Windows.Forms.ToolStripButton();
             toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
@@ -183,7 +189,7 @@
             tabControl1.Margin = new System.Windows.Forms.Padding(4);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new System.Drawing.Size(488, 88);
+            tabControl1.Size = new System.Drawing.Size(507, 88);
             tabControl1.TabIndex = 2;
             // 
             // tabStyles
@@ -193,7 +199,7 @@
             tabStyles.Location = new System.Drawing.Point(4, 26);
             tabStyles.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
             tabStyles.Name = "tabStyles";
-            tabStyles.Size = new System.Drawing.Size(480, 58);
+            tabStyles.Size = new System.Drawing.Size(499, 58);
             tabStyles.TabIndex = 6;
             tabStyles.Text = "Styles";
             tabStyles.UseVisualStyleBackColor = true;
@@ -468,7 +474,7 @@
             tabCase.Margin = new System.Windows.Forms.Padding(4);
             tabCase.Name = "tabCase";
             tabCase.Padding = new System.Windows.Forms.Padding(4);
-            tabCase.Size = new System.Drawing.Size(480, 58);
+            tabCase.Size = new System.Drawing.Size(499, 58);
             tabCase.TabIndex = 0;
             tabCase.Text = "Case";
             tabCase.UseVisualStyleBackColor = true;
@@ -482,7 +488,7 @@
             toolStripCase.Location = new System.Drawing.Point(4, 4);
             toolStripCase.Name = "toolStripCase";
             toolStripCase.Padding = new System.Windows.Forms.Padding(0);
-            toolStripCase.Size = new System.Drawing.Size(472, 55);
+            toolStripCase.Size = new System.Drawing.Size(491, 55);
             toolStripCase.Stretch = true;
             toolStripCase.TabIndex = 0;
             toolStripCase.Text = "Case";
@@ -585,7 +591,7 @@
             tabEdit.Margin = new System.Windows.Forms.Padding(4);
             tabEdit.Name = "tabEdit";
             tabEdit.Padding = new System.Windows.Forms.Padding(4);
-            tabEdit.Size = new System.Drawing.Size(480, 58);
+            tabEdit.Size = new System.Drawing.Size(499, 58);
             tabEdit.TabIndex = 1;
             tabEdit.Text = "Edit";
             tabEdit.UseVisualStyleBackColor = true;
@@ -595,14 +601,27 @@
             toolStrip6.AccessibleName = "Lower";
             toolStrip6.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip6.ImageScalingSize = new System.Drawing.Size(36, 36);
-            toolStrip6.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonEdPLA, toolStripButtonEdCRL, toolStripButtonEdUDC, toolStripButtonEdHDC, toolStripButtonEdUTF, toolStripButtonEdMIM, toolStripButton22, toolStripButtonEdSTR });
+            toolStrip6.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonEdSRC, toolStripButtonEdPLA, toolStripButtonEdCRL, toolStripButtonEdUDC, toolStripButtonEdHDC, toolStripButtonEdUTF, toolStripButtonEdMIM, toolStripButton22, toolStripButtonEdSTR });
             toolStrip6.Location = new System.Drawing.Point(4, 4);
             toolStrip6.Name = "toolStrip6";
             toolStrip6.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip6.Size = new System.Drawing.Size(472, 55);
+            toolStrip6.Size = new System.Drawing.Size(491, 55);
             toolStrip6.Stretch = true;
             toolStrip6.TabIndex = 1;
             toolStrip6.Tag = "";
+            // 
+            // toolStripButtonEdSRC
+            // 
+            toolStripButtonEdSRC.AccessibleName = "Find and replace";
+            toolStripButtonEdSRC.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            toolStripButtonEdSRC.Image = Properties.Resources.edPLA;
+            toolStripButtonEdSRC.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+            toolStripButtonEdSRC.ImageTransparentColor = System.Drawing.Color.Black;
+            toolStripButtonEdSRC.Name = "toolStripButtonEdSRC";
+            toolStripButtonEdSRC.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonEdSRC.Tag = "edSRC";
+            toolStripButtonEdSRC.Text = "&Find && Replace";
+            toolStripButtonEdSRC.ToolTipText = "Search, and Find & Replace";
             // 
             // toolStripButtonEdPLA
             // 
@@ -714,7 +733,7 @@
             tabFormat.Location = new System.Drawing.Point(4, 26);
             tabFormat.Margin = new System.Windows.Forms.Padding(4);
             tabFormat.Name = "tabFormat";
-            tabFormat.Size = new System.Drawing.Size(480, 58);
+            tabFormat.Size = new System.Drawing.Size(499, 58);
             tabFormat.TabIndex = 2;
             tabFormat.Text = "Format";
             tabFormat.UseVisualStyleBackColor = true;
@@ -728,7 +747,7 @@
             toolStrip5.Location = new System.Drawing.Point(0, 0);
             toolStrip5.Name = "toolStrip5";
             toolStrip5.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip5.Size = new System.Drawing.Size(480, 55);
+            toolStrip5.Size = new System.Drawing.Size(499, 55);
             toolStrip5.Stretch = true;
             toolStrip5.TabIndex = 1;
             toolStrip5.Text = "Case";
@@ -856,7 +875,7 @@
             tabLists.Location = new System.Drawing.Point(4, 26);
             tabLists.Margin = new System.Windows.Forms.Padding(4);
             tabLists.Name = "tabLists";
-            tabLists.Size = new System.Drawing.Size(480, 58);
+            tabLists.Size = new System.Drawing.Size(499, 58);
             tabLists.TabIndex = 3;
             tabLists.Text = "Lists";
             tabLists.UseVisualStyleBackColor = true;
@@ -866,11 +885,11 @@
             toolStrip4.AccessibleName = "Lower";
             toolStrip4.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip4.ImageScalingSize = new System.Drawing.Size(36, 36);
-            toolStrip4.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonLiBUL, toolStripButtonLiNum, toolStripButtonLiRen, toolStripButtonLiRMB, toolStripButtonLiREM, toolStripButtonLiRLN });
+            toolStrip4.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonLiBUL, toolStripButtonLiNum, toolStripButtonLiRen, toolStripButtonLiRMB, toolStripButtonLiREM, toolStripButtonLiRLN, toolStripSeparatorLiIndent, toolStripButtonLiIIN, toolStripButtonLiDIN });
             toolStrip4.Location = new System.Drawing.Point(0, 0);
             toolStrip4.Name = "toolStrip4";
             toolStrip4.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip4.Size = new System.Drawing.Size(480, 55);
+            toolStrip4.Size = new System.Drawing.Size(499, 55);
             toolStrip4.Stretch = true;
             toolStrip4.TabIndex = 1;
             toolStrip4.Text = "Case";
@@ -953,13 +972,42 @@
             toolStripButtonLiRLN.Text = "Remove line numbers";
             toolStripButtonLiRLN.ToolTipText = "Delete line numbering";
             // 
+            // toolStripSeparatorLiIndent
+            // 
+            toolStripSeparatorLiIndent.Name = "toolStripSeparatorLiIndent";
+            toolStripSeparatorLiIndent.Size = new System.Drawing.Size(6, 55);
+            // 
+            // toolStripButtonLiIIN
+            // 
+            toolStripButtonLiIIN.AccessibleName = "Increase indent";
+            toolStripButtonLiIIN.AutoSize = false;
+            toolStripButtonLiIIN.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            toolStripButtonLiIIN.Font = new System.Drawing.Font("Segoe UI Symbol", 18F);
+            toolStripButtonLiIIN.Name = "toolStripButtonLiIIN";
+            toolStripButtonLiIIN.Size = new System.Drawing.Size(40, 52);
+            toolStripButtonLiIIN.Tag = "stIIN";
+            toolStripButtonLiIIN.Text = "Promote";
+            toolStripButtonLiIIN.ToolTipText = "Promote list item";
+            // 
+            // toolStripButtonLiDIN
+            // 
+            toolStripButtonLiDIN.AccessibleName = "Decrease indent";
+            toolStripButtonLiDIN.AutoSize = false;
+            toolStripButtonLiDIN.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            toolStripButtonLiDIN.Font = new System.Drawing.Font("Segoe UI Symbol", 18F);
+            toolStripButtonLiDIN.Name = "toolStripButtonLiDIN";
+            toolStripButtonLiDIN.Size = new System.Drawing.Size(40, 52);
+            toolStripButtonLiDIN.Tag = "stDIN";
+            toolStripButtonLiDIN.Text = "Demote";
+            toolStripButtonLiDIN.ToolTipText = "Demote list item";
+            // 
             // tabSorting
             // 
             tabSorting.Controls.Add(toolStrip7);
             tabSorting.Location = new System.Drawing.Point(4, 26);
             tabSorting.Margin = new System.Windows.Forms.Padding(4);
             tabSorting.Name = "tabSorting";
-            tabSorting.Size = new System.Drawing.Size(480, 58);
+            tabSorting.Size = new System.Drawing.Size(499, 58);
             tabSorting.TabIndex = 4;
             tabSorting.Text = "Sorting";
             tabSorting.UseVisualStyleBackColor = true;
@@ -973,7 +1021,7 @@
             toolStrip7.Location = new System.Drawing.Point(0, 0);
             toolStrip7.Name = "toolStrip7";
             toolStrip7.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip7.Size = new System.Drawing.Size(480, 55);
+            toolStrip7.Size = new System.Drawing.Size(499, 55);
             toolStrip7.Stretch = true;
             toolStrip7.TabIndex = 1;
             toolStrip7.Text = "Case";
@@ -1075,7 +1123,7 @@
             tabLangTools.Location = new System.Drawing.Point(4, 26);
             tabLangTools.Margin = new System.Windows.Forms.Padding(4);
             tabLangTools.Name = "tabLangTools";
-            tabLangTools.Size = new System.Drawing.Size(480, 58);
+            tabLangTools.Size = new System.Drawing.Size(499, 58);
             tabLangTools.TabIndex = 5;
             tabLangTools.Text = "Language Tools";
             tabLangTools.UseVisualStyleBackColor = true;
@@ -1084,27 +1132,27 @@
             // 
             toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             toolStrip2.ImageScalingSize = new System.Drawing.Size(36, 36);
-            toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonSpellcheck, toolStripButtonCheckPunctuation, toolStripButton3, toolStripButton4 });
+            toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonEdSPE, toolStripButtonCheckPunctuation, toolStripButton3, toolStripButton4 });
             toolStrip2.Location = new System.Drawing.Point(0, 0);
             toolStrip2.Name = "toolStrip2";
             toolStrip2.Padding = new System.Windows.Forms.Padding(0);
-            toolStrip2.Size = new System.Drawing.Size(480, 55);
+            toolStrip2.Size = new System.Drawing.Size(499, 55);
             toolStrip2.Stretch = true;
             toolStrip2.TabIndex = 1;
             toolStrip2.Text = "Case";
             // 
-            // toolStripButtonSpellcheck
+            // toolStripButtonEdSPE
             // 
-            toolStripButtonSpellcheck.AccessibleName = "Check Spelling";
-            toolStripButtonSpellcheck.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            toolStripButtonSpellcheck.Image = Properties.Resources.CheckSpelling;
-            toolStripButtonSpellcheck.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            toolStripButtonSpellcheck.ImageTransparentColor = System.Drawing.Color.Black;
-            toolStripButtonSpellcheck.Name = "toolStripButtonSpellcheck";
-            toolStripButtonSpellcheck.Size = new System.Drawing.Size(52, 52);
-            toolStripButtonSpellcheck.Tag = "chSPE";
-            toolStripButtonSpellcheck.Text = "Check Spelling";
-            toolStripButtonSpellcheck.ToolTipText = "Check for spelling errors and repeated words (Ctrl-H)";
+            toolStripButtonEdSPE.AccessibleName = "Check Spelling";
+            toolStripButtonEdSPE.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            toolStripButtonEdSPE.Image = Properties.Resources.CheckSpelling;
+            toolStripButtonEdSPE.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+            toolStripButtonEdSPE.ImageTransparentColor = System.Drawing.Color.Black;
+            toolStripButtonEdSPE.Name = "toolStripButtonEdSPE";
+            toolStripButtonEdSPE.Size = new System.Drawing.Size(52, 52);
+            toolStripButtonEdSPE.Tag = "chSPE";
+            toolStripButtonEdSPE.Text = "Check Spelling and Grammar";
+            toolStripButtonEdSPE.ToolTipText = "Check for spelling errors, repeated words and grammar (Ctrl-H)";
             // 
             // toolStripButtonCheckPunctuation
             // 
@@ -1183,17 +1231,17 @@
             // panel2
             // 
             panel2.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-            panel2.Location = new System.Drawing.Point(1015, 85);
+            panel2.Location = new System.Drawing.Point(1031, 85);
             panel2.Margin = new System.Windows.Forms.Padding(4);
             panel2.Name = "panel2";
-            panel2.Size = new System.Drawing.Size(82, 468);
+            panel2.Size = new System.Drawing.Size(66, 468);
             panel2.TabIndex = 4;
             // 
             // toolStrip3
             // 
             toolStrip3.Dock = System.Windows.Forms.DockStyle.Bottom;
             toolStrip3.ImageScalingSize = new System.Drawing.Size(24, 24);
-            toolStrip3.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripLabelRtfMode, toolStripSeparator2, toolStripLabelWordCount, toolStripSeparator3, toolStripComboBox1, toolStripButtonFindPrevious, toolStripButtonFindNext, toolStripCheckBoxMatchCase, toolStripCheckBoxWholeWords, toolStripButtonFindAll, toolStripButtonFinish, toolStripButtonRefresh, toolStripSeparator1, toolStripSeparator6, toolStripLabelStatus });
+            toolStrip3.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripLabelRtfMode, toolStripSeparator2, toolStripLabelWordCount, toolStripSeparator3, toolStripComboBox1, toolStripButtonFindPrevious, toolStripButtonFindNext, toolStripCheckBoxMatchCase, toolStripCheckBoxWholeWords, toolStripButtonFindAll, toolStripButtonFinish, toolStripButtonRedo, toolStripButtonUndo, toolStripButtonRefresh, toolStripSeparator1, toolStripSeparator6, toolStripLabelStatus });
             toolStrip3.Location = new System.Drawing.Point(0, 556);
             toolStrip3.Name = "toolStrip3";
             toolStrip3.Padding = new System.Windows.Forms.Padding(0, 0, 2, 0);
@@ -1303,6 +1351,30 @@
             toolStripButtonFinish.Text = "Finish";
             toolStripButtonFinish.ToolTipText = "Copy to clipboard and exit";
             // 
+            // toolStripButtonRedo
+            // 
+            toolStripButtonRedo.AccessibleName = "Redo";
+            toolStripButtonRedo.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
+            toolStripButtonRedo.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            toolStripButtonRedo.Enabled = false;
+            toolStripButtonRedo.Font = new System.Drawing.Font("Segoe UI Symbol", 14F);
+            toolStripButtonRedo.Name = "toolStripButtonRedo";
+            toolStripButtonRedo.Size = new System.Drawing.Size(32, 29);
+            toolStripButtonRedo.Text = "↷";
+            toolStripButtonRedo.ToolTipText = "Redo (Ctrl+Y): what Undo took back";
+            // 
+            // toolStripButtonUndo
+            // 
+            toolStripButtonUndo.AccessibleName = "Undo";
+            toolStripButtonUndo.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
+            toolStripButtonUndo.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            toolStripButtonUndo.Enabled = false;
+            toolStripButtonUndo.Font = new System.Drawing.Font("Segoe UI Symbol", 14F);
+            toolStripButtonUndo.Name = "toolStripButtonUndo";
+            toolStripButtonUndo.Size = new System.Drawing.Size(32, 29);
+            toolStripButtonUndo.Text = "↶";
+            toolStripButtonUndo.ToolTipText = "Undo (Ctrl+Z): typing and tools, one step at a time; a switch between plain and rich text too";
+            // 
             // toolStripButtonRefresh
             // 
             toolStripButtonRefresh.AccessibleName = "Refresh";
@@ -1339,11 +1411,11 @@
             tabControl3.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             tabControl3.Controls.Add(tabPage1);
             tabControl3.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            tabControl3.Location = new System.Drawing.Point(735, 0);
+            tabControl3.Location = new System.Drawing.Point(741, 0);
             tabControl3.Margin = new System.Windows.Forms.Padding(4);
             tabControl3.Name = "tabControl3";
             tabControl3.SelectedIndex = 0;
-            tabControl3.Size = new System.Drawing.Size(362, 88);
+            tabControl3.Size = new System.Drawing.Size(356, 88);
             tabControl3.TabIndex = 6;
             // 
             // tabPage1
@@ -1356,7 +1428,7 @@
             tabPage1.Margin = new System.Windows.Forms.Padding(4);
             tabPage1.Name = "tabPage1";
             tabPage1.Padding = new System.Windows.Forms.Padding(4);
-            tabPage1.Size = new System.Drawing.Size(354, 58);
+            tabPage1.Size = new System.Drawing.Size(348, 58);
             tabPage1.TabIndex = 0;
             tabPage1.UseVisualStyleBackColor = true;
             // 
@@ -1387,10 +1459,10 @@
             toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
             toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripButtonOptions, toolStripButton2, toolStripButton1 });
             toolStrip1.LayoutStyle = System.Windows.Forms.ToolStripLayoutStyle.HorizontalStackWithOverflow;
-            toolStrip1.Location = new System.Drawing.Point(198, 4);
+            toolStrip1.Location = new System.Drawing.Point(223, 4);
             toolStrip1.Name = "toolStrip1";
             toolStrip1.Padding = new System.Windows.Forms.Padding(0, 0, 2, 0);
-            toolStrip1.Size = new System.Drawing.Size(152, 50);
+            toolStrip1.Size = new System.Drawing.Size(121, 50);
             toolStrip1.TabIndex = 0;
             toolStrip1.Text = "toolStrip2";
             // 
@@ -1439,7 +1511,7 @@
             richTextBox1.Location = new System.Drawing.Point(245, 85);
             richTextBox1.Margin = new System.Windows.Forms.Padding(4);
             richTextBox1.Name = "richTextBox1";
-            richTextBox1.Size = new System.Drawing.Size(769, 468);
+            richTextBox1.Size = new System.Drawing.Size(784, 468);
             richTextBox1.TabIndex = 0;
             richTextBox1.Text = "";
             // 
@@ -1545,7 +1617,7 @@
         private System.Windows.Forms.ToolStripButton toolStripButtonFinish;
         private System.Windows.Forms.ToolStripButton toolStripButtonRefresh;
         private System.Windows.Forms.ToolStrip toolStrip2;
-        private System.Windows.Forms.ToolStripButton toolStripButtonSpellcheck;
+        private System.Windows.Forms.ToolStripButton toolStripButtonEdSPE;
         private System.Windows.Forms.ToolStripButton toolStripButtonCheckPunctuation;
         private System.Windows.Forms.ToolStripButton toolStripButton3;
         private System.Windows.Forms.ToolStripButton toolStripButton4;
@@ -1606,6 +1678,11 @@
         private System.Windows.Forms.ToolStripButton toolStripButtonStITA;
         private System.Windows.Forms.ToolStripButton toolStripButtonStIIN;
         private System.Windows.Forms.ToolStripButton toolStripButtonStDIN;
+        private System.Windows.Forms.ToolStripButton toolStripButtonUndo;
+        private System.Windows.Forms.ToolStripButton toolStripButtonRedo;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparatorLiIndent;
+        private System.Windows.Forms.ToolStripButton toolStripButtonLiIIN;
+        private System.Windows.Forms.ToolStripButton toolStripButtonLiDIN;
         private System.Windows.Forms.ToolStripButton toolStripButtonSoALP;
         private System.Windows.Forms.ToolStripButton toolStripButtonSoNUM;
         private System.Windows.Forms.ToolStripButton toolStripButtonSoREV;
@@ -1616,6 +1693,7 @@
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
         private System.Windows.Forms.ToolStripButton toolStripButton1;
         private System.Windows.Forms.ToolStripButton toolStripButton2;
+        private System.Windows.Forms.ToolStripButton toolStripButtonEdSRC;
     }
 }
 

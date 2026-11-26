@@ -35,8 +35,10 @@ namespace ClipX2.UI
             linkSettingsFolder = new System.Windows.Forms.LinkLabel();
             buttonExport = new System.Windows.Forms.Button();
             buttonImport = new System.Windows.Forms.Button();
+            buttonExportPowerButtons = new System.Windows.Forms.Button();
             labelExportNote = new System.Windows.Forms.Label();
             checkBoxHideFormattingWarning = new System.Windows.Forms.CheckBox();
+            checkBoxWholeWords = new System.Windows.Forms.CheckBox();
             tabSpelling = new System.Windows.Forms.TabPage();
             labelDictionaries = new System.Windows.Forms.Label();
             labelFind = new System.Windows.Forms.Label();
@@ -100,8 +102,8 @@ namespace ClipX2.UI
             //
             // tabControl
             //
-            tabControl.Controls.Add(tabDisplay);
             tabControl.Controls.Add(tabGeneral);
+            tabControl.Controls.Add(tabDisplay);
             tabControl.Controls.Add(tabSpelling);
             tabControl.Controls.Add(tabGrammar);
             tabControl.Location = new System.Drawing.Point(10, 10);
@@ -129,7 +131,7 @@ namespace ClipX2.UI
             tabDisplay.Name = "tabDisplay";
             tabDisplay.Padding = new System.Windows.Forms.Padding(3);
             tabDisplay.Size = new System.Drawing.Size(612, 470);
-            tabDisplay.TabIndex = 0;
+            tabDisplay.TabIndex = 1;
             tabDisplay.Text = "Display";
             tabDisplay.UseVisualStyleBackColor = true;
             //
@@ -259,14 +261,16 @@ namespace ClipX2.UI
             tabGeneral.Controls.Add(labelSettingsIntro);
             tabGeneral.Controls.Add(linkSettingsFolder);
             tabGeneral.Controls.Add(buttonExport);
+            tabGeneral.Controls.Add(buttonExportPowerButtons);
             tabGeneral.Controls.Add(buttonImport);
             tabGeneral.Controls.Add(labelExportNote);
             tabGeneral.Controls.Add(checkBoxHideFormattingWarning);
+            tabGeneral.Controls.Add(checkBoxWholeWords);
             tabGeneral.Location = new System.Drawing.Point(4, 26);
             tabGeneral.Name = "tabGeneral";
             tabGeneral.Padding = new System.Windows.Forms.Padding(3);
             tabGeneral.Size = new System.Drawing.Size(612, 470);
-            tabGeneral.TabIndex = 1;
+            tabGeneral.TabIndex = 0;
             tabGeneral.Text = "General";
             tabGeneral.UseVisualStyleBackColor = true;
             //
@@ -300,30 +304,49 @@ namespace ClipX2.UI
             //
             // buttonImport
             //
-            buttonImport.Location = new System.Drawing.Point(196, 80);
+            buttonImport.Location = new System.Drawing.Point(376, 80);
             buttonImport.Name = "buttonImport";
             buttonImport.Size = new System.Drawing.Size(170, 30);
-            buttonImport.TabIndex = 3;
+            buttonImport.TabIndex = 4;
             buttonImport.Text = "&Import settings…";
             buttonImport.UseVisualStyleBackColor = true;
+            // 
+            // buttonExportPowerButtons
+            // 
+            buttonExportPowerButtons.Location = new System.Drawing.Point(196, 80);
+            buttonExportPowerButtons.Name = "buttonExportPowerButtons";
+            buttonExportPowerButtons.Size = new System.Drawing.Size(170, 30);
+            buttonExportPowerButtons.TabIndex = 3;
+            buttonExportPowerButtons.Text = "Export &PowerButtons…";
+            toolTip.SetToolTip(buttonExportPowerButtons, "Export PowerButtons only");
+            buttonExportPowerButtons.UseVisualStyleBackColor = true;
             //
             // labelExportNote
             //
             labelExportNote.ForeColor = System.Drawing.SystemColors.GrayText;
             labelExportNote.Location = new System.Drawing.Point(16, 122);
             labelExportNote.Name = "labelExportNote";
-            labelExportNote.Size = new System.Drawing.Size(580, 80);
-            labelExportNote.TabIndex = 4;
-            labelExportNote.Text = "Export copies your settings to a file, to keep or to take to another computer: JSON, or XML in ClipX 1's .pref format (choose the file type). Import replaces your settings with those in such a file; a .pref from ClipX 1 brings in its tool settings, find options, fonts and PowerButtons. A LanguageTool API key is stored so that only your Windows account can read it: after importing on another computer or account, enter it again.";
+            labelExportNote.Size = new System.Drawing.Size(580, 112);
+            labelExportNote.TabIndex = 5;
+            labelExportNote.Text = "Export copies your settings to a file, to keep or to take to another computer: JSON or XML (.pref; choose the file type). Export PowerButtons writes just your PowerButtons, as XML. Import replaces your settings with those in such a file (a PowerButtons file replaces just your PowerButtons); a .pref from ClipX 1 brings in its tool settings, find options, fonts and PowerButtons. A LanguageTool API key is stored so that only your Windows account can read it: after importing on another computer or account, enter it again.";
             // 
             // checkBoxHideFormattingWarning
             // 
             checkBoxHideFormattingWarning.AutoSize = true;
-            checkBoxHideFormattingWarning.Location = new System.Drawing.Point(16, 215);
+            checkBoxHideFormattingWarning.Location = new System.Drawing.Point(16, 245);
             checkBoxHideFormattingWarning.Name = "checkBoxHideFormattingWarning";
-            checkBoxHideFormattingWarning.TabIndex = 5;
+            checkBoxHideFormattingWarning.TabIndex = 6;
             checkBoxHideFormattingWarning.Text = "&Hide warning about loss of formatting";
             checkBoxHideFormattingWarning.UseVisualStyleBackColor = true;
+            // 
+            // checkBoxWholeWords
+            // 
+            checkBoxWholeWords.AutoSize = true;
+            checkBoxWholeWords.Location = new System.Drawing.Point(16, 275);
+            checkBoxWholeWords.Name = "checkBoxWholeWords";
+            checkBoxWholeWords.TabIndex = 7;
+            checkBoxWholeWords.Text = "When selecting with the mouse, automatically select whole &words";
+            checkBoxWholeWords.UseVisualStyleBackColor = true;
             //
             // tabSpelling
             //
@@ -808,13 +831,13 @@ namespace ClipX2.UI
             //
             saveFileDialog.DefaultExt = "json";
             saveFileDialog.FileName = "ClipX2 settings.json";
-            saveFileDialog.Filter = "JSON|*.json|XML (ClipX 1's .pref format)|*.pref";
+            saveFileDialog.Filter = "JSON|*.json|XML|*.pref";
             saveFileDialog.Title = "Export settings";
             //
             // openFileDialog
             //
             openFileDialog.DefaultExt = "json";
-            openFileDialog.Filter = "JSON|*.json|XML (ClipX 1's .pref format)|*.pref|All files (*.*)|*.*";
+            openFileDialog.Filter = "JSON|*.json|XML|*.pref|All files (*.*)|*.*";
             openFileDialog.Title = "Import settings";
             //
             // OptionsDialog
@@ -874,8 +897,10 @@ namespace ClipX2.UI
         private System.Windows.Forms.LinkLabel linkSettingsFolder;
         private System.Windows.Forms.Button buttonExport;
         private System.Windows.Forms.Button buttonImport;
+        private System.Windows.Forms.Button buttonExportPowerButtons;
         private System.Windows.Forms.Label labelExportNote;
         private System.Windows.Forms.CheckBox checkBoxHideFormattingWarning;
+        private System.Windows.Forms.CheckBox checkBoxWholeWords;
         private System.Windows.Forms.TabPage tabSpelling;
         private System.Windows.Forms.Label labelDictionaries;
         private System.Windows.Forms.Label labelFind;

@@ -6,7 +6,7 @@ using System.Text;
 namespace ClipX2.TextEngine.Tools
 {
     /// <summary>
-    /// How often each tool has been run through the engine (<see cref="TextTools.Run"/>), for this
+    /// How often each tool has been run through the engine (<see cref="TextTools.Run(string, string, int, int, object)"/>), for this
     /// run of the program. Only tool tags and counts: never any text.
     ///
     /// The engine never sends anything anywhere. A program using it may report the counts (with

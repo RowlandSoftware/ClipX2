@@ -65,6 +65,7 @@ namespace ClipX2
                 else if (hasRtf)
                 {
                     target.Rtf = Clipboard.GetText(TextDataFormat.Rtf);
+                    RichEditWriter.BulletsByLevel(target); // so the typed list gets ◦ and ▪ on deeper levels
                     SetPlainText(target, DocumentExport.ToPlainText(RichEditReader.Read(target), "\n"));
                 }
             }
@@ -104,6 +105,7 @@ namespace ClipX2
                 catch (Exception) { /* the editor's own reader instead */ }
             }
             target.Rtf = rtf;
+            RichEditWriter.BulletsByLevel(target); // the editor's reader shows • on every level
         }
 
         /// <summary>
@@ -155,14 +157,18 @@ namespace ClipX2
                 richTextBox1.SourceStyles = temp.SourceStyles;
             }
 
+            bool switching = rich.Value != _isRtfMode;
+            var before = switching ? BeforeSwitch() : null; // a change of mode: undone as a switch is
             using (richTextBox1.BeginBulkEdit())
             {
                 richTextBox1.SelectAll();
-                richTextBox1.SelectedRtf = rtf; // undoable, unlike setting the text
+                // Undoable, unlike setting the text; deeper bullets put back (the editor's RTF reader drops ◦ and ▪)
+                RichEditWriter.BulletsByLevel(richTextBox1, () => richTextBox1.SelectedRtf = rtf);
                 richTextBox1.Select(0, 0);
             }
             _isRtfMode = rich.Value;
             if (!_isRtfMode) RichEditWriter.ClearFormatting(richTextBox1); // no list or indent left on the last paragraph
+            if (switching) SwitchDone(before);
             toolStripLabelRtfMode.Text = _isRtfMode ? "Rich text" : "Plain text";
             ApplyDisplaySettings();
             _panels.Current?.OnModeChanged();

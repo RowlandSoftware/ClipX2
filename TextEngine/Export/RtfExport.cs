@@ -15,6 +15,8 @@ namespace ClipX2.TextEngine.Export
     /// </summary>
     public static class RtfExport
     {
+        /// <param name="doc">The text and its formatting.</param>
+        /// <param name="sheet">The source's style sheet (with its font and colour tables).</param>
         /// <param name="forWriter">
         /// The version for LibreOffice Writer: styles named as Writer's RTF names them
         /// (<see cref="WriterStyleNames"/>), and no paragraph mark after the last paragraph, which

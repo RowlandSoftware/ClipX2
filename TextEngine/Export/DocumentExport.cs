@@ -291,6 +291,18 @@ namespace ClipX2.TextEngine.Export
             return result;
         }
 
+        /// <summary>
+        /// Each paragraph's list label as the editor shows it ("•", "3.", "c)"; "" for an item
+        /// without a number), or null if it isn't a list item.
+        /// </summary>
+        public static string[] ListLabels(FormattedDocument doc)
+        {
+            ListLabel[] labels = GetListLabels(doc);
+            var result = new string[labels.Length];
+            for (int i = 0; i < labels.Length; i++) result[i] = labels[i].Label;
+            return result;
+        }
+
         private static string FormatLabel(FormattedParagraph p, int number)
         {
             if (p.ListKind == ListKind.Bullet) return p.BulletCharacter ?? "•";

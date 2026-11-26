@@ -1,10 +1,44 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!-- ClipX2 tool icon: pbCUT, Cut to clipboard. 48 x 48; export to pbCUT.png at 48 x 48 (Inkscape: File > Export, or
      inkscape pbCUT.svg --export-type=png --export-width=48 --export-filename=pbCUT.png). -->
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <title>Cut to clipboard</title>
-  <line x1="14" y1="6" x2="31" y2="31" stroke="#1f2f8f" stroke-width="3.4" stroke-linecap="round"/>
-  <line x1="34" y1="6" x2="17" y2="31" stroke="#1f2f8f" stroke-width="3.4" stroke-linecap="round"/>
-  <circle cx="13" cy="37" r="6.5" fill="none" stroke="#e53935" stroke-width="3.2"/>
-  <circle cx="35" cy="37" r="6.5" fill="none" stroke="#e53935" stroke-width="3.2"/>
+
+<svg
+   width="48"
+   height="48"
+   viewBox="0 0 48 48"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="pbCUT.svg"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="16"
+     inkscape:cx="18"
+     inkscape:cy="24"
+     inkscape:window-width="1836"
+     inkscape:window-height="1058"
+     inkscape:window-x="77"
+     inkscape:window-y="-6"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3" />
+  <title
+     id="title1">Cut to clipboard</title>
+  <path
+     d="M 26.296875,28.749768 27.375,30.577893 q 1.570313,2.742187 2.578125,3.492187 1.007813,0.75 2.882813,0.632813 l 0.960937,-0.07031 q 1.125,-0.07031 1.429688,-0.07031 2.132812,0 3.679687,1.59375 1.570313,1.617187 1.570313,3.84375 0,2.203125 -1.59375,3.796875 -1.59375,1.59375 -3.820313,1.59375 -4.148437,0 -5.578125,-5.414063 L 29.25,39.156023 q -0.984375,-3.75 -4.265625,-5.132813 L 24,32.452898 23.039063,33.92946 q -3.445313,1.734375 -4.59375,5.929688 l -0.328125,1.148432 q -1.195313,4.3125 -5.25,4.3125 -2.226563,0 -3.7734381,-1.546875 -1.5703128,-1.570312 -1.5703128,-3.84375 0,-2.390625 1.6406248,-3.890625 1.6406251,-1.5 4.2656261,-1.5 h 0.375 l 0.960937,0.09375 q 0.375,0.04687 0.75,0.04687 2.8125,0 4.617188,-3.210937 l 1.546875,-2.71875 q 0.328125,2.320312 2.34375,2.320312 1.945312,0 2.273437,-2.320312 z m -4.617187,0 -8.953125,-14.484375 Q 9.6796869,9.4138298 9.6796869,7.8903928 q 0,-1.710938 1.9218761,-3 l 0.703125,-0.492188 11.71875,20.4609382 11.8125,-20.2734382 0.65625,0.445313 q 2.109375,1.382812 2.109375,3.046875 0,1.335937 -3.117188,6.1875002 l -9.1875,14.484375 q -0.257812,-2.320313 -2.320312,-2.320313 -2.0625,0 -2.296875,2.320313 z m -8.8125,14.320312 q 1.242187,0 2.132812,-0.890625 0.890625,-0.890625 0.890625,-2.15625 0,-1.265625 -0.867187,-2.132812 -0.890625,-0.890625 -2.15625,-0.890625 -1.265625,0 -2.156251,0.890625 -0.8906251,0.867187 -0.8906251,2.132812 0,1.265625 0.8906251,2.15625 0.890626,0.890625 2.156251,0.890625 z m 22.265625,0 q 1.242187,0 2.132812,-0.890625 0.890625,-0.890625 0.890625,-2.15625 0,-1.265625 -0.867187,-2.132812 -0.890625,-0.890625 -2.15625,-0.890625 -1.265625,0 -2.15625,0.890625 -0.890625,0.890625 -0.890625,2.132812 0,1.265625 0.890625,2.15625 0.890625,0.890625 2.15625,0.890625 z"
+     id="text3"
+     style="font-size:48px;font-family:'Wingdings 2';-inkscape-font-specification:'Wingdings 2, Normal';fill:#000080;stroke:#ff0000;stroke-width:8;stroke-linecap:square;stroke-opacity:0"
+     aria-label="" />
 </svg>
