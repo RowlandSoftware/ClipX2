@@ -41,6 +41,8 @@ namespace ClipX2
             _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language)); // in the background, so the first F7 is instant
 
             toolStripButtonOptions.MouseUp += OptionsButtonMouseUp;
+            // About is on the small strip with Options and Help, which the tool buttons' wiring leaves out
+            toolStripButton2.Click += (s, e) => RunTool("clpAbout", ToolTrigger.Click);
             ApplyDisplaySettings();
 
             _statusHint = statusHint;
@@ -440,17 +442,7 @@ namespace ClipX2
         /// </summary>
         private Task<SpellChecker> LoadSpellChecker(string locale) => Task.Run(() =>
         {
-            if (_personal == null)
-            {
-                string personalPath = System.IO.Path.Combine(AppSettings.Folder, "persdict.dat");
-                string seed = System.IO.Path.Combine(ProgramDictionaries, "persdict.dat");
-                if (!System.IO.File.Exists(personalPath) && System.IO.File.Exists(seed))
-                {
-                    System.IO.Directory.CreateDirectory(AppSettings.Folder);
-                    System.IO.File.Copy(seed, personalPath);
-                }
-                _personal = new PersonalDictionary(personalPath);
-            }
+            if (_personal == null) _personal = new PersonalDictionary(DictionaryCatalogue.PersonalDictionaryPath());
             string folder = DictionaryCatalogue.FolderOf(locale) ?? ProgramDictionaries;
             SpellingSettings s = AppSettings.Current.Spelling;
             var options = new SpellingOptions
@@ -554,7 +546,8 @@ namespace ClipX2
                 _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language));
             };
             dialog.ShowDialog(this);
-            if (dialog.DictionariesChanged) // a dictionary downloaded or removed: perhaps the one in use
+            if (dialog.PersonalDictionaryChanged) _personal = null; // edited on its page: read it again
+            if (dialog.DictionariesChanged || dialog.PersonalDictionaryChanged) // a dictionary downloaded or removed (perhaps the one in use), or words changed
                 _spellLoading = LoadSpellChecker(ResolveLanguage(AppSettings.Current.Spelling.Language));
         }
 

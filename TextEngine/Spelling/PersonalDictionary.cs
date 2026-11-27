@@ -8,7 +8,7 @@ namespace ClipX2.TextEngine.Spelling
 {
     /// <summary>
     /// The user's own words: a UTF-8 text file, one word per line (the same format as ClipX 1's
-    /// persdict.dat, so that file can be used as it is).
+    /// persdict.dat, so that file can be used as it is). Every change is saved at once.
     /// </summary>
     public sealed class PersonalDictionary
     {
@@ -28,6 +28,8 @@ namespace ClipX2.TextEngine.Spelling
         public string Path { get; }
         public IReadOnlyCollection<string> Words => _words;
 
+        public bool Contains(string word) => word != null && _words.Contains(word.Trim());
+
         /// <summary>Adds a word and saves the file. False if it was already there.</summary>
         public bool Add(string word)
         {
@@ -37,10 +39,42 @@ namespace ClipX2.TextEngine.Spelling
             return true;
         }
 
-        /// <summary>Removes a word and saves the file (for a future "edit dictionary" list).</summary>
+        /// <summary>Adds words (a word and its other forms) and saves once. How many were new.</summary>
+        public int AddRange(IEnumerable<string> words)
+        {
+            int added = 0;
+            foreach (string w in words)
+            {
+                string word = w?.Trim();
+                if (!string.IsNullOrEmpty(word) && _words.Add(word)) added++;
+            }
+            if (added > 0) Save();
+            return added;
+        }
+
+        /// <summary>Removes a word and saves the file.</summary>
         public bool Remove(string word)
         {
             if (!_words.Remove(word)) return false;
+            Save();
+            return true;
+        }
+
+        /// <summary>Removes words and saves once. How many went.</summary>
+        public int RemoveRange(IEnumerable<string> words)
+        {
+            int removed = words.Count(w => _words.Remove(w));
+            if (removed > 0) Save();
+            return removed;
+        }
+
+        /// <summary>Replaces a word with another (a correction) and saves. False if the old one isn't there or the new one is empty.</summary>
+        public bool Change(string oldWord, string newWord)
+        {
+            newWord = newWord?.Trim();
+            if (string.IsNullOrEmpty(newWord) || !_words.Contains(oldWord)) return false;
+            _words.Remove(oldWord);
+            _words.Add(newWord);
             Save();
             return true;
         }

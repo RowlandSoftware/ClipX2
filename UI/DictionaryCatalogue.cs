@@ -94,6 +94,22 @@ namespace ClipX2.UI
                 .OrderBy(l => l, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+        /// <summary>
+        /// The personal dictionary (persdict.dat in the settings folder). The first time, it is
+        /// copied from the one supplied in the program's Dictionaries folder (ClipX 1's word list).
+        /// </summary>
+        public static string PersonalDictionaryPath()
+        {
+            string path = Path.Combine(AppSettings.Folder, "persdict.dat");
+            string seed = Path.Combine(ProgramFolder, "persdict.dat");
+            if (!File.Exists(path) && File.Exists(seed))
+            {
+                Directory.CreateDirectory(AppSettings.Folder);
+                File.Copy(seed, path);
+            }
+            return path;
+        }
+
         /// <summary>The folder holding a dictionary (the user's if both have it), or null.</summary>
         public static string FolderOf(string name) =>
             Folders.FirstOrDefault(f => File.Exists(Path.Combine(f, name + ".dic")));

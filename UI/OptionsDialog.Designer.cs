@@ -17,6 +17,8 @@ namespace ClipX2.UI
             components = new System.ComponentModel.Container();
             tabControl = new System.Windows.Forms.TabControl();
             tabDisplay = new System.Windows.Forms.TabPage();
+            tabPersonal = new System.Windows.Forms.TabPage();
+            personalDictionaryPage = new PersonalDictionaryPage();
             labelFontIntro = new System.Windows.Forms.Label();
             radioProportional = new System.Windows.Forms.RadioButton();
             textBoxProportional = new System.Windows.Forms.TextBox();
@@ -97,6 +99,7 @@ namespace ClipX2.UI
             tabSpelling.SuspendLayout();
             groupBoxSpellingOptions.SuspendLayout();
             tabGrammar.SuspendLayout();
+            tabPersonal.SuspendLayout();
             groupBoxService.SuspendLayout();
             SuspendLayout();
             //
@@ -105,6 +108,7 @@ namespace ClipX2.UI
             tabControl.Controls.Add(tabGeneral);
             tabControl.Controls.Add(tabDisplay);
             tabControl.Controls.Add(tabSpelling);
+            tabControl.Controls.Add(tabPersonal);
             tabControl.Controls.Add(tabGrammar);
             tabControl.Location = new System.Drawing.Point(10, 10);
             tabControl.Name = "tabControl";
@@ -605,9 +609,28 @@ namespace ClipX2.UI
             tabGrammar.Name = "tabGrammar";
             tabGrammar.Padding = new System.Windows.Forms.Padding(3);
             tabGrammar.Size = new System.Drawing.Size(612, 470);
-            tabGrammar.TabIndex = 3;
+            tabGrammar.TabIndex = 4;
             tabGrammar.Text = "Grammar";
             tabGrammar.UseVisualStyleBackColor = true;
+            //
+            // tabPersonal
+            //
+            tabPersonal.Controls.Add(personalDictionaryPage);
+            tabPersonal.Location = new System.Drawing.Point(4, 26);
+            tabPersonal.Name = "tabPersonal";
+            tabPersonal.Padding = new System.Windows.Forms.Padding(3);
+            tabPersonal.Size = new System.Drawing.Size(612, 470);
+            tabPersonal.TabIndex = 3;
+            tabPersonal.Text = "Personal dictionary";
+            tabPersonal.UseVisualStyleBackColor = true;
+            //
+            // personalDictionaryPage
+            //
+            personalDictionaryPage.Dock = System.Windows.Forms.DockStyle.Fill;
+            personalDictionaryPage.Location = new System.Drawing.Point(3, 3);
+            personalDictionaryPage.Name = "personalDictionaryPage";
+            personalDictionaryPage.Size = new System.Drawing.Size(606, 464);
+            personalDictionaryPage.TabIndex = 0;
             //
             // checkBoxGrammar
             //
@@ -870,6 +893,7 @@ namespace ClipX2.UI
             groupBoxSpellingOptions.PerformLayout();
             tabGrammar.ResumeLayout(false);
             tabGrammar.PerformLayout();
+            tabPersonal.ResumeLayout(false);
             groupBoxService.ResumeLayout(false);
             groupBoxService.PerformLayout();
             ResumeLayout(false);
@@ -927,6 +951,8 @@ namespace ClipX2.UI
         private System.Windows.Forms.CheckBox checkBoxSimpleFirst;
         private System.Windows.Forms.CheckBox checkBoxOxford;
         private System.Windows.Forms.TabPage tabGrammar;
+        private System.Windows.Forms.TabPage tabPersonal;
+        private PersonalDictionaryPage personalDictionaryPage;
         private System.Windows.Forms.CheckBox checkBoxGrammar;
         private System.Windows.Forms.GroupBox groupBoxService;
         private System.Windows.Forms.RadioButton radioFree;

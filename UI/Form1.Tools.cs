@@ -74,6 +74,7 @@ namespace ClipX2
                 case "clipxFIN": UsageStatistics.Record(tag); Done(); return;
                 case "clipxMOD": UsageStatistics.Record(tag); toolStripLabelRtfMode_Click(this, EventArgs.Empty); return;
                 case "clipxQSR": UsageStatistics.Record(tag); _quickSearch.Activate(); return;
+                case "clpAbout": using (var about = new AboutDialog()) about.ShowDialog(this); return; // About ClipX
             }
             if (tag == "clipxREF") // Refresh: the clipboard again (as at startup)
             {

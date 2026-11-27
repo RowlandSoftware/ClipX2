@@ -102,8 +102,7 @@ namespace ClipX2.UI.Panels
         private static void OpenLink(string url)
         {
             if (string.IsNullOrEmpty(url)) return;
-            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException) { /* no browser */ }
+            WebLinks.Open(url);
         }
 
         /// <summary>

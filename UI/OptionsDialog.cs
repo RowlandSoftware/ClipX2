@@ -11,12 +11,13 @@ using ClipX2.TextEngine.Grammar;
 namespace ClipX2.UI
 {
     /// <summary>The Options dialog's pages, to open it at one.</summary>
-    internal enum OptionsPage { Display, General, Spelling, Grammar }
+    internal enum OptionsPage { Display, General, Spelling, PersonalDictionary, Grammar }
 
     /// <summary>
     /// ClipX's options (ClipX 1's dlgPreferences, without its Extensions and Updates pages):
     /// Display (fonts for plain text, word wrap), General (export and import of the settings),
-    /// Spelling (dictionaries, with downloads; the checker's options) and Grammar (LanguageTool:
+    /// Spelling (dictionaries, with downloads; the checker's options), Personal dictionary (your
+    /// words: search, add with their other forms, change, delete) and Grammar (LanguageTool:
     /// free service, Premium key or own server; ignored rules).
     ///
     /// Changes take effect on OK or Apply (<see cref="Applied"/>); Cancel drops them. Downloading
@@ -36,6 +37,10 @@ namespace ClipX2.UI
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public bool DictionariesChanged { get; private set; }
 
+        /// <summary>Words were added, changed or deleted on the Personal dictionary page (saved at once).</summary>
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool PersonalDictionaryChanged => personalDictionaryPage.Changed;
+
         /// <summary>The spelling language in use (for testing LanguageTool in it).</summary>
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public string CurrentLanguage { get; set; } = "en_GB";
@@ -47,6 +52,7 @@ namespace ClipX2.UI
             {
                 OptionsPage.General => tabGeneral,
                 OptionsPage.Spelling => tabSpelling,
+                OptionsPage.PersonalDictionary => tabPersonal,
                 OptionsPage.Grammar => tabGrammar,
                 _ => tabDisplay,
             };
@@ -54,6 +60,15 @@ namespace ClipX2.UI
             buttonOK.Click += (s, e) => { if (Apply()) { DialogResult = DialogResult.OK; Close(); } };
             buttonApply.Click += (s, e) => Apply();
             FormClosed += (s, e) => _work?.Cancel();
+
+            // Personal dictionary: read when its page is first shown (CurrentLanguage is set by then)
+            void OpenPersonal()
+            {
+                if (tabControl.SelectedTab == tabPersonal && !personalDictionaryPage.IsOpen)
+                    personalDictionaryPage.Open(DictionaryCatalogue.PersonalDictionaryPath(), CurrentLanguage);
+            }
+            tabControl.SelectedIndexChanged += (s, e) => OpenPersonal();
+            Load += (s, e) => OpenPersonal();
 
             // Display
             buttonProportional.Click += (s, e) => ChooseFont(fixedPitch: false);
@@ -592,10 +607,6 @@ namespace ClipX2.UI
             }
         }
 
-        private static void OpenLink(string url)
-        {
-            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException) { /* no browser */ }
-        }
+        private void OpenLink(string url) => WebLinks.Open(url, this);
     }
 }
