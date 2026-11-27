@@ -117,9 +117,9 @@ namespace ClipX2.TextEngine.Tools
             new ToolInfo("liREM", "Remove numbers", Lists, ToolKind.Text, null, "Remove numbering"),
             new ToolInfo("liRLN", "Remove line numbers", Lists, ToolKind.Text, null, "Remove line numbering"),
 
-            new ToolInfo("soSMA", "Smart sort", Sorting, ToolKind.Text, null, "Sort paragraphs in natural order: numbers by value (2 before 10), numbers before letters"),
-            new ToolInfo("soALP", "Alphabetic", Sorting, ToolKind.Text, null, "Sort paragraphs alphabetically"),
-            new ToolInfo("soNUM", "Numeric", Sorting, ToolKind.Text, null, "Sort paragraphs numerically"),
+            new ToolInfo("soSMA", "Smart sort", Sorting, ToolKind.Text, typeof(SmartSortOptions), "Sort paragraphs as indexes are: NISO TR03, BS ISO 999 (Hart's) or Chicago; symbols, then numbers by value (2 before 10), then letters"),
+            new ToolInfo("soALP", "Alphabetic", Sorting, ToolKind.Text, typeof(AlphaSortOptions), "Sort paragraphs alphabetically: word by word or letter by letter, case ignored or not"),
+            new ToolInfo("soNUM", "Numeric", Sorting, ToolKind.Text, typeof(NumberSortOptions), "Sort paragraphs by the number they start with: by value, as version numbers, or digit by digit"),
             new ToolInfo("soREV", "Reverse", Sorting, ToolKind.Text, null, "Reverse order of selected paragraphs"),
             new ToolInfo("soNUP", "Nudge up", Sorting, ToolKind.Text, null, "Move current line or selection up one line"),
             new ToolInfo("soNUD", "Nudge down", Sorting, ToolKind.Text, null, "Move current line or selection down one line"),

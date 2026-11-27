@@ -98,13 +98,13 @@ namespace ClipX2
             switch (tag)
             {
                 // Change case
-                case "ccUPP": ApplyCase(CaseMode.Upper, how == ToolTrigger.PowerButton); break;
-                case "ccLOW": ApplyCase(CaseMode.Lower, how == ToolTrigger.PowerButton); break;
-                case "ccREV": ApplyCase(CaseMode.Reverse, how == ToolTrigger.PowerButton); break;
-                case "ccINC": ApplyCase(CaseMode.InitCaps, how == ToolTrigger.PowerButton); break;
-                case "ccTIT": ApplyCase(CaseMode.Title, how == ToolTrigger.PowerButton); break;
-                case "ccSEN": ApplyCase(CaseMode.Sentence, how == ToolTrigger.PowerButton); break;
-                case "ccCAP": ApplyCase(CaseMode.SentenceCaps, how == ToolTrigger.PowerButton); break;
+                case "ccUPP": ApplyCase(CaseMode.Upper); break;
+                case "ccLOW": ApplyCase(CaseMode.Lower); break;
+                case "ccREV": ApplyCase(CaseMode.Reverse); break;
+                case "ccINC": ApplyCase(CaseMode.InitCaps); break;
+                case "ccTIT": ApplyCase(CaseMode.Title); break;
+                case "ccSEN": ApplyCase(CaseMode.Sentence); break;
+                case "ccCAP": ApplyCase(CaseMode.SentenceCaps); break;
                 case "ccCYC":
                     if (box.SelectionLength > 0) box.CycleCase();
                     else ShowStatus("Select some text to cycle its case");
@@ -185,9 +185,18 @@ namespace ClipX2
                 case "liRLN": ShowStatus(FormatTools.RemoveLineNumbers(box)); break;
 
                 // Sorting
-                case "soALP": ShowStatus(SortTools.Sort(box, SortKind.Alphabetic)); break;
-                case "soNUM": ShowStatus(SortTools.Sort(box, SortKind.Numeric)); break;
-                case "soSMA": ShowStatus(SortTools.Sort(box, SortKind.Smart)); break;
+                case "soALP":
+                    if (showOptions) ShowPanel<ClipX2.UI.Panels.AlphaSortPanel>(p => p.Attach(box, ShowStatus));
+                    else ShowStatus(SortTools.Sort(box, SortKind.Alphabetic, Use(s.AlphaSort)));
+                    break;
+                case "soNUM":
+                    if (showOptions) ShowPanel<ClipX2.UI.Panels.NumberSortPanel>(p => p.Attach(box, ShowStatus));
+                    else ShowStatus(SortTools.Sort(box, SortKind.Numeric, Use(s.NumberSort)));
+                    break;
+                case "soSMA":
+                    if (showOptions) ShowPanel<ClipX2.UI.Panels.SmartSortPanel>(p => p.Attach(box, ShowStatus));
+                    else ShowStatus(SortTools.Sort(box, SortKind.Smart, Use(s.SmartSort)));
+                    break;
                 case "soREV": ShowStatus(SortTools.Reverse(box)); break;
                 case "soNUP": ShowStatus(SortTools.Nudge(box, up: true)); break;
                 case "soNUD": ShowStatus(SortTools.Nudge(box, up: false)); break;
@@ -265,6 +274,9 @@ namespace ClipX2
             "foIND" => typeof(ClipX2.UI.Panels.IndentPanel),
             "foWRP" => typeof(ClipX2.UI.Panels.WordWrapPanel),
             "foREM" => typeof(ClipX2.UI.Panels.RemoveLinesPanel),
+            "soALP" => typeof(ClipX2.UI.Panels.AlphaSortPanel),
+            "soNUM" => typeof(ClipX2.UI.Panels.NumberSortPanel),
+            "soSMA" => typeof(ClipX2.UI.Panels.SmartSortPanel),
             "chSPE" => typeof(ClipX2.UI.Panels.SpellingPanel),
             "chSTAT" => typeof(ClipX2.UI.Panels.StatisticsPanel),
             "edSRC" or "edREP" => typeof(ClipX2.UI.Panels.FindReplacePanel),

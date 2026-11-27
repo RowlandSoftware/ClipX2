@@ -1621,9 +1621,6 @@ public class ClipXRichTextBox : RichTextBox
     /// changes the character to the right of the caret and moves the caret past it, so holding
     /// the key down works along the text. (Toolstrip buttons act on the whole text instead.)
     /// </summary>
-    /// <summary>A case button with nothing selected: as its key (the character right of the caret, the caret past it).</summary>
-    public void CaseAtCaret(CaseMode mode) => KeyCase(mode);
-
     private void KeyCase(CaseMode mode)
     {
         if (this.SelectionLength > 0)

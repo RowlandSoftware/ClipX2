@@ -154,7 +154,7 @@ namespace ClipX2.UI
         public static bool MustBeOwn(string tag) => tag is "pbINS" or "pbPBT";
 
         /// <summary>The tool has a side panel to ask with (an "Ask" task shows it; its Apply carries on).</summary>
-        public static bool CanAsk(string tag) => tag is "foIND" or "foUNI" or "foWRP" or "foREM" or "liBUL" or "liNUM" or "liREN" or "edSRC" or "edREP";
+        public static bool CanAsk(string tag) => tag is "foIND" or "foUNI" or "foWRP" or "foREM" or "liBUL" or "liNUM" or "liREN" or "edSRC" or "edREP" or "soALP" or "soNUM" or "soSMA";
 
         /// <summary>Works only on rich text (fonts and styles): a PowerButton stops there in plain-text mode.</summary>
         public static bool RichTextOnly(string tag) => tag is "stFNT" or "stSIZ" or "stBLD" or "stITA" or "stUND" or "stSTR" or "stSUP" or "stSUB"

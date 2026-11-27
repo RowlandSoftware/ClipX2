@@ -74,6 +74,17 @@ namespace ClipX2.UI
         /// <summary>Remove extra lines: Single, Multiple.</summary>
         public ClipX2.TextEngine.RemoveLinesOptions RemLines { get; set; } = new ClipX2.TextEngine.RemoveLinesOptions();
 
+        // Sorting tools
+
+        /// <summary>Alphabetic sort: CaseSensitive, LetterByLetter (Strict or Chicago), RemoveDuplicates.</summary>
+        public ClipX2.TextEngine.AlphaSortOptions AlphaSort { get; set; } = new ClipX2.TextEngine.AlphaSortOptions();
+
+        /// <summary>Numeric sort: Order (Value, Version, DigitByDigit).</summary>
+        public ClipX2.TextEngine.NumberSortOptions NumberSort { get; set; } = new ClipX2.TextEngine.NumberSortOptions();
+
+        /// <summary>Smart sort: word or letter by letter, comma, brackets, Mc, St, numbers, case, duplicates (NISO TR03 by default).</summary>
+        public ClipX2.TextEngine.SmartSortOptions SmartSort { get; set; } = new ClipX2.TextEngine.SmartSortOptions();
+
         /// <summary>The PowerButtons, in the order shown (Alt+1… run the first nine).</summary>
         public System.Collections.Generic.List<PowerButton> PowerButtons { get; set; } = new System.Collections.Generic.List<PowerButton>();
 
@@ -135,6 +146,9 @@ namespace ClipX2.UI
                 s.Indent ??= new ClipX2.TextEngine.IndentOptions();
                 s.Wordwrap ??= new ClipX2.TextEngine.WordWrapOptions();
                 s.RemLines ??= new ClipX2.TextEngine.RemoveLinesOptions();
+                s.AlphaSort ??= new ClipX2.TextEngine.AlphaSortOptions();
+                s.NumberSort ??= new ClipX2.TextEngine.NumberSortOptions();
+                s.SmartSort ??= new ClipX2.TextEngine.SmartSortOptions();
                 s.PowerButtons ??= new System.Collections.Generic.List<PowerButton>();
                 s.PowerButtons.RemoveAll(b => b == null);
                 foreach (PowerButton b in s.PowerButtons)

@@ -1037,7 +1037,7 @@
             toolStripButtonSoSMA.Size = new System.Drawing.Size(52, 52);
             toolStripButtonSoSMA.Tag = "soSMA";
             toolStripButtonSoSMA.Text = "Smart Sort";
-            toolStripButtonSoSMA.ToolTipText = "Sort paragraphs by number first, then alphabeticall";
+            toolStripButtonSoSMA.ToolTipText = "Sort paragraphs as an index: NISO, BS ISO 999 or Chicago style";
             // 
             // toolStripButtonSoALP
             // 

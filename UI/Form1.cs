@@ -577,30 +577,16 @@ namespace ClipX2
         }
 
         /// <summary>
-        /// A case button: the selection. With nothing selected, as in a word processor: Upper, Lower,
-        /// Reverse and Initial Caps as their keys (the character right of the cursor, the cursor
-        /// moving past it, so repeated presses go along the text); Title, Sentence and Sentence caps,
-        /// which need whole words and sentences, the paragraph with the cursor. A PowerButton's
-        /// task with nothing selected: the whole text (as ClipX 1).
+        /// A case button: the selection, or with nothing selected the whole text (case doesn't
+        /// carry on into what is typed next, as bold does: Caps Lock is for that; the keys,
+        /// Ctrl+L and the rest, change the character at the cursor).
         /// </summary>
-        private void ApplyCase(CaseMode mode, bool wholeTextIfNone = false)
+        private void ApplyCase(CaseMode mode)
         {
             int selStart = richTextBox1.SelectionStart;
             int selLen = richTextBox1.SelectionLength;
 
-            if (selLen == 0 && !wholeTextIfNone)
-            {
-                if (mode == CaseMode.Upper || mode == CaseMode.Lower || mode == CaseMode.Reverse || mode == CaseMode.InitCaps)
-                {
-                    richTextBox1.CaseAtCaret(mode);
-                    return;
-                }
-                string text = richTextBox1.Text;
-                var line = ClipX2.TextEngine.ListFormatter.LinesIn(text, selStart, selStart)[0];
-                if (line.Length == 0) { ShowStatus("Put the cursor in a paragraph, or select some text (Ctrl+A: all of it)"); return; }
-                richTextBox1.Select(line.Start, line.Length);
-            }
-            else if (selLen == 0)
+            if (selLen == 0)
                 richTextBox1.SelectAll();
 
             richTextBox1.ApplyCase(mode);

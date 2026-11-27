@@ -14,18 +14,69 @@ namespace ClipX2.TextEngine
         /// <summary>soNUM: by the number each line starts with (lines without one after, alphabetically).</summary>
         Numeric,
         /// <summary>
-        /// soSMA: "smart" (natural) order: numbers inside lines compare as numbers (item 2 before
-        /// item 10); lines starting with a symbol, then a number, then a letter.
-        /// TODO (Andrew): check against the Oracle Style Guide.
+        /// soSMA: NISO TR03-1999's order (spaces, symbols, numbers, letters; numbers anywhere by
+        /// value: item 2 before item 10), with presets for BS ISO 999 (Hart's) and Chicago; see
+        /// <see cref="SmartSortOptions"/>.
         /// </summary>
         Smart,
+    }
+
+    /// <summary>Alphabetic sort options (soALP).</summary>
+    public sealed class AlphaSortOptions
+    {
+        /// <summary>Capitals before small letters, as two alphabets: Zebra before apple. Off: case ignored (Apple before apple only when otherwise the same).</summary>
+        public bool CaseSensitive { get; set; }
+
+        /// <summary>
+        /// Letter by letter: spaces, hyphens and other punctuation ignored (Newark before New York).
+        /// Off: word by word, the space before any letter (New York before Newark), as BS ISO 999
+        /// for general indexes and NISO TR03-1999.
+        /// </summary>
+        public bool LetterByLetter { get; set; }
+
+        /// <summary>Which letter-by-letter rule (only when <see cref="LetterByLetter"/>).</summary>
+        public LetterByLetterRule LetterRule { get; set; } = LetterByLetterRule.Strict;
+
+        /// <summary>Lines the same as one already there (indentation and runs of spaces aside) go; the first stays.</summary>
+        public bool RemoveDuplicates { get; set; }
+    }
+
+    /// <summary>The letter-by-letter interpretations of NISO TR03-1999 (Figure 2).</summary>
+    public enum LetterByLetterRule
+    {
+        /// <summary>Strict: every space and punctuation mark ignored, without exception (New, Thomas after newsprint).</summary>
+        Strict,
+        /// <summary>
+        /// Chicago Manual of Style (17th and 18th eds., 15.67): letters count up to the first
+        /// parenthesis or comma, then start again after it. A word alone comes first, then the
+        /// word followed by a parenthesis, then by a comma, then by a number, then by letters
+        /// (New, Thomas before Newark; newton (unit) before Newton, Isaac before Newton's rings).
+        /// </summary>
+        Chicago,
+    }
+
+    /// <summary>How numbers compare (the Numeric sort; also the number parts of other sorts).</summary>
+    public enum NumberOrder
+    {
+        /// <summary>By value, decimals too (8 before 10; 1.10 before 1.5; Dewey 004.16 before 004.6). Sign and thousands commas read.</summary>
+        Value,
+        /// <summary>Version numbers: each part between the points by value (1.5 before 1.10, 1.2 before 1.2.1).</summary>
+        Version,
+        /// <summary>Digit by digit, as text (lexical): 10 before 8; codes whose digits aren't amounts.</summary>
+        DigitByDigit,
+    }
+
+    /// <summary>Numeric sort options (soNUM).</summary>
+    public sealed class NumberSortOptions
+    {
+        public NumberOrder Order { get; set; } = NumberOrder.Value;
     }
 
     /// <summary>
     /// The Sorting tools: sort, reverse or nudge whole lines (paragraphs), and sort the comma
     /// separated items within a line. Each line is an entity: it moves whole. The selection is
     /// widened to whole lines; with none, the whole text (nudging: the line with the caret).
-    /// <see cref="Order"/> gives the new order of the lines, so an editor can move them with their
+    /// <see cref="Order(string, IReadOnlyList{Line}, IComparer{string})"/> gives the new order of the lines, so an editor can move them with their
     /// formatting; the Edits methods give the plain-text result as one edit.
     /// </summary>
     public static class LineSorter
@@ -37,13 +88,34 @@ namespace ClipX2.TextEngine
         /// are left out (as ClipX 1: they go). Equal lines keep their order. Null if the lines are
         /// already in order and there are no blank ones to remove.
         /// </summary>
-        public static int[] Order(string text, IReadOnlyList<Line> lines, SortKind kind, CultureInfo culture = null)
+        public static int[] Order(string text, IReadOnlyList<Line> lines, SortKind kind, CultureInfo culture = null) =>
+            Order(text, lines, Comparer(kind, culture));
+
+        /// <summary>The new order with a comparer of the caller's (a sort's options).</summary>
+        public static int[] Order(string text, IReadOnlyList<Line> lines, IComparer<string> comparer) =>
+            Order(text, lines, comparer, removeDuplicates: false, out _);
+
+        /// <summary>
+        /// The new order; with <paramref name="removeDuplicates"/>, a line the same as one already
+        /// kept is left out too (the same text, indentation and runs of spaces aside; the first
+        /// of them, in the text's order, stays). <paramref name="duplicates"/>: how many went.
+        /// </summary>
+        public static int[] Order(string text, IReadOnlyList<Line> lines, IComparer<string> comparer, bool removeDuplicates, out int duplicates)
         {
-            IComparer<string> comparer = Comparer(kind, culture);
-            int[] order = Enumerable.Range(0, lines.Count)
-                .Where(i => !IsBlank(text, lines[i]))
-                .OrderBy(i => Key(text, lines[i]), comparer) // OrderBy is stable
-                .ToArray();
+            IEnumerable<int> kept = Enumerable.Range(0, lines.Count).Where(i => !IsBlank(text, lines[i]));
+            duplicates = 0;
+            if (removeDuplicates)
+            {
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                var unique = new List<int>();
+                foreach (int i in kept)
+                {
+                    if (seen.Add(AlphaComparer.Normalise(Key(text, lines[i])))) unique.Add(i);
+                    else duplicates++;
+                }
+                kept = unique;
+            }
+            int[] order = kept.OrderBy(i => Key(text, lines[i]), comparer).ToArray(); // OrderBy is stable
             return order.Length == lines.Count && order.Select((v, i) => v == i).All(b => b) ? null : order;
         }
 
@@ -65,36 +137,192 @@ namespace ClipX2.TextEngine
             return true;
         }
 
-        /// <summary>The comparer for a kind of sort.</summary>
-        public static IComparer<string> Comparer(SortKind kind, CultureInfo culture = null)
+        /// <summary>The comparer for a kind of sort, with its options (null: the defaults).</summary>
+        public static IComparer<string> Comparer(SortKind kind, CultureInfo culture = null, object options = null)
         {
             CompareInfo compare = (culture ?? CultureInfo.CurrentCulture).CompareInfo;
             switch (kind)
             {
-                case SortKind.Numeric: return new NumericComparer(compare);
-                case SortKind.Smart: return new SmartComparer(compare);
-                default: return new AlphaComparer(compare);
+                case SortKind.Numeric: return new NumericComparer(options as NumberSortOptions, compare);
+                case SortKind.Smart: return new SmartComparer(options as SmartSortOptions, compare);
+                default: return new AlphaComparer(options as AlphaSortOptions, compare);
             }
         }
 
-        private sealed class AlphaComparer : IComparer<string>
+        /// <summary>
+        /// Alphabetical, in the language's own order (é with e), runs of spaces counting as one.
+        /// Word by word (the space before any letter) or letter by letter (spaces and punctuation
+        /// ignored, strictly or as Chicago has it); case ignored (capitals first only when otherwise the same) or case-sensitive
+        /// (capitals before small letters, as two alphabets). For the Alphabetic sort, and the
+        /// letters of others (Smart sort).
+        /// </summary>
+        public sealed class AlphaComparer : IComparer<string>
         {
             private readonly CompareInfo _c;
-            public AlphaComparer(CompareInfo c) { _c = c; }
-            public int Compare(string a, string b) => _c.Compare(a, b, CompareOptions.IgnoreCase);
-        }
+            private readonly bool _caseSensitive, _letterByLetter, _chicago;
 
-        /// <summary>By the number at the start (sign, decimal point, thousands commas); lines without one after the rest, alphabetically.</summary>
-        private sealed class NumericComparer : IComparer<string>
-        {
-            private readonly CompareInfo _c;
-            public NumericComparer(CompareInfo c) { _c = c; }
+            public AlphaComparer(AlphaSortOptions options = null, CompareInfo compare = null)
+            {
+                _c = compare ?? CultureInfo.CurrentCulture.CompareInfo;
+                _caseSensitive = options?.CaseSensitive ?? false;
+                _letterByLetter = options?.LetterByLetter ?? false;
+                _chicago = _letterByLetter && options.LetterRule == LetterByLetterRule.Chicago;
+            }
+
             public int Compare(string a, string b)
             {
-                bool hasA = LeadingNumber(a, out double x), hasB = LeadingNumber(b, out double y);
-                if (hasA != hasB) return hasA ? -1 : 1;
-                if (hasA && x != y) return x.CompareTo(y);
-                return _c.Compare(a, b, CompareOptions.IgnoreCase);
+                string oa = a ?? "", ob = b ?? "";
+                a = Normalise(oa); b = Normalise(ob);
+                if (!_letterByLetter) { a = WordByWord(a); b = WordByWord(b); }
+                int r = _chicago ? ChicagoPrimary(a, b) : Primary(a, b);
+                if (r != 0) return r;
+                // Ties: case last of all (Apple before apple), then accents, then the original text.
+                r = _caseSensitive ? _c.Compare(a, b, CompareOptions.None) : CapitalsFirst(a, b);
+                return r != 0 ? r : string.CompareOrdinal(oa, ob);
+            }
+
+            /// <summary>The main comparison: letters (and digits), case ignored or as two alphabets; no tie-breaks.</summary>
+            private int Primary(string a, string b)
+            {
+                if (!_caseSensitive)
+                    return _c.Compare(a, b, CompareOptions.IgnoreCase | (_letterByLetter ? CompareOptions.IgnoreSymbols : CompareOptions.None));
+                if (_letterByLetter) { a = LettersAndDigits(a); b = LettersAndDigits(b); }
+                return CapitalsAsAlphabet(a, b);
+            }
+
+            /// <summary>
+            /// Chicago letter by letter: the letters up to the first parenthesis or comma compare
+            /// first; when they are the same, nothing more comes first, then a parenthesis, then a
+            /// comma; then what follows compares the same way.
+            /// </summary>
+            private int ChicagoPrimary(string a, string b)
+            {
+                while (true)
+                {
+                    int ma = ChicagoBreak(a, out string headA, out string restA);
+                    int mb = ChicagoBreak(b, out string headB, out string restB);
+                    int r = Primary(headA, headB);
+                    if (r != 0) return r;
+                    r = ma.CompareTo(mb);
+                    if (r != 0 || ma == 0) return r;
+                    a = restA; b = restB;
+                }
+            }
+
+            /// <summary>
+            /// Splits at the first parenthesis or comma (not a comma between digits, as in 1,250):
+            /// 0 none, 1 a parenthesis, 2 a comma.
+            /// </summary>
+            private static int ChicagoBreak(string s, out string head, out string rest)
+            {
+                for (int i = 0; i < s.Length; i++)
+                {
+                    char ch = s[i];
+                    bool paren = ch == '(';
+                    bool comma = ch == ',' && !(i > 0 && i + 1 < s.Length && char.IsDigit(s[i - 1]) && char.IsDigit(s[i + 1]));
+                    if (!paren && !comma) continue;
+                    head = s.Substring(0, i);
+                    rest = s.Substring(i + 1);
+                    return paren ? 1 : 2;
+                }
+                head = s; rest = "";
+                return 0;
+            }
+
+            /// <summary>Runs of spaces and tabs as one space; none at the ends.</summary>
+            public static string Normalise(string s)
+            {
+                var sb = new System.Text.StringBuilder(s.Length);
+                foreach (char ch in s)
+                {
+                    if (ch == ' ' || ch == '\t' || ch == ' ') { if (sb.Length > 0 && sb[sb.Length - 1] != ' ') sb.Append(' '); }
+                    else sb.Append(ch);
+                }
+                return sb.ToString().TrimEnd(' ');
+            }
+
+            /// <summary>
+            /// Word by word as NISO TR03-1999 (and Hart's) have it: a hyphen, dash or slash counts as
+            /// a space (client/server and client-side as client server, client side); full stops,
+            /// commas, semicolons, colons, brackets, apostrophes, quotation marks, ! and ? are
+            /// ignored (O'Brien as OBrien), except a point or comma between digits (1.5, 1,250).
+            /// </summary>
+            public static string WordByWord(string s)
+            {
+                var sb = new System.Text.StringBuilder(s.Length);
+                for (int i = 0; i < s.Length; i++)
+                {
+                    char ch = s[i];
+                    if (ch == '-' || ch == '/' || (ch >= '‐' && ch <= '―') || ch == '−') { sb.Append(' '); continue; } // hyphens, dashes, minus
+                    bool betweenDigits = i > 0 && i + 1 < s.Length && char.IsDigit(s[i - 1]) && char.IsDigit(s[i + 1]);
+                    if ((ch == '.' || ch == ',') && betweenDigits) { sb.Append(ch); continue; }
+                    if (".,;:()[]<>{}'\"!?‘’“”".IndexOf(ch) >= 0) continue; // and curly quotes
+                    sb.Append(ch);
+                }
+                return Normalise(sb.ToString());
+            }
+
+            private static string LettersAndDigits(string s) => new string(s.Where(char.IsLetterOrDigit).ToArray());
+
+            /// <summary>The first place where two otherwise equal texts differ in case: the capital first.</summary>
+            private static int CapitalsFirst(string a, string b)
+            {
+                for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+                {
+                    char x = a[i], y = b[i];
+                    if (x == y || char.ToLowerInvariant(x) != char.ToLowerInvariant(y)) continue;
+                    if (char.IsUpper(x) != char.IsUpper(y)) return char.IsUpper(x) ? -1 : 1;
+                }
+                return 0;
+            }
+
+            /// <summary>
+            /// Case-sensitive: character by character, a capital before any small letter (Zebra
+            /// before apple); letters of the same case in the language's order, accents aside;
+            /// anything else (spaces, digits, punctuation) in the language's order, before letters.
+            /// </summary>
+            private int CapitalsAsAlphabet(string a, string b)
+            {
+                int n = Math.Min(a.Length, b.Length);
+                for (int i = 0; i < n; i++)
+                {
+                    char x = a[i], y = b[i];
+                    if (x == y) continue;
+                    if (char.IsLetter(x) && char.IsLetter(y))
+                    {
+                        bool ux = char.IsUpper(x), uy = char.IsUpper(y);
+                        if (ux != uy) return ux ? -1 : 1;
+                    }
+                    int r = _c.Compare(x.ToString(), y.ToString(), CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace);
+                    if (r != 0) return r;
+                }
+                return a.Length.CompareTo(b.Length);
+            }
+        }
+
+        /// <summary>
+        /// Numeric sort: by the number each line starts with, in the chosen <see cref="NumberOrder"/>;
+        /// equal numbers, and lines without one (after the rest), alphabetically.
+        /// </summary>
+        private sealed class NumericComparer : IComparer<string>
+        {
+            private readonly NumberOrder _order;
+            private readonly AlphaComparer _alpha;
+            public NumericComparer(NumberSortOptions options, CompareInfo c)
+            {
+                _order = options?.Order ?? NumberOrder.Value;
+                _alpha = new AlphaComparer(null, c);
+            }
+            public int Compare(string a, string b)
+            {
+                int la = NumberOrdering.Read(a, 0, _order), lb = NumberOrdering.Read(b, 0, _order);
+                if ((la > 0) != (lb > 0)) return la > 0 ? -1 : 1;
+                if (la > 0)
+                {
+                    int r = NumberOrdering.Compare(a.Substring(0, la), b.Substring(0, lb), _order);
+                    if (r != 0) return r;
+                }
+                return _alpha.Compare(a, b);
             }
         }
 
@@ -127,49 +355,6 @@ namespace ClipX2.TextEngine
             if (at + count > s.Length) return false;
             for (int k = at; k < at + count; k++) if (!char.IsDigit(s[k])) return false;
             return true;
-        }
-
-        /// <summary>
-        /// Natural order: lines starting with a symbol, then with a number, then with a letter;
-        /// within that, runs of digits compare by value (2 before 10; 007 after 7 when otherwise
-        /// equal) and the rest alphabetically, ignoring case.
-        /// </summary>
-        public sealed class SmartComparer : IComparer<string>
-        {
-            private readonly CompareInfo _c;
-            public SmartComparer(CompareInfo compare = null) { _c = compare ?? CultureInfo.CurrentCulture.CompareInfo; }
-
-            private static int Group(string s) =>
-                s.Length == 0 ? 0 : char.IsDigit(s[0]) ? 1 : char.IsLetter(s[0]) ? 2 : 0;
-
-            public int Compare(string a, string b)
-            {
-                int ga = Group(a), gb = Group(b);
-                if (ga != gb) return ga.CompareTo(gb);
-                int i = 0, j = 0;
-                while (i < a.Length && j < b.Length)
-                {
-                    bool da = char.IsDigit(a[i]), db = char.IsDigit(b[j]);
-                    int ei = i, ej = j;
-                    while (ei < a.Length && char.IsDigit(a[ei]) == da) ei++;
-                    while (ej < b.Length && char.IsDigit(b[ej]) == db) ej++;
-                    int result;
-                    if (da && db)
-                    {
-                        // By value: ignore leading zeros, then the longer is bigger, then digit by digit
-                        string na = a.Substring(i, ei - i).TrimStart('0'), nb = b.Substring(j, ej - j).TrimStart('0');
-                        result = na.Length != nb.Length ? na.Length.CompareTo(nb.Length) : string.CompareOrdinal(na, nb);
-                    }
-                    else if (da != db) result = da ? -1 : 1; // a number before text at the same place
-                    else result = _c.Compare(a.Substring(i, ei - i), b.Substring(j, ej - j), CompareOptions.IgnoreCase);
-                    if (result != 0) return result;
-                    i = ei; j = ej;
-                }
-                int left = (a.Length - i).CompareTo(b.Length - j); // the shorter first
-                if (left != 0) return left;
-                int whole = _c.Compare(a, b, CompareOptions.IgnoreCase);  // equal so far: 007 against 7
-                return whole != 0 ? whole : string.CompareOrdinal(a, b);
-            }
         }
 
         /************ Nudging ************/
@@ -220,11 +405,15 @@ namespace ClipX2.TextEngine
         public static List<Line> Scope(string text, int from, int to) =>
             ListFormatter.LinesIn(text, from == to ? 0 : from, from == to ? text.Length : to);
 
-        public static List<TextEdit> Sort(string text, int from, int to, SortKind kind)
+        public static List<TextEdit> Sort(string text, int from, int to, SortKind kind, object options = null)
         {
             List<Line> lines = Scope(text, from, to);
-            return Reorder(text, lines, Order(text, lines, kind));
+            return Reorder(text, lines, Order(text, lines, Comparer(kind, null, options), RemovesDuplicates(options), out _));
         }
+
+        /// <summary>Whether a sort's options ask for duplicate lines to go.</summary>
+        public static bool RemovesDuplicates(object options) =>
+            options is AlphaSortOptions { RemoveDuplicates: true } || options is SmartSortOptions { RemoveDuplicates: true };
 
         public static List<TextEdit> Reverse(string text, int from, int to)
         {
@@ -259,6 +448,77 @@ namespace ClipX2.TextEngine
                 if (sorted != content) edits.Add(new TextEdit(start, line.End - start, sorted));
             }
             return edits;
+        }
+    }
+
+    /// <summary>
+    /// Numbers in text, read and compared in a <see cref="NumberOrder"/>: the Numeric sort's,
+    /// and for the numbers inside lines in other sorts (Smart sort).
+    /// </summary>
+    public static class NumberOrdering
+    {
+        /// <summary>
+        /// The length of the number at <paramref name="at"/> as <paramref name="order"/> reads it,
+        /// 0 if there is none. Value: a sign, digits with thousands commas (1,250), a decimal
+        /// point (-3.5). Version: digits and the points between them (1.10.2). Digit by digit:
+        /// digits, with points between them (004.16).
+        /// </summary>
+        public static int Read(string s, int at, NumberOrder order)
+        {
+            int i = at;
+            if (order == NumberOrder.Value && i < s.Length && (s[i] == '-' || s[i] == '+' || s[i] == '−') && i + 1 < s.Length && (char.IsDigit(s[i + 1]) || s[i + 1] == '.')) i++;
+            int start = i;
+            bool point = false, any = false;
+            for (; i < s.Length; i++)
+            {
+                char ch = s[i];
+                if (ch >= '0' && ch <= '9') { any = true; continue; }
+                bool digitNext = i + 1 < s.Length && s[i + 1] >= '0' && s[i + 1] <= '9';
+                if (order == NumberOrder.Value && ch == ',' && !point && any && IsThousands(s, i)) continue;
+                if (ch == '.' && digitNext && (order != NumberOrder.Value || !point)) { point = true; continue; }
+                break;
+            }
+            return any ? i - at : 0;
+        }
+
+        private static bool IsThousands(string s, int comma)
+        {
+            for (int k = comma + 1; k <= comma + 3; k++) if (k >= s.Length || !char.IsDigit(s[k])) return false;
+            return comma + 4 >= s.Length || !char.IsDigit(s[comma + 4]);
+        }
+
+        /// <summary>Compares two numbers as <see cref="Read"/> found them.</summary>
+        public static int Compare(string x, string y, NumberOrder order)
+        {
+            switch (order)
+            {
+                case NumberOrder.Version:
+                    string[] px = x.Split('.'), py = y.Split('.');
+                    for (int k = 0; k < Math.Min(px.Length, py.Length); k++)
+                    {
+                        int r = CompareDigits(px[k], py[k]);
+                        if (r != 0) return r;
+                    }
+                    return px.Length.CompareTo(py.Length); // 1.2 before 1.2.1
+                case NumberOrder.DigitByDigit:
+                    return string.CompareOrdinal(x, y);
+                default:
+                    return Value(x).CompareTo(Value(y));
+            }
+        }
+
+        /// <summary>Whole numbers of any length by value: leading zeros aside, the longer is larger, then digit by digit.</summary>
+        public static int CompareDigits(string x, string y)
+        {
+            x = x.TrimStart('0'); y = y.TrimStart('0');
+            return x.Length != y.Length ? x.Length.CompareTo(y.Length) : string.CompareOrdinal(x, y);
+        }
+
+        /// <summary>A number as Read found it (Value): its value; very long ones approximately.</summary>
+        public static double Value(string s)
+        {
+            string t = s.Replace(",", "").Replace('−', '-');
+            return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : 0;
         }
     }
 }

@@ -77,9 +77,9 @@ namespace ClipX2.TextEngine.Tools
                 ["liRLN"] = (t, f, e, o) => Edits("liRLN", LineNumbers.Remove(t, f, e)),
 
                 // Sorting (whole lines; the selection's, or the whole text)
-                ["soALP"] = (t, f, e, o) => Edits("soALP", LineSorter.Sort(t, f, e, SortKind.Alphabetic)),
-                ["soNUM"] = (t, f, e, o) => Edits("soNUM", LineSorter.Sort(t, f, e, SortKind.Numeric)),
-                ["soSMA"] = (t, f, e, o) => Edits("soSMA", LineSorter.Sort(t, f, e, SortKind.Smart)),
+                ["soALP"] = (t, f, e, o) => Edits("soALP", LineSorter.Sort(t, f, e, SortKind.Alphabetic, Options<AlphaSortOptions>(o))),
+                ["soNUM"] = (t, f, e, o) => Edits("soNUM", LineSorter.Sort(t, f, e, SortKind.Numeric, Options<NumberSortOptions>(o))),
+                ["soSMA"] = (t, f, e, o) => Edits("soSMA", LineSorter.Sort(t, f, e, SortKind.Smart, Options<SmartSortOptions>(o))),
                 ["soREV"] = (t, f, e, o) => Edits("soREV", LineSorter.Reverse(t, f, e)),
                 ["soNUP"] = (t, f, e, o) => Edits("soNUP", LineSorter.NudgeEdits(t, f, e, up: true)),
                 ["soNUD"] = (t, f, e, o) => Edits("soNUD", LineSorter.NudgeEdits(t, f, e, up: false)),

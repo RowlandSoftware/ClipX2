@@ -66,6 +66,7 @@ namespace ClipX2.TextEngine.Import
                 {
                     NumberOptions o = ListFormatter.RecogniseList(joined, lines, i, end, numbers);
                     if (o == null || o.Style == NumberStyle.Legal) continue; // typed it stays
+                    if (!Counts(o.Style, i, end)) continue; // "N. E. Zenith Co.", "A. Smith": not a list
                     ListNumberStyle style = ToNumberStyle(o.FollowChar);
                     int previousLevel = 0;
                     for (int j = i; j <= end; j++)
@@ -97,6 +98,26 @@ namespace ClipX2.TextEngine.Import
                         string bullet = ListFormatter.BulletForLevel(first, lvl);
                         MakeItem(paragraphs[j], ListKind.Bullet, ListNumberStyle.RightParenthesis, lvl, 1, bullet == "•" ? null : bullet);
                     }
+                }
+
+                // Letters and Roman numerals only make a list when at least two of its top-level
+                // items count on (a, b; iii, iv): a line on its own that starts with an initial
+                // ("N. E. Zenith Co.") or a run of them (names) stays as typed. Digits always do.
+                bool Counts(NumberStyle style, int first, int last)
+                {
+                    if (style == NumberStyle.Arabic) return true;
+                    var levels = Enumerable.Range(first, last - first + 1).Where(j => !Blank(j)).Select(j => (j, Level(j))).ToList();
+                    int top = levels.Min(x => x.Item2);
+                    var values = levels.Where(x => x.Item2 == top).Select(x => ListFormatter.MarkerValue(Marker(x.j), style)).ToList();
+                    if (values.Count < 2) return false;
+                    for (int k = 1; k < values.Count; k++) if (values[k] != values[k - 1] + 1) return false;
+                    return true;
+                }
+
+                string Marker(int j)
+                {
+                    int at = lines[j].Start + Indent(j);
+                    return joined.Substring(at, ListFormatter.NumberLength(joined, at, lines[j].End));
                 }
 
                 int NextLevel(int j, int last)

@@ -399,6 +399,28 @@ namespace ClipX2.TextEngine
             return o;
         }
 
+        /// <summary>
+        /// The number a typed marker ("c.", "(iv)", "3)") stands for, read in a list's style; 0 if
+        /// it isn't one.
+        /// </summary>
+        internal static int MarkerValue(string marker, NumberStyle style)
+        {
+            string core = marker.Trim(' ', '	').Trim('(', ')', '.');
+            if (core.Length == 0) return 0;
+            switch (style)
+            {
+                case NumberStyle.Letters:
+                case NumberStyle.LettersCap:
+                    return core.Length == 1 && char.IsLetter(core[0]) ? char.ToUpperInvariant(core[0]) - 'A' + 1 : 0;
+                case NumberStyle.Roman:
+                case NumberStyle.RomanCap:
+                    string upper = core.ToUpperInvariant();
+                    return upper.All(c => "IVXLCDM".IndexOf(c) >= 0) ? FromRoman(upper) : 0;
+                default:
+                    return int.TryParse(core, NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? n : 0;
+            }
+        }
+
         /// <summary>A Roman numeral rather than a letter: "i"/"I", or several Roman letters ("ii", "iv"); a lone c, d, l, m, v or x is taken as a letter.</summary>
         private static bool IsRomanStart(string core)
         {

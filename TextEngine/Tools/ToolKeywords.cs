@@ -53,7 +53,7 @@ namespace ClipX2.TextEngine.Tools
             ["liRLN"] = new[] { "remove line numbers", "delete line numbers", "strip line numbers" },
 
             // Sorting
-            ["soSMA"] = new[] { "natural sort", "smart sort", "sort numbers in text", "item 2 before item 10", "sort" },
+            ["soSMA"] = new[] { "natural sort", "smart sort", "sort numbers in text", "item 2 before item 10", "sort", "index", "sort index", "word by word", "letter by letter", "NISO", "BS ISO 999", "Hart's", "Chicago" },
             ["soALP"] = new[] { "sort", "alphabetical", "alphabetise", "alphabetize", "a-z", "order", "arrange", "sort lines" },
             ["soNUM"] = new[] { "numeric sort", "sort numbers", "number order", "sort by number" },
             ["soREV"] = new[] { "reverse", "flip order", "backwards", "upside down", "invert order", "reverse lines" },

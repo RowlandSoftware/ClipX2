@@ -484,6 +484,9 @@ namespace ClipX2.UI
                     return i;
                 case "foWRP": return PowerTaskTypes.CopyOf(s.Wordwrap);
                 case "foREM": return PowerTaskTypes.CopyOf(s.RemLines);
+                case "soALP": return PowerTaskTypes.CopyOf(s.AlphaSort);
+                case "soNUM": return PowerTaskTypes.CopyOf(s.NumberSort);
+                case "soSMA": return PowerTaskTypes.CopyOf(s.SmartSort);
                 case "liBUL": return PowerTaskTypes.CopyOf(s.BulletList);
                 case "liNUM": return PowerTaskTypes.CopyOf(s.NumList);
                 case "liREN": return PowerTaskTypes.CopyOf(s.NumLines);
@@ -660,6 +663,9 @@ namespace ClipX2.UI
             "foIND" or "foUNI" => new IndentPanel(),
             "foWRP" => new WordWrapPanel(),
             "foREM" => new RemoveLinesPanel(),
+            "soALP" => new AlphaSortPanel(),
+            "soNUM" => new NumberSortPanel(),
+            "soSMA" => new SmartSortPanel(),
             "liBUL" => new BulletListPanel(),
             "liNUM" => new NumberListPanel(),
             "liREN" => new LineNumbersPanel(),

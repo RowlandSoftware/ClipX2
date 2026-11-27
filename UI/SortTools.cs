@@ -13,17 +13,19 @@ namespace ClipX2.UI
     /// </summary>
     internal static class SortTools
     {
-        public static string Sort(ClipXRichTextBox box, SortKind kind)
+        public static string Sort(ClipXRichTextBox box, SortKind kind, object options = null)
         {
             string text = box.Text;
             (List<Line> lines, bool hadSelection) = Scope(box, text);
             if (lines.Count(l => l.Length > 0 && text.Substring(l.Start, l.Length).Trim().Length > 0) < 2)
                 return "Select two or more lines to sort (or none, to sort the whole text)";
-            int[] order = LineSorter.Order(text, lines, kind);
+            int[] order = LineSorter.Order(text, lines, LineSorter.Comparer(kind, null, options), LineSorter.RemovesDuplicates(options), out int duplicates);
             if (order == null) return "Already in order";
             Reorder(box, lines, order, hadSelection);
-            int blanks = lines.Count - order.Length;
-            return $"{order.Length:N0} lines sorted" + (blanks == 0 ? "" : blanks == 1 ? "; 1 blank line removed" : $"; {blanks:N0} blank lines removed");
+            int blanks = lines.Count - order.Length - duplicates;
+            return $"{order.Length:N0} lines sorted"
+                + (duplicates == 0 ? "" : duplicates == 1 ? "; 1 duplicate removed" : $"; {duplicates:N0} duplicates removed")
+                + (blanks == 0 ? "" : blanks == 1 ? "; 1 blank line removed" : $"; {blanks:N0} blank lines removed");
         }
 
         public static string Reverse(ClipXRichTextBox box)

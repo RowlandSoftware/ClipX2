@@ -73,6 +73,14 @@ namespace ClipX2.UI.Panels
             _lastBox = comboFind;
             comboFind.Enter += (s, e) => _lastBox = comboFind;
             comboReplace.Enter += (s, e) => _lastBox = comboReplace;
+            // A combo box forgets its cursor once it loses the focus (to a special-character button):
+            // remember where it was after each key and click, for InsertSpecial
+            foreach (ComboBox combo in new[] { comboFind, comboReplace })
+            {
+                ComboBox c = combo;
+                c.KeyUp += (s, e) => KeepCursor(c);
+                c.MouseUp += (s, e) => KeepCursor(c);
+            }
             buttonTab.Click += (s, e) => InsertSpecial("\\t");
             buttonNewLine.Click += (s, e) => InsertSpecial("\\n");
             buttonHex.Click += (s, e) => InsertSpecial("\\x");
@@ -524,12 +532,16 @@ namespace ClipX2.UI.Panels
         private void InsertSpecial(string code)
         {
             ComboBox box = _lastBox ?? comboFind;
-            int start = box.SelectionStart, length = box.SelectionLength;
             string text = box.Text;
+            int start, length;
+            if (box.Focused) { start = box.SelectionStart; length = box.SelectionLength; }
+            else if (_keptCursor.Box == box && _keptCursor.Text == text) { start = _keptCursor.Start; length = _keptCursor.Length; }
+            else { start = text.Length; length = 0; } // not known: at the end
             if (start > text.Length) start = text.Length;
             box.Text = text.Substring(0, start) + code + text.Substring(Math.Min(text.Length, start + length));
             box.Focus();
             box.Select(start + code.Length, 0);
+            _keptCursor = (box, box.Text, start + code.Length, 0); // a second button goes after this one
         }
 
         /// <summary>
@@ -557,6 +569,11 @@ namespace ClipX2.UI.Panels
             comboFind.SelectionStart = comboFind.Text.Length;
             Report("The wildcard search as a regular expression (Regex mode)");
         }
+
+        /// <summary>Where the cursor was in the Find or Replace box when it lost the focus (with its text then, to know it still applies).</summary>
+        private (ComboBox Box, string Text, int Start, int Length) _keptCursor;
+
+        private void KeepCursor(ComboBox box) => _keptCursor = (box, box.Text, box.SelectionStart, box.SelectionLength);
 
         private void Swap()
         {
